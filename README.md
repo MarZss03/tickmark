@@ -2,7 +2,9 @@
 
 Finance controls that show their work. A portfolio case study and working prototype for month-end close, payroll review and financial-model evaluation. It replaces the earlier "Run Replay" page.
 
-A static site: open `index.html`, or run `node scripts/serve.mjs` and visit http://localhost:5173. It deploys to Vercel as-is, with no build step.
+Live: https://tickmark-one.vercel.app · Notes: https://tickmark-one.vercel.app/notes
+
+A static site: open `index.html`, or run `node scripts/serve.mjs` and visit http://localhost:5173. It deploys to Vercel as-is, with no build step; every push to `main` redeploys.
 
 ## What is real and what is synthetic
 
