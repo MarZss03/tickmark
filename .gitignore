@@ -1,0 +1,21 @@
+# working files from the design and render passes
+.taste-skill/
+.claude/
+tickmark-preview.html
+blender/mark/
+blender/frames/
+blender/spin/
+blender/*.png
+blender/*.log
+blender/stamp.py
+# downloaded but not used on the site
+assets/1890s-adding-machine.jpg
+assets/comptometer-model-a.jpg
+assets/thomas-edison-stock-ticker-*.jpg
+assets/tickmark-stamp.*
+# intermediate data from the fetch scripts
+real-data.json
+finqa-sample.json
+finqa-test.json
+node_modules/
+.vercel/

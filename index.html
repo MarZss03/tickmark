@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tickmark · Martin Zhang</title>
+<meta name="description" content="Tickmark: finance controls that show their work. A working prototype for month-end close, payroll review and financial-model evaluation.">
+<link rel="icon" href="assets/mark.svg" type="image/svg+xml">
+<meta property="og:title" content="Tickmark · Finance controls that show their work">
+<meta property="og:description" content="A working prototype by Martin Zhang: month-end close, payroll review, controls on real 10-K filings, and a FinQA grader.">
+<meta property="og:image" content="assets/og.jpg">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<script>document.documentElement.classList.add('js');try{if(sessionStorage.getItem('tm-wipe'))document.documentElement.classList.add('arriving')}catch(e){}</script>
+</head>
+<body data-page="work">
+
+
+<div class="intro" id="intro" aria-hidden="true">
+  <div class="intro-lock">
+    <svg class="intro-mark" viewBox="0 0 191 225"><path class="m-cream" d="M0 80L191 0V60L48 165L0 140Z"/><path class="m-gold" d="M0 156L48 181L191 76V145L0 225Z"/></svg>
+    <span class="intro-word"><span>T</span><span class="wm-i">ı</span><span>c</span><span>k</span><span>m</span><span>a</span><span>r</span><span>k</span></span>
+  </div>
+</div>
+<div class="wipe" id="wipe" aria-hidden="true"><i class="w1"></i><i class="w2"></i></div>
+<div class="progress" aria-hidden="true"><i id="progress"></i></div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<div class="palette" id="palette" hidden>
+  <div class="pal-box" role="dialog" aria-modal="true" aria-label="Jump to">
+    <label class="sr" for="pal-in">Jump to a view or section</label>
+    <input id="pal-in" placeholder="Jump to…" autocomplete="off" role="combobox" aria-controls="pal-list" aria-expanded="true">
+    <ul id="pal-list" role="listbox"></ul>
+  </div>
+</div>
+
+<header class="bar">
+  <a class="logo" href="index.html" data-wipe aria-label="Tickmark, home"><svg class="mk" viewBox="0 0 191 225" aria-hidden="true"><path class="m-cream" d="M0 80L191 0V60L48 165L0 140Z"/><path class="m-gold" d="M0 156L48 181L191 76V145L0 225Z"/></svg><span class="wm">T<span class="wm-i">ı</span>ckmark</span></a>
+  <nav class="bar-links" aria-label="Sections">
+    <a href="#workbench">Workbench</a>
+    <a href="#control">Control</a>
+    <a href="notes.html" data-wipe>Notes</a>
+  </nav>
+  <button type="button" class="kbd" id="pal-open" aria-label="Open the jump menu">⌘K</button>
+  <a class="bar-action magnetic" href="#contact">Contact</a>
+</header>
+
+<main id="top">
+
+<section class="hero" aria-labelledby="hero-h">
+  <div class="hero-copy">
+    <h1 id="hero-h" class="display lines">
+      <span class="line"><span data-line style="--i:0">Finance controls</span></span>
+      <span class="line"><span data-line style="--i:1">that show their work</span></span>
+    </h1>
+    <p class="lead fade-in">A working prototype by Martin Zhang for close, payroll, public filings and model evaluation.</p>
+    <div class="actions fade-in">
+      <a class="btn magnetic" href="#workbench">Open the workbench</a>
+      <a class="btn ghost magnetic" href="notes.html" data-wipe>Read the notes</a>
+    </div>
+  </div>
+  <figure class="hero-media">
+    <video autoplay muted loop playsinline preload="auto" poster="assets/mark-3d.jpg" width="900" height="900" aria-label="The Tickmark mark in cream and gold, turning slowly">
+      <source src="assets/mark-3d.mp4" type="video/mp4">
+    </video>
+  </figure>
+</section>
+
+<section class="metrics" aria-labelledby="metrics-h">
+  <h2 id="metrics-h" class="sr">Results</h2>
+  <div class="metric" data-reveal><p class="m-v"><span data-count="21">21</span><small>/23</small></p><p class="m-l">checks held on eight real 10-K filings</p></div>
+  <div class="metric" data-reveal><p class="m-v"><span data-count="1108">1,108</span></p><p class="m-l">FinQA gold answers reproduced by the grader</p></div>
+  <div class="metric" data-reveal><p class="m-v"><span data-count="98.5" data-dec="1">98.5</span><small>%</small></p><p class="m-l">payroll exception recall, 74 cases</p></div>
+  <div class="metric" data-reveal><p class="m-v"><span data-count="0">0</span></p><p class="m-l">amounts a model can set or approve, by design</p></div>
+</section>
+
+<section class="workbench" id="workbench" aria-labelledby="wb-h">
+  <div class="sec-head">
+    <h2 id="wb-h" class="head lines"><span class="line"><span data-line>Workbench</span></span></h2>
+    <p class="sec-note" data-reveal>Run it. Every decision lands in the audit log.</p>
+  </div>
+  <div class="app-wrap" data-reveal="wipe">
+<div class="app" data-ui id="app">
+    <aside class="app-side" aria-label="Workbench navigation">
+      <p class="app-brand"><svg class="mk" viewBox="0 0 191 225" aria-hidden="true"><path class="m-cream" d="M0 80L191 0V60L48 165L0 140Z"/><path class="m-gold" d="M0 156L48 181L191 76V145L0 225Z"/></svg>Tickmark</p>
+      <div class="app-nav" role="tablist" aria-label="Views">
+        <button role="tab" class="nav-i" data-view="close" aria-selected="true">Close</button>
+        <button role="tab" class="nav-i" data-view="payroll" aria-selected="false">Payroll</button>
+        <button role="tab" class="nav-i" data-view="cash" aria-selected="false">Cash and FX</button>
+        <button role="tab" class="nav-i" data-view="sec" aria-selected="false">Public filings</button>
+        <button role="tab" class="nav-i" data-view="eval" aria-selected="false">Model evaluation</button>
+        <button role="tab" class="nav-i" data-view="audit" aria-selected="false">Audit log <span class="count" id="audit-count">0</span></button>
+      </div>
+      <p class="app-env">Close, payroll and bank lines are synthetic. Filings, exchange rates and FinQA are real public data.</p>
+    </aside>
+    <div class="app-top">
+      <span class="period">October 2026 close · BD3 of 5</span>
+      <span class="who">Reviewer: you</span>
+    </div>
+    <div class="sheet" id="sheet">
+
+      <!-- CLOSE -->
+      <div class="view" data-view="close" role="tabpanel">
+        <div class="v-title">
+          <div><p class="v-h">Month-end close</p><p class="v-sub">NetSuite-, Ramp-, Numeric- and Snowflake-shaped CSVs · 63 rows</p></div>
+          <button type="button" class="b-pri" id="run-close">Run close controls</button>
+        </div>
+        <ol class="pipe" id="pipe" aria-label="Pipeline">
+          <li>Ingest</li><li>Validate</li><li>Reconcile</li><li>Prepare journals</li><li>Route review</li>
+        </ol>
+        <div class="stats" id="close-stats"></div>
+        <div class="two">
+          <div class="card"><div class="c-head"><p class="c-t">Tasks done by business day</p><p class="c-s">42 tasks · dashed is plan</p></div><div class="chart" id="ch-close"></div></div>
+          <div class="card"><div class="c-head"><p class="c-t">Open exceptions by source</p><p class="c-s">After this run</p></div><div class="chart" id="ch-src"></div></div>
+        </div>
+        <div class="queue-wrap">
+          <div class="card queue"><div class="c-head"><p class="c-t">Exception queue</p><p class="c-s" id="close-q-sub"></p></div>
+            <table class="tbl" id="close-q"><thead><tr><th scope="col">ID</th><th scope="col">Exception</th><th scope="col">Source</th><th scope="col" class="num">Amount</th><th scope="col">Status</th></tr></thead><tbody></tbody></table>
+          </div>
+          <aside class="card drawer" id="drawer" aria-live="polite"><p class="d-empty">Pick an exception to see its evidence and decide.</p></aside>
+        </div>
+      </div>
+
+      <!-- PAYROLL -->
+      <div class="view" data-view="payroll" role="tabpanel" hidden>
+        <div class="v-title">
+          <div><p class="v-h">Payroll control cycle</p><p class="v-sub">HRIS, payroll register and equity file · pay period 1–15 Oct 2026</p></div>
+          <button type="button" class="b-pri" id="pay-release" disabled>Release payroll</button>
+        </div>
+        <div class="stats" id="pay-stats"></div>
+        <div class="two">
+          <div class="card"><div class="c-head"><p class="c-t">Exceptions by rule</p><p class="c-s">Computed from the register just now</p></div><div class="chart" id="ch-rules"></div></div>
+          <div class="card"><div class="c-head"><p class="c-t">Gross pay by department</p><p class="c-s">CAD · this period</p></div><div class="chart" id="ch-dept"></div></div>
+        </div>
+        <div class="card"><div class="c-head"><p class="c-t">Review desk</p><p class="c-s" id="pay-q-sub"></p></div>
+          <table class="tbl" id="pay-q"><thead><tr><th scope="col">Employee</th><th scope="col">Rule</th><th scope="col">Evidence</th><th scope="col">Severity</th><th scope="col">Decision</th></tr></thead><tbody></tbody></table>
+        </div>
+      </div>
+
+      <!-- CASH -->
+      <div class="view" data-view="cash" role="tabpanel" hidden>
+        <div class="v-title">
+          <div><p class="v-h">Bank reconciliation</p><p class="v-sub">Operating account against GL 1010 · match on amount within three days</p></div>
+          <label class="tol">Date window <select id="cash-window"><option value="0">same day</option><option value="3" selected>±3 days</option><option value="7">±7 days</option></select></label>
+        </div>
+        <div class="stats" id="cash-stats"></div>
+        <div class="two">
+          <div class="card"><div class="c-head"><p class="c-t">EUR/CAD, Bank of Canada daily rate</p><p class="c-s" id="fx-sub"></p></div><div class="chart" id="ch-fx"></div></div>
+          <div class="card" id="fx-card"></div>
+        </div>
+        <div class="card"><div class="c-head"><p class="c-t">Statement lines</p><p class="c-s">Unmatched lines show the nearest ledger candidate</p></div>
+          <table class="tbl" id="cash-t"><thead><tr><th scope="col">Date</th><th scope="col">Bank description</th><th scope="col" class="num">Amount</th><th scope="col">Ledger</th><th scope="col">Result</th></tr></thead><tbody></tbody></table>
+        </div>
+      </div>
+
+      <!-- SEC -->
+      <div class="view" data-view="sec" role="tabpanel" hidden>
+        <div class="v-title">
+          <div><p class="v-h">Controls on public filings</p><p class="v-sub" id="sec-sub"></p></div>
+          <label class="tol">Flux threshold <select id="sec-th"><option value="0.10">10%</option><option value="0.15" selected>15%</option><option value="0.25">25%</option></select></label>
+        </div>
+        <div class="stats" id="sec-stats"></div>
+        <div class="card"><div class="c-head"><p class="c-t">Latest 10-K, as tagged in XBRL</p><p class="c-s">USD · pick a company for its evidence</p></div>
+          <table class="tbl" id="sec-t"><thead><tr><th scope="col">Company</th><th scope="col">Year end</th><th scope="col">Assets = L + E</th><th scope="col">Cash roll-forward</th><th scope="col" class="num">Revenue</th><th scope="col">Revenue flux</th></tr></thead><tbody></tbody></table>
+          <div class="sample" id="sec-ev"></div>
+        </div>
+      </div>
+
+      <!-- EVAL -->
+      <div class="view" data-view="eval" role="tabpanel" hidden>
+        <div class="v-title">
+          <div><p class="v-h">Model evaluation</p><p class="v-sub">Engine scores are computed from code. FinQA is a public benchmark of questions on real filings. Paid model runs have not happened yet.</p></div>
+        </div>
+        <div class="stats" id="eval-stats"></div>
+        <div class="two">
+          <div class="card"><div class="c-head"><p class="c-t">Recall across versions</p><p class="c-s">Exception recall · 66 then 74 cases</p></div><div class="chart" id="ch-ver"></div></div>
+          <div class="card"><div class="c-head"><p class="c-t">Cases by category</p><p class="c-s">Engine 2.1.0 · passed of written</p></div><div class="chart" id="ch-cats"></div></div>
+        </div>
+        <div class="card"><div class="c-head"><p class="c-t">Financial-model suites</p><p class="c-s">Pick one to read a sample case</p></div>
+          <table class="tbl" id="suite-t"><thead><tr><th scope="col">Suite</th><th scope="col">Task</th><th scope="col" class="num">Cases</th><th scope="col">Measured by</th><th scope="col">Status</th></tr></thead><tbody></tbody></table>
+          <div class="sample" id="suite-sample"></div>
+        </div>
+        <div class="card fq"><div class="c-head"><p class="c-t">FinQA grader</p><p class="c-s" id="fq-sub"></p></div>
+          <div class="fq-pick" id="fq-pick" role="tablist" aria-label="FinQA questions"></div>
+          <div class="fq-body" id="fq-body"></div>
+        </div>
+      </div>
+
+      <!-- AUDIT -->
+      <div class="view" data-view="audit" role="tabpanel" hidden>
+        <div class="v-title"><div><p class="v-h">Audit log</p><p class="v-sub">Every run and decision in this session, newest first</p></div></div>
+        <div class="card"><table class="tbl" id="audit-t"><thead><tr><th scope="col">Time</th><th scope="col">Actor</th><th scope="col">Event</th><th scope="col">Detail</th></tr></thead><tbody></tbody></table>
+          <p class="d-empty" id="audit-empty">Nothing yet. Run the close or decide an exception.</p></div>
+      </div>
+
+    </div>
+  </div>
+  </div>
+</section>
+
+<section class="control" id="control" aria-labelledby="ct-try">
+  <div class="control-copy">
+    <h2 id="ct-try" class="head lines"><span class="line"><span data-line>Try a control</span></span></h2>
+    <p class="sec-note" data-reveal>Change an amount. It releases only when every check holds.</p>
+  </div>
+  <div class="control-stage" data-reveal="wipe">
+<form class="je" data-ui id="je" aria-label="Journal entry control, try changing an amount" onsubmit="return false">
+      <div class="je-head">
+        <div>
+          <p class="je-id">JE-1031 · draft</p>
+          <p class="je-memo">Accrue October contractor payroll</p>
+        </div>
+        <span class="pill" id="je-state">Checking</span>
+      </div>
+      <table class="je-lines">
+        <thead><tr><th scope="col">Account</th><th scope="col" class="num">Debit</th><th scope="col" class="num">Credit</th></tr></thead>
+        <tbody>
+          <tr><td><span class="acct">6100</span> Contractor expense</td><td class="num"><input id="je-d1" inputmode="decimal" value="48,250.00" aria-label="Debit, contractor expense"></td><td class="num muted">—</td></tr>
+          <tr><td><span class="acct">6110</span> Employer payroll tax</td><td class="num"><input id="je-d2" inputmode="decimal" value="3,691.13" aria-label="Debit, employer payroll tax"></td><td class="num muted">—</td></tr>
+          <tr><td><span class="acct">2150</span> Accrued payroll</td><td class="num muted">—</td><td class="num"><input id="je-c1" inputmode="decimal" value="51,941.13" aria-label="Credit, accrued payroll"></td></tr>
+        </tbody>
+        <tfoot><tr><th scope="row">Totals</th><td class="num" id="je-dr">51,941.13</td><td class="num" id="je-cr">51,941.13</td></tr></tfoot>
+      </table>
+      <ul class="checks" id="je-checks" aria-live="polite">
+        <li data-check="balance"><svg viewBox="2 1 20 20" aria-hidden="true"><path d="M5 14L9 18L19 2.5"/></svg><span>Debits equal credits</span><b></b></li>
+        <li data-check="period"><svg viewBox="2 1 20 20" aria-hidden="true"><path d="M5 14L9 18L19 2.5"/></svg><span>Period Oct 2026 is open</span><b>open</b></li>
+        <li data-check="evidence"><svg viewBox="2 1 20 20" aria-hidden="true"><path d="M5 14L9 18L19 2.5"/></svg><span>Ties to the payroll register</span><b></b></li>
+        <li data-check="four"><svg viewBox="2 1 20 20" aria-hidden="true"><path d="M5 14L9 18L19 2.5"/></svg><span>Approver is not the preparer</span><b></b></li>
+      </ul>
+      <div class="je-foot">
+        <label class="switch"><input type="checkbox" id="je-self"><span class="track" aria-hidden="true"></span>I prepared this entry too</label>
+        <button type="button" class="je-release" id="je-release">Release entry</button>
+      </div>
+      <p class="je-log" id="je-log">Change any amount. The entry only releases when every check holds.</p>
+    </form>
+  </div>
+</section>
+
+<section class="contact" id="contact" aria-labelledby="ct-h">
+  <h2 id="ct-h" class="head lines"><span class="line"><span data-line>Hiring for finance systems?</span></span></h2>
+  <form class="one-field" id="ct-form" data-reveal>
+    <label for="ct-in" class="sr">Your email, or a line about the role</label>
+    <input id="ct-in" name="msg" placeholder="Your email, or a line about the role" autocomplete="email" aria-describedby="ct-help">
+    <button type="submit" class="go" aria-label="Write to Martin">→</button>
+  </form>
+  <p class="ct-who" data-reveal>Martin Zhang, Toronto. Finance systems and AI evaluation, open to full-time roles.</p>
+  <p class="ct-help" id="ct-help">Opens an email to <a id="ct-mail" href="mailto:zhangsanshi2003@gmail.com">zhangsanshi2003@gmail.com</a>.</p>
+</section>
+
+</main>
+
+<footer class="foot">
+  <p class="foot-word" aria-hidden="true"><svg class="mk" viewBox="0 0 191 225" aria-hidden="true"><path class="m-cream" d="M0 80L191 0V60L48 165L0 140Z"/><path class="m-gold" d="M0 156L48 181L191 76V145L0 225Z"/></svg><span>T<span class="wm-i">ı</span>ckmark</span></p>
+  <div class="foot-line">
+    <span class="soft">Martin Zhang · Finance systems and AI evaluation · Toronto</span>
+    <span class="foot-links"><a href="#workbench">Workbench</a><a href="notes.html" data-wipe>Notes</a><a href="https://agile-topaz-x610qq5.vercel.app/">Portfolio</a></span>
+    <span class="soft">2026</span>
+  </div>
+</footer>
+
+<script src="charts.js"></script>
+<script src="data.js"></script>
+<script src="real-data.js"></script>
+<script src="app.js"></script>
+<script src="motion.js"></script>
+</body>
+</html>
