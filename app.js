@@ -533,14 +533,37 @@
     show(3);
   })();
 
-  // ---------- contact: one field to an email ----------
-  $('#ct-form')?.addEventListener('submit', (e) => {
+  // ---------- contact: the form posts to FormSubmit, which emails Martin ----------
+  // the address is read once, because the help line under the form is rewritten with each status
+  const MAILTO = $('#ct-mail')?.getAttribute('href').replace('mailto:', '');
+  $('#ct-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const v = $('#ct-in').value.trim();
-    const to = $('#ct-mail').getAttribute('href').replace('mailto:', '');
-    const body = `Hi Martin,\n\nI saw Tickmark.\n\n${v || 'I would like to talk about a role.'}\n`;
-    location.href = `mailto:${to}?subject=${encodeURIComponent('About a role: Tickmark')}&body=${encodeURIComponent(body)}`;
-    $('#ct-help').textContent = `If no email app opened, write to ${to}. Your line is above, ready to copy.`;
+    const form = e.currentTarget, help = $('#ct-help'), send = $('#ct-send');
+    const to = MAILTO;
+    const email = $('#ct-email').value.trim(), message = $('#ct-msg').value.trim();
+    const fail = (field, text) => { field.setAttribute('aria-invalid', 'true'); field.focus(); help.innerHTML = `<span class="warn">${esc(text)}</span>`; };
+    $$('[aria-invalid]', form).forEach((f) => f.removeAttribute('aria-invalid'));
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail($('#ct-email'), 'Add an email address Martin can reply to.');
+    if (message.length < 10) return fail($('#ct-msg'), 'Add a line or two about the role.');
+    if (form.elements._honey.value) return; // a bot filled the hidden field
+    send.disabled = true; send.textContent = 'Sending…';
+    try {
+      const r = await fetch(`https://formsubmit.co/ajax/${to}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ email, message, _replyto: email, _subject: 'Tickmark: a message about a role', _template: 'table', _captcha: 'false' }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok || String(data.success) === 'false') throw new Error(data.message || 'send failed');
+      form.reset();
+      send.textContent = 'Sent';
+      help.innerHTML = `<span class="ok">Sent. Martin will reply to ${esc(email)}.</span>`;
+      setTimeout(() => { send.disabled = false; send.textContent = 'Send to Martin'; }, 4000);
+    } catch {
+      send.disabled = false; send.textContent = 'Send to Martin';
+      const body = encodeURIComponent(`${message}\n\nReply to: ${email}`);
+      help.innerHTML = `<span class="warn">It didn't send.</span> <a href="mailto:${to}?subject=${encodeURIComponent('About a role: Tickmark')}&amp;body=${body}">Open it in your email app</a> instead.`;
+    }
   });
 
   // ---------- the big total counts up once ----------

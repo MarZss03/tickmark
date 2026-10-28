@@ -156,7 +156,7 @@
   const close = () => { pal.classList.remove('on'); setTimeout(() => { pal.hidden = true; }, 220); last?.focus?.(); };
   const pick = (i) => { const it = shown[i]; if (!it) return; close(); setTimeout(it[2], 120); };
   const btn = document.getElementById('pal-open');
-  if (btn && !/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)) btn.textContent = 'Ctrl K';
+  if (btn && !/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)) btn.querySelector('kbd').textContent = 'Ctrl K';
   btn?.addEventListener('click', open);
   addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); pal.hidden ? open() : close(); }

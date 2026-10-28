@@ -43,8 +43,9 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .m-cream { fill: var(--cream); }
 .m-gold { fill: var(--gold); }
 .wm, .intro-word, .foot-word span { font-weight: 700; letter-spacing: -0.035em; }
-.wm-i { position: relative; display: inline-block; }
-.wm-i::after { content: ""; position: absolute; left: 50%; top: 0.08em; width: 0.21em; height: 0.15em; background: currentColor; transform: translateX(-46%) skewY(var(--slope)); }
+/* the i-dot is a slanted bar on the stem: measured on Manrope 700, stem top 0.34em, stem centre 0.14em */
+.wm-i { position: relative; display: inline-block; line-height: 1; }
+.wm-i::after { content: ""; position: absolute; left: 0.16em; top: 0.14em; width: 0.22em; height: 0.12em; background: currentColor; transform: translateX(-50%) skewY(var(--slope)); }
 
 /* ---------- type ---------- */
 .display { font-weight: 700; font-size: var(--step-display); line-height: 0.95; letter-spacing: -0.045em; margin: 0; }
@@ -579,3 +580,36 @@ body[data-page="notes"] .bar-links a[href="notes.html"] { color: var(--ink); }
 
 .ct-who { margin: 28px 0 0; font-size: var(--step-lead); max-width: 40ch; }
 @media (hover: none) { .kbd { display: none; } }
+.palette[hidden] { display: none !important; }
+
+/* ---------- v2.1: labelled jump button, larger 3D mark, real contact form ---------- */
+.kbd { display: inline-flex; align-items: center; gap: 10px; padding: 0 8px 0 14px; color: var(--ink); font-size: 0.875rem; font-weight: 600; }
+.kbd kbd { font: inherit; font-size: 0.75rem; color: var(--muted); padding: 3px 7px; background: #1d1c1a; }
+.kbd:hover kbd { color: var(--on-cream); background: var(--gold); }
+
+@media (min-width: 1101px) {
+  .hero { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0; }
+  .hero-media { width: min(100%, 84svh, 960px); justify-self: center; }
+}
+.hero-media video { transform: scale(1.32); }
+@keyframes hero-drift { from { transform: scale(1.32); } to { transform: scale(1.46) translateY(5%); opacity: 0.35; } }
+
+.contact { justify-items: stretch; }
+.contact > * { max-width: 680px; }
+.ct-who { color: var(--muted); }
+.mail-form { margin-top: 40px; display: grid; gap: 22px; }
+.mf-row { display: grid; gap: 8px; }
+.mf-row label { font-size: 0.875rem; font-weight: 600; color: var(--muted); }
+.mf-row input, .mf-row textarea { width: 100%; border: 0; border-bottom: 1px solid #4a4539; background: transparent; padding: 10px 0; font-size: 1.125rem; color: var(--ink); resize: vertical; transition: border-color 300ms; } /* taste-skill-ignore: form field */
+.mf-row input::placeholder, .mf-row textarea::placeholder { color: #6e675b; }
+.mf-row input:focus, .mf-row textarea:focus { outline: none; border-bottom-color: var(--gold); }
+.mf-row [aria-invalid="true"] { border-bottom-color: #e8a090; }
+.mf-trap { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+.mf-foot { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; margin-top: 6px; }
+.mf-foot .ct-help { margin: 0; }
+#ct-send:disabled { opacity: 0.7; cursor: progress; }
+.contact .ok { color: #9fd0b0; font-weight: 600; }
+.contact .warn { color: #e8c27e; font-weight: 600; }
+.logo, .kbd, .kbd span { white-space: nowrap; }
+@media (max-width: 760px) { .kbd { display: none; } .bar-action { margin-left: auto; } }
+:root { --step-display: clamp(2.5rem, 0.2rem + 4.4vw, 5.6rem); }

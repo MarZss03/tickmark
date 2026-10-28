@@ -44,7 +44,7 @@
     <a href="#control">Control</a>
     <a href="notes.html" data-wipe>Notes</a>
   </nav>
-  <button type="button" class="kbd" id="pal-open" aria-label="Open the jump menu">⌘K</button>
+  <button type="button" class="kbd" id="pal-open" aria-keyshortcuts="Control+K Meta+K"><span>Jump to section</span><kbd>⌘K</kbd></button>
   <a class="bar-action magnetic" href="#contact">Contact</a>
 </header>
 
@@ -56,7 +56,6 @@
       <span class="line"><span data-line style="--i:0">Finance controls</span></span>
       <span class="line"><span data-line style="--i:1">that show their work</span></span>
     </h1>
-    <p class="lead fade-in">A working prototype by Martin Zhang for close, payroll, public filings and model evaluation.</p>
     <div class="actions fade-in">
       <a class="btn magnetic" href="#workbench">Open the workbench</a>
       <a class="btn ghost magnetic" href="notes.html" data-wipe>Read the notes</a>
@@ -241,13 +240,22 @@
 
 <section class="contact" id="contact" aria-labelledby="ct-h">
   <h2 id="ct-h" class="head lines"><span class="line"><span data-line>Hiring for finance systems?</span></span></h2>
-  <form class="one-field" id="ct-form" data-reveal>
-    <label for="ct-in" class="sr">Your email, or a line about the role</label>
-    <input id="ct-in" name="msg" placeholder="Your email, or a line about the role" autocomplete="email" aria-describedby="ct-help">
-    <button type="submit" class="go" aria-label="Write to Martin">→</button>
-  </form>
   <p class="ct-who" data-reveal>Martin Zhang, Toronto. Finance systems and AI evaluation, open to full-time roles.</p>
-  <p class="ct-help" id="ct-help">Opens an email to <a id="ct-mail" href="mailto:zhangsanshi2003@gmail.com">zhangsanshi2003@gmail.com</a>.</p>
+  <form class="mail-form" id="ct-form" data-reveal novalidate>
+    <div class="mf-row">
+      <label for="ct-email">Your email</label>
+      <input id="ct-email" name="email" type="email" autocomplete="email" required placeholder="you@company.com">
+    </div>
+    <div class="mf-row">
+      <label for="ct-msg">Message</label>
+      <textarea id="ct-msg" name="message" rows="4" required placeholder="The role, the team, and a good time to talk"></textarea>
+    </div>
+    <input type="text" name="_honey" class="mf-trap" tabindex="-1" autocomplete="off" aria-hidden="true">
+    <div class="mf-foot">
+      <button type="submit" class="btn magnetic" id="ct-send">Send to Martin</button>
+      <p class="ct-help" id="ct-help" aria-live="polite">Goes straight to Martin's inbox. Or write to <a id="ct-mail" href="mailto:zhangsanshi2003@gmail.com">zhangsanshi2003@gmail.com</a>.</p>
+    </div>
+  </form>
 </section>
 
 </main>
