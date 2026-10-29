@@ -70,10 +70,10 @@
 
 <section class="metrics" aria-labelledby="metrics-h">
   <h2 id="metrics-h" class="sr">Results</h2>
-  <div class="metric" data-reveal><p class="m-v"><span data-count="21">21</span><small>/23</small></p><p class="m-l">checks held on eight real 10-K filings</p></div>
-  <div class="metric" data-reveal><p class="m-v"><span data-count="1108">1,108</span></p><p class="m-l">FinQA gold answers reproduced by the grader</p></div>
-  <div class="metric" data-reveal><p class="m-v"><span data-count="98.5" data-dec="1">98.5</span><small>%</small></p><p class="m-l">payroll exception recall, 74 cases</p></div>
-  <div class="metric" data-reveal><p class="m-v"><span data-count="0">0</span></p><p class="m-l">amounts a model can set or approve, by design</p></div>
+  <div class="metric" data-reveal><p class="m-v"><span data-count="8">8</span></p><p class="m-l">real 10-K filings checked, 3 findings</p></div>
+  <div class="metric" data-reveal><p class="m-v"><span data-count="25">25</span></p><p class="m-l">unit tests on the rules engine, run on every push</p></div>
+  <div class="metric" data-reveal><p class="m-v"><span data-count="2">2</span></p><p class="m-l">checks you can run on your own CSV, kept in your browser</p></div>
+  <div class="metric" data-reveal><p class="m-v"><span data-count="1147">1,147</span></p><p class="m-l">real FinQA questions, with a validated grader</p></div>
 </section>
 
 <section class="workbench" id="workbench" aria-labelledby="wb-h">
@@ -175,12 +175,12 @@
       <!-- EVAL -->
       <div class="view" data-view="eval" role="tabpanel" hidden>
         <div class="v-title">
-          <div><p class="v-h">Model evaluation</p><p class="v-sub">Engine scores are computed from code. FinQA is a public benchmark of questions on real filings. Paid model runs have not happened yet.</p></div>
+          <div><p class="v-h">Model evaluation</p><p class="v-sub">The engine scores below are Run Replay's, the prototype Tickmark grew from, carried over and not yet re-run on Tickmark's engine. FinQA is a public benchmark of questions on real filings. Paid model runs have not happened yet.</p></div>
         </div>
         <div class="stats" id="eval-stats"></div>
         <div class="two">
-          <div class="card"><div class="c-head"><p class="c-t">Recall across versions</p><p class="c-s">Exception recall · 66 then 74 cases</p></div><div class="chart" id="ch-ver"></div></div>
-          <div class="card"><div class="c-head"><p class="c-t">Cases by category</p><p class="c-s">Engine 2.1.0 · passed of written</p></div><div class="chart" id="ch-cats"></div></div>
+          <div class="card"><div class="c-head"><p class="c-t">Recall across versions</p><p class="c-s">Run Replay engine · 66 then 74 cases</p></div><div class="chart" id="ch-ver"></div></div>
+          <div class="card"><div class="c-head"><p class="c-t">Cases by category</p><p class="c-s">Run Replay engine 2.1.0 · passed of written</p></div><div class="chart" id="ch-cats"></div></div>
         </div>
         <div class="card"><div class="c-head"><p class="c-t">Financial-model suites</p><p class="c-s">Pick one to read a sample case</p></div>
           <table class="tbl" id="suite-t"><thead><tr><th scope="col">Suite</th><th scope="col">Task</th><th scope="col" class="num">Cases</th><th scope="col">Measured by</th><th scope="col">Status</th></tr></thead><tbody></tbody></table>

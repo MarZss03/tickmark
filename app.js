@@ -308,9 +308,9 @@
     const total = TM.evalCats.reduce((a, c) => a + c[1], 0), pass = TM.evalCats.reduce((a, c) => a + c[2], 0);
     const v = TM.versions[2];
     $('#eval-stats').innerHTML =
-      stat('Engine cases', total, `${pass} pass on ${v.v}`) +
-      stat('Exception recall', (v.r * 100).toFixed(1) + '%', 'was 92.3% before the fixes') +
-      stat('Precision', (v.p * 100).toFixed(0) + '%', 'no false alerts on boundary cases') +
+      stat('Run Replay cases', total, `${pass} pass on ${v.v}`) +
+      stat('Run Replay recall', (v.r * 100).toFixed(1) + '%', 'prototype engine · not re-run here') +
+      stat('Tickmark unit tests', 25, 'rules engine · run on every push') +
       stat('Model × prompt runs', '—', 'not run · needs an API budget');
     const suites = TM.suites;
     $('#suite-t tbody').innerHTML = suites.map((s, i) => `<tr class="click${i === 0 ? ' on' : ''}" data-i="${i}" tabindex="0"><td><b>${esc(s.name)}</b></td><td>${esc(s.task)}</td><td class="num">${s.cases}</td><td>${esc(s.metric)}<span class="sub">${esc(s.baseline)}</span></td><td><span class="pill ${s.status === 'Scored' ? 'ok' : s.status === 'Partly scored' ? 'warn' : ''}">${s.status}</span></td></tr>`).join('');

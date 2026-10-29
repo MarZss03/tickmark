@@ -779,3 +779,8 @@ body[data-page="notes"] .bar-links a[href="notes.html"] { color: var(--ink); }
   .tbl td:has(.b-sec)::before { flex-basis: 100%; margin-bottom: 0; }
   .tbl td .b-sec + .b-sec { margin-left: 0; }
 }
+/* dividers between number tiles count tiles only (the section's hidden heading is its first child) */
+@media (max-width: 1100px) {
+  .metric:nth-child(3)::before { display: block; }
+  .metric:nth-of-type(3)::before { display: none; }
+}
