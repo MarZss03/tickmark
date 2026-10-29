@@ -79,7 +79,7 @@
 <section class="workbench" id="workbench" aria-labelledby="wb-h">
   <div class="sec-head">
     <h2 id="wb-h" class="head lines"><span class="line"><span data-line>Workbench</span></span></h2>
-    <p class="sec-note" data-reveal>Run it. Every decision lands in the audit log.</p>
+    <div class="sec-note" data-reveal><p>Run it on the sample, or on your own CSV files. Every decision lands in the audit log.</p><button type="button" class="link-btn" data-open-view="mine">Use your own CSV →</button></div>
   </div>
   <div class="app-wrap" data-reveal="wipe">
 <div class="app" data-ui id="app">
@@ -91,6 +91,7 @@
         <button role="tab" class="nav-i" data-view="cash" aria-selected="false">Cash and FX</button>
         <button role="tab" class="nav-i" data-view="sec" aria-selected="false">Public filings</button>
         <button role="tab" class="nav-i" data-view="eval" aria-selected="false">Model evaluation</button>
+        <button role="tab" class="nav-i nav-mine" data-view="mine" aria-selected="false">Your data <span class="count" id="mine-count" hidden></span></button>
         <button role="tab" class="nav-i" data-view="audit" aria-selected="false">Audit log <span class="count" id="audit-count">0</span></button>
       </div>
       <p class="app-env">Close, payroll and bank lines are synthetic. Filings, exchange rates and FinQA are real public data.</p>
@@ -116,10 +117,13 @@
           <div class="card"><div class="c-head"><p class="c-t">Open exceptions by source</p><p class="c-s">After this run</p></div><div class="chart" id="ch-src"></div></div>
         </div>
         <div class="queue-wrap">
-          <div class="card queue"><div class="c-head"><p class="c-t">Exception queue</p><p class="c-s" id="close-q-sub"></p></div>
+          <div class="card queue"><div class="c-head"><p class="c-t">Exception queue</p><div class="c-acts"><p class="c-s" id="close-q-sub"></p><button type="button" class="b-sec b-sm" data-export="close">Export CSV</button></div></div>
             <table class="tbl" id="close-q"><thead><tr><th scope="col">ID</th><th scope="col">Exception</th><th scope="col">Source</th><th scope="col" class="num">Amount</th><th scope="col">Status</th></tr></thead><tbody></tbody></table>
           </div>
           <aside class="card drawer" id="drawer" aria-live="polite"><p class="d-empty">Pick an exception to see its evidence and decide.</p></aside>
+        </div>
+        <div class="card jes"><div class="c-head"><p class="c-t">Journal drafts</p><div class="c-acts"><p class="c-s" id="je-sub"></p><button type="button" class="b-sec b-sm" data-export="journals">Export CSV</button></div></div>
+          <table class="tbl" id="je-t"><thead><tr><th scope="col">Journal</th><th scope="col">Memo</th><th scope="col" class="num">Debit</th><th scope="col" class="num">Credit</th><th scope="col">Check</th></tr></thead><tbody></tbody></table>
         </div>
       </div>
 
@@ -134,7 +138,7 @@
           <div class="card"><div class="c-head"><p class="c-t">Exceptions by rule</p><p class="c-s">Computed from the register just now</p></div><div class="chart" id="ch-rules"></div></div>
           <div class="card"><div class="c-head"><p class="c-t">Gross pay by department</p><p class="c-s">CAD · this period</p></div><div class="chart" id="ch-dept"></div></div>
         </div>
-        <div class="card"><div class="c-head"><p class="c-t">Review desk</p><p class="c-s" id="pay-q-sub"></p></div>
+        <div class="card"><div class="c-head"><p class="c-t">Review desk</p><div class="c-acts"><p class="c-s" id="pay-q-sub"></p><button type="button" class="b-sec b-sm" data-export="payroll">Export CSV</button></div></div>
           <table class="tbl" id="pay-q"><thead><tr><th scope="col">Employee</th><th scope="col">Rule</th><th scope="col">Evidence</th><th scope="col">Severity</th><th scope="col">Decision</th></tr></thead><tbody></tbody></table>
         </div>
       </div>
@@ -150,7 +154,7 @@
           <div class="card"><div class="c-head"><p class="c-t">EUR/CAD, Bank of Canada daily rate</p><p class="c-s" id="fx-sub"></p></div><div class="chart" id="ch-fx"></div></div>
           <div class="card" id="fx-card"></div>
         </div>
-        <div class="card"><div class="c-head"><p class="c-t">Statement lines</p><p class="c-s">Unmatched lines show the nearest ledger candidate</p></div>
+        <div class="card"><div class="c-head"><p class="c-t">Statement lines</p><div class="c-acts"><p class="c-s">Unmatched lines show the nearest ledger candidate</p><button type="button" class="b-sec b-sm" data-export="cash">Export CSV</button></div></div>
           <table class="tbl" id="cash-t"><thead><tr><th scope="col">Date</th><th scope="col">Bank description</th><th scope="col" class="num">Amount</th><th scope="col">Ledger</th><th scope="col">Result</th></tr></thead><tbody></tbody></table>
         </div>
       </div>
@@ -188,9 +192,97 @@
         </div>
       </div>
 
+      <!-- YOUR DATA: the same rules on the visitor's own files, kept apart from the sample -->
+      <div class="view" data-view="mine" role="tabpanel" hidden>
+        <div class="v-title">
+          <div><p class="v-h">Your data</p><p class="v-sub">Run the same rules on your own CSV files. They are read in this browser and saved only here; nothing is sent to a server.</p></div>
+          <button type="button" class="b-sec" id="my-clear" hidden>Remove my data</button>
+        </div>
+        <div class="my-tabs" role="tablist" aria-label="Which check">
+          <button type="button" role="tab" class="b-sec sel" aria-selected="true" data-my="payroll">Payroll check</button>
+          <button type="button" role="tab" class="b-sec" aria-selected="false" data-my="bank">Bank reconciliation</button>
+        </div>
+
+        <section class="my-pane" data-my-pane="payroll" aria-label="Payroll check on your files">
+          <div class="card up">
+            <div class="c-head"><p class="c-t">Your payroll files</p><p class="c-s">CSV with a header row · up to 5,000 rows each</p></div>
+            <div class="up-grid">
+              <div class="up-f" data-kind="hris">
+                <label for="up-hris">HRIS file <span class="req">required</span></label>
+                <input type="file" id="up-hris" class="sr-file" accept=".csv,text/csv" data-kind="hris"><label for="up-hris" class="up-pick">Choose a CSV, or drop it here</label>
+                <p class="up-cols">employee_id, department, status, hire_date, termination_date, currency</p>
+                <p class="up-state" data-state="hris"></p>
+                <button type="button" class="link-btn" data-tpl="hris">Download a template</button>
+              </div>
+              <div class="up-f" data-kind="payroll">
+                <label for="up-payroll">Payroll register <span class="req">required</span></label>
+                <input type="file" id="up-payroll" class="sr-file" accept=".csv,text/csv" data-kind="payroll"><label for="up-payroll" class="up-pick">Choose a CSV, or drop it here</label>
+                <p class="up-cols">employee_id, gross, prior_gross, currency, note, equity_value</p>
+                <p class="up-state" data-state="payroll"></p>
+                <button type="button" class="link-btn" data-tpl="payroll">Download a template</button>
+              </div>
+              <div class="up-f" data-kind="equity">
+                <label for="up-equity">Equity vesting <span class="opt">optional</span></label>
+                <input type="file" id="up-equity" class="sr-file" accept=".csv,text/csv" data-kind="equity"><label for="up-equity" class="up-pick">Choose a CSV, or drop it here</label>
+                <p class="up-cols">employee_id, units, fmv</p>
+                <p class="up-state" data-state="equity"></p>
+                <button type="button" class="link-btn" data-tpl="equity">Download a template</button>
+              </div>
+            </div>
+            <div class="up-row">
+              <label for="up-start">Pay period</label><input type="date" id="up-start" value="2026-10-01">
+              <label for="up-end">to</label><input type="date" id="up-end" value="2026-10-15">
+              <button type="button" class="b-pri" id="up-run-pay">Run payroll rules</button>
+            </div>
+            <ul class="up-err" id="up-err-pay" aria-live="polite"></ul>
+          </div>
+          <div class="my-res" id="my-pay" hidden>
+            <div class="stats" id="my-pay-stats"></div>
+            <div class="card"><div class="c-head"><p class="c-t">Exceptions in your files</p><div class="c-acts"><p class="c-s" id="my-pay-sub"></p><button type="button" class="b-sec b-sm" data-export="my-payroll">Export CSV</button></div></div>
+              <table class="tbl" id="my-pay-q"><thead><tr><th scope="col">Employee</th><th scope="col">Rule</th><th scope="col">Evidence</th><th scope="col">Severity</th><th scope="col">Decision</th></tr></thead><tbody></tbody></table>
+            </div>
+          </div>
+        </section>
+
+        <section class="my-pane" data-my-pane="bank" aria-label="Bank reconciliation on your files" hidden>
+          <div class="card up">
+            <div class="c-head"><p class="c-t">Your bank files</p><p class="c-s">CSV with a header row · up to 5,000 rows each</p></div>
+            <div class="up-grid two-up">
+              <div class="up-f" data-kind="bank">
+                <label for="up-bank">Bank statement <span class="req">required</span></label>
+                <input type="file" id="up-bank" class="sr-file" accept=".csv,text/csv" data-kind="bank"><label for="up-bank" class="up-pick">Choose a CSV, or drop it here</label>
+                <p class="up-cols">date, description, amount</p>
+                <p class="up-state" data-state="bank"></p>
+                <button type="button" class="link-btn" data-tpl="bank">Download a template</button>
+              </div>
+              <div class="up-f" data-kind="gl">
+                <label for="up-gl">Ledger cash account <span class="req">required</span></label>
+                <input type="file" id="up-gl" class="sr-file" accept=".csv,text/csv" data-kind="gl"><label for="up-gl" class="up-pick">Choose a CSV, or drop it here</label>
+                <p class="up-cols">date, reference, amount</p>
+                <p class="up-state" data-state="gl"></p>
+                <button type="button" class="link-btn" data-tpl="gl">Download a template</button>
+              </div>
+            </div>
+            <div class="up-row">
+              <label for="up-window">Date window</label>
+              <select id="up-window"><option value="0">same day</option><option value="3" selected>±3 days</option><option value="7">±7 days</option></select>
+              <button type="button" class="b-pri" id="up-run-bank">Match bank to ledger</button>
+            </div>
+            <ul class="up-err" id="up-err-bank" aria-live="polite"></ul>
+          </div>
+          <div class="my-res" id="my-bank" hidden>
+            <div class="stats" id="my-bank-stats"></div>
+            <div class="card"><div class="c-head"><p class="c-t">Your statement lines</p><div class="c-acts"><p class="c-s">Unmatched lines show the nearest ledger candidate</p><button type="button" class="b-sec b-sm" data-export="my-bank">Export CSV</button></div></div>
+              <table class="tbl" id="my-bank-t"><thead><tr><th scope="col">Date</th><th scope="col">Bank description</th><th scope="col" class="num">Amount</th><th scope="col">Ledger</th><th scope="col">Result</th></tr></thead><tbody></tbody></table>
+            </div>
+          </div>
+        </section>
+      </div>
+
       <!-- AUDIT -->
       <div class="view" data-view="audit" role="tabpanel" hidden>
-        <div class="v-title"><div><p class="v-h">Audit log</p><p class="v-sub">Every run and decision in this session, newest first</p></div></div>
+        <div class="v-title"><div><p class="v-h">Audit log</p><p class="v-sub">Every run and decision, newest first · saved in this browser</p></div>
+          <div class="c-acts"><button type="button" class="b-sec" data-export="audit">Export CSV</button><button type="button" class="b-sec" id="reset-session">Reset session</button></div></div>
         <div class="card"><table class="tbl" id="audit-t"><thead><tr><th scope="col">Time</th><th scope="col">Actor</th><th scope="col">Event</th><th scope="col">Detail</th></tr></thead><tbody></tbody></table>
           <p class="d-empty" id="audit-empty">Nothing yet. Run the close or decide an exception.</p></div>
       </div>
@@ -270,6 +362,7 @@
 </footer>
 
 <script src="charts.js"></script>
+<script src="engine.js"></script>
 <script src="data.js"></script>
 <script src="real-data.js"></script>
 <script src="app.js"></script>

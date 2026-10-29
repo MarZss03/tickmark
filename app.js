@@ -1,22 +1,61 @@
-// Tickmark: the page's live parts. Deterministic rules run here on the synthetic data in data.js.
+// Tickmark: the page's live parts. Every amount and rule decision comes from engine.js;
+// this file renders, records decisions, saves the session in the browser, and exports CSV.
 (() => {
+  const E = window.TickmarkEngine;
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
   const esc = (v) => String(v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-  const money = (v) => new Intl.NumberFormat('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
-  const parse = (s) => { const n = parseFloat(String(s).replace(/[^0-9.\-]/g, '')); return Number.isFinite(n) ? n : NaN; };
-  const now = () => new Date().toTimeString().slice(0, 8);
+  const money = E.money;
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const iso = () => new Date().toISOString();
+  const stamp = (at) => {
+    const d = new Date(at);
+    if (Number.isNaN(d.getTime())) return String(at);
+    return new Date().toDateString() === d.toDateString() ? d.toTimeString().slice(0, 8) : `${d.toISOString().slice(0, 10)} ${d.toTimeString().slice(0, 5)}`;
+  };
+
+  // ---------- the session, saved in this browser only ----------
+  const store = (() => {
+    const KEY = 'tickmark:v1';
+    let data = {};
+    try { data = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch { data = {}; }
+    let warned = false;
+    return {
+      get: (k, fallback) => (data[k] === undefined ? fallback : data[k]),
+      set: (k, v) => {
+        data[k] = v;
+        try { localStorage.setItem(KEY, JSON.stringify(data)); } catch {
+          if (!warned) { warned = true; window.tmToast?.('Not saved', 'This browser will not store the session, so it resets when you leave.'); }
+        }
+      },
+      clear: () => { data = {}; try { localStorage.removeItem(KEY); } catch {} },
+    };
+  })();
+
+  // ---------- CSV download ----------
+  const today = () => new Date().toISOString().slice(0, 10);
+  function download(name, csv) {
+    // the byte-order mark lets Excel read accents and Chinese correctly
+    const url = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }));
+    const a = Object.assign(document.createElement('a'), { href: url, download: name });
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
 
   // ---------- audit log, shared by every control ----------
-  const audit = [];
-  function log(actor, event, detail) {
-    audit.unshift({ t: now(), actor, event, detail });
-    window.tmToast?.(event, detail);
+  const audit = store.get('audit', []);
+  function renderAudit() {
     if (!$('#audit-t')) return;
     $('#audit-count').textContent = audit.length;
-    $('#audit-empty').hidden = true;
-    $('#audit-t tbody').innerHTML = audit.map((a) => `<tr><td class="num">${a.t}</td><td>${esc(a.actor)}</td><td>${esc(a.event)}</td><td>${esc(a.detail)}</td></tr>`).join('');
+    $('#audit-empty').hidden = audit.length > 0;
+    $('#audit-t tbody').innerHTML = audit.map((a) => `<tr><td class="num">${esc(stamp(a.at))}</td><td>${esc(a.actor)}</td><td>${esc(a.event)}</td><td>${esc(a.detail)}</td></tr>`).join('');
+  }
+  function log(actor, event, detail) {
+    audit.unshift({ at: iso(), actor, event, detail });
+    if (audit.length > 500) audit.length = 500;
+    store.set('audit', audit);
+    window.tmToast?.(event, detail);
+    renderAudit();
   }
 
   // ---------- hero: the journal entry control ----------
@@ -26,75 +65,40 @@
     const REGISTER = 51941.13; // contractor payroll per the register
     let released = false;
     function check() {
-      const dr = parse(d1.value) + parse(d2.value), cr = parse(c1.value);
-      const ok = {
-        balance: Number.isFinite(dr) && Math.abs(dr - cr) < 0.005,
-        period: true,
-        evidence: Math.abs(cr - REGISTER) < 0.005,
-        four: !self.checked,
-      };
-      $('#je-dr').textContent = Number.isFinite(dr) ? money(dr) : '—';
-      $('#je-cr').textContent = Number.isFinite(cr) ? money(cr) : '—';
+      const r = E.checkJournal({ debits: [E.parseAmount(d1.value), E.parseAmount(d2.value)], credits: [E.parseAmount(c1.value)], register: REGISTER, selfApproved: self.checked });
+      $('#je-dr').textContent = Number.isFinite(r.dr) ? money(r.dr) : '—';
+      $('#je-cr').textContent = Number.isFinite(r.cr) ? money(r.cr) : '—';
       const set = (k, pass, note) => { const li = $(`[data-check="${k}"]`, form); li.classList.toggle('fail', !pass); $('b', li).textContent = note; };
-      set('balance', ok.balance, ok.balance ? 'balanced' : `off by ${money(Math.abs(dr - cr))}`);
-      set('period', true, 'open');
-      set('evidence', ok.evidence, ok.evidence ? 'ties' : `register ${money(REGISTER)}`);
-      set('four', ok.four, ok.four ? 'separate' : 'same person');
-      const all = Object.values(ok).every(Boolean);
+      set('balance', r.ok.balance, r.ok.balance ? 'balanced' : Number.isFinite(r.dr - r.cr) ? `off by ${money(Math.abs(r.dr - r.cr))}` : 'not a number');
+      set('period', r.ok.period, 'open');
+      set('evidence', r.ok.evidence, r.ok.evidence ? 'ties' : `register ${money(REGISTER)}`);
+      set('four', r.ok.four, r.ok.four ? 'separate' : 'same person');
       const st = $('#je-state');
-      st.textContent = released ? 'Released' : all ? 'Ready' : 'Blocked';
-      st.className = 'pill ' + (released || all ? 'ok' : 'neg');
-      rel.disabled = !all || released;
-      if (!released) $('#je-log').textContent = all ? 'Every check holds. A person can release it.' : 'Blocked until every check holds. Nothing is posted.';
-      return all;
+      st.textContent = released ? 'Released' : r.all ? 'Ready' : 'Blocked';
+      st.className = 'pill ' + (released || r.all ? 'ok' : 'neg');
+      rel.disabled = !r.all || released;
+      if (!released) $('#je-log').textContent = r.all ? 'Every check holds. A person can release it.' : 'Blocked until every check holds. Nothing is posted.';
+      return r.all;
     }
     [d1, d2, c1].forEach((i) => {
       i.addEventListener('input', () => { if (released) { released = false; form.classList.remove('released'); } check(); });
-      i.addEventListener('blur', () => { const n = parse(i.value); if (Number.isFinite(n)) i.value = money(n); check(); });
+      i.addEventListener('blur', () => { const n = E.parseAmount(i.value); if (Number.isFinite(n)) i.value = money(n); check(); });
     });
     self.addEventListener('change', check);
     rel.addEventListener('click', () => {
       if (!check()) return;
       released = true; form.classList.add('released');
-      $('#je-log').textContent = `Released by you at ${now()}. Logged with all four checks.`;
+      $('#je-log').textContent = `Released by you at ${stamp(iso())}. Logged with all four checks.`;
       log('You', 'Released JE-1031', `Dr ${$('#je-dr').textContent} = Cr ${$('#je-cr').textContent}`);
       check();
     });
     check();
   })();
 
-  // ---------- showcase: the lit panel ----------
-  (() => {
-    const row = $('#show-row'); if (!row) return;
-    const panels = $$('.panel', row);
-    let current = -1;
-    function light() {
-      const mid = row.getBoundingClientRect().left + row.clientWidth / 2;
-      let best = 0, dist = Infinity;
-      panels.forEach((p, i) => { const r = p.getBoundingClientRect(); const d = Math.abs(r.left + r.width / 2 - mid); if (d < dist) { dist = d; best = i; } });
-      if (best === current) return;
-      current = best;
-      panels.forEach((p, i) => { p.classList.toggle('lit', i === best); p.inert = i !== best; });
-      $('#show-name').textContent = panels[best].dataset.name;
-      $('#show-say').textContent = panels[best].dataset.say;
-    }
-    const go = (d) => { const i = Math.max(0, Math.min(panels.length - 1, current + d)); panels[i].scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', inline: 'center', block: 'nearest' }); };
-    $('#show-prev').addEventListener('click', () => go(-1));
-    $('#show-next').addEventListener('click', () => go(1));
-    row.addEventListener('keydown', (e) => { if (e.key === 'ArrowRight') { e.preventDefault(); go(1); } if (e.key === 'ArrowLeft') { e.preventDefault(); go(-1); } });
-    row.addEventListener('scroll', () => requestAnimationFrame(light), { passive: true });
-    // drag with a mouse
-    let down = null;
-    row.addEventListener('pointerdown', (e) => { if (e.pointerType !== 'mouse') return; down = { x: e.clientX, s: row.scrollLeft }; row.style.scrollSnapType = 'none'; });
-    addEventListener('pointermove', (e) => { if (down) row.scrollLeft = down.s - (e.clientX - down.x); });
-    addEventListener('pointerup', () => { if (!down) return; down = null; row.style.scrollSnapType = ''; go(0); });
-    addEventListener('resize', () => { current = -1; light(); });
-    light();
-  })();
-
   // ---------- workbench ----------
   const TM = window.TM;
   if (document.getElementById('app')) {
+  const SAMPLE_PERIOD = { start: '2026-10-01', end: '2026-10-15' };
   const stat = (l, v, n, flag) => `<div class="stat${flag ? ' flag' : ''}"><p class="s-l">${l}</p><p class="s-v">${v}</p>${n ? `<p class="s-n">${n}</p>` : ''}</div>`;
   const sevPill = (s) => `<span class="pill ${s === 'high' ? 'neg' : s === 'medium' ? 'warn' : ''}">${s[0].toUpperCase() + s.slice(1)}</span>`;
   const drawn = {};
@@ -114,7 +118,7 @@
   }
 
   // close view
-  const closeState = { ran: false, decisions: {}, sel: null };
+  const closeState = { ran: false, decisions: store.get('closeDecisions', {}), sel: null };
   function closeOpen() { return TM.close.filter((x) => !closeState.decisions[x.id]); }
   function renderCloseStats() {
     const open = closeState.ran ? closeOpen() : [];
@@ -147,6 +151,15 @@
       tr.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
     });
   }
+  function renderJournals() {
+    const tb = $('#je-t tbody');
+    if (!closeState.ran) { tb.innerHTML = `<tr><td colspan="5" class="d-empty">Journals are drafted when the controls run.</td></tr>`; $('#je-sub').textContent = ''; return; }
+    $('#je-sub').textContent = `${TM.journals.length} drafts · ${money(TM.journals.reduce((a, j) => a + j.dr, 0))}`;
+    tb.innerHTML = TM.journals.map((j) => {
+      const ok = E.checkJournal({ debits: [j.dr], credits: [j.cr] }).ok.balance;
+      return `<tr><td>${j.id}</td><td>${esc(j.memo)}</td><td class="num">${money(j.dr)}</td><td class="num">${money(j.cr)}</td><td class="${ok ? 'ok' : 'warn'}">${ok ? 'balanced' : 'out of balance'}</td></tr>`;
+    }).join('');
+  }
   function briefFor(x) {
     const ev = Object.fromEntries(x.evidence);
     const map = {
@@ -168,7 +181,7 @@
       <h4>${esc(x.title)}</h4>
       <dl>${x.evidence.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>
       <div class="d-brief"><p>${esc(briefFor(x))}</p><p class="d-src">Deterministic brief · cites only the fields above</p></div>
-      ${d ? `<p><span class="pill ok">${esc(d.action)}</span> by you at ${d.t}${d.reason ? ` · “${esc(d.reason)}”` : ''}</p>` : `
+      ${d ? `<p><span class="pill ok">${esc(d.action)}</span> by you at ${esc(stamp(d.at))}${d.reason ? ` · “${esc(d.reason)}”` : ''}</p>` : `
       <div class="d-acts">
         <button type="button" class="b-sec" data-act="Resolved">Mark resolved</button>
         <button type="button" class="b-sec" data-act="Held">Hold</button>
@@ -191,7 +204,8 @@
     }
   }
   function decide(x, action, reason) {
-    closeState.decisions[x.id] = { action, reason, t: now() };
+    closeState.decisions[x.id] = { action, reason, at: iso() };
+    store.set('closeDecisions', closeState.decisions);
     log('You', `${action} ${x.id}`, reason ? `${x.rule} · reason: ${reason}` : x.rule);
     renderCloseStats(); renderCloseQueue(); renderDrawer(); drawSources();
   }
@@ -202,40 +216,30 @@
     for (const s of steps) { await new Promise((r) => setTimeout(r, reduced ? 0 : 320)); s.classList.add('done'); }
     closeState.ran = true;
     log('Engine', 'Close controls ran', `63 rows · ${TM.close.length} exceptions · ${TM.journals.length} journals drafted`);
-    renderCloseStats(); renderCloseQueue(); drawSources();
+    renderCloseStats(); renderCloseQueue(); renderJournals(); drawSources();
     $('#close-stats').classList.add('flash'); setTimeout(() => $('#close-stats').classList.remove('flash'), 900);
     btn.disabled = false; btn.textContent = 'Run again';
   });
 
-  // payroll view: the rule engine
-  const payState = { decisions: {} };
-  function runPayroll() {
-    const H = Object.fromEntries(TM.hris.map((h) => [h.id.trim().toUpperCase(), h]));
-    const out = [];
-    const seen = {};
-    const START = '2026-10-01', END = '2026-10-15';
-    TM.payroll.forEach((p, idx) => {
-      const id = p.id.trim().toUpperCase(), h = H[id];
-      if (!h) { out.push({ id, rule: 'MISSING_EMPLOYEE', sev: 'high', blocks: true, ev: 'Not in HRIS' }); return; }
-      if (seen[id] !== undefined) out.push({ id, rule: 'DUPLICATE_PAYMENT', sev: 'high', blocks: true, ev: `Two rows for 1–15 Oct · ${money(p.gross)} each` });
-      seen[id] = idx;
-      if (['terminated', 'inactive', 'left', 'separated'].includes(h.status) && h.term && h.term < START) out.push({ id, rule: 'INACTIVE_PAID', sev: 'high', blocks: true, ev: `Left ${h.term} · paid ${money(p.gross)}` });
-      if (p.prior > 0 && Math.abs(p.gross - p.prior) / p.prior > 0.4) out.push({ id, rule: 'OUTLIER', sev: 'medium', blocks: false, ev: `${money(p.prior)} → ${money(p.gross)} (+${Math.round((p.gross / p.prior - 1) * 1000) / 10}%)` });
-      if (p.ccy !== h.ccy) out.push({ id, rule: 'CURRENCY', sev: 'medium', blocks: false, ev: `Paid in ${p.ccy}, HRIS says ${h.ccy}` });
-      if (h.hire > START && h.hire <= END) {
-        const days = (new Date(END) - new Date(h.hire)) / 864e5 + 1, exp = Math.round(p.gross * days / 15 * 100) / 100;
-        out.push({ id, rule: 'PRORATION', sev: 'medium', blocks: false, ev: `Hired ${h.hire} · paid ${money(p.gross)}, expected ${money(exp)}` });
-      }
-      if (/忽略|ignore previous|approve directly|直接批准|system prompt/i.test(p.note.replace(/0/g, 'o').replace(/1/g, 'i'))) out.push({ id, rule: 'INJECTION', sev: 'low', blocks: false, ev: 'Instruction found in note · withheld from model' });
-    });
-    TM.equity.forEach((e) => { const p = TM.payroll.find((r) => r.id === e.id); if (p && !p.equity) out.push({ id: e.id, rule: 'EQUITY_MISSING', sev: 'medium', blocks: false, ev: `${e.units} RSU vested · ${money(e.units * e.fmv)} not on payslip` }); });
-    const order = { high: 0, medium: 1, low: 2 };
-    return out.sort((a, b) => order[a.sev] - order[b.sev]);
+  // payroll view (sample data)
+  const payState = { decisions: store.get('payDecisions', {}) };
+  const PAY = E.runPayroll({ hris: TM.hris, payroll: TM.payroll, equity: TM.equity, period: SAMPLE_PERIOD });
+  // one renderer for the sample desk and for "Your data", so both behave the same
+  function payrollTable(tbody, exceptions, decisions, onDecide) {
+    tbody.innerHTML = exceptions.length ? exceptions.map((x) => {
+      const key = x.id + ':' + x.rule, d = decisions[key];
+      return `<tr><td>${esc(x.id)}</td><td>${x.rule}</td><td>${esc(x.ev)}</td><td>${sevPill(x.sev)}</td><td>${d ? `<span class="pill ok">${esc(d.action)}</span>` : `<button type="button" class="b-sec" data-k="${esc(key)}" data-a="Held">Hold</button> <button type="button" class="b-sec" data-k="${esc(key)}" data-a="Cleared">Clear</button>`}</td></tr>`;
+    }).join('') : '<tr><td colspan="5" class="d-empty">No exceptions. Every row passed every rule.</td></tr>';
+    $$('[data-k]', tbody).forEach((b) => b.addEventListener('click', () => onDecide(b.dataset.k, b.dataset.a)));
   }
-  const PAY = runPayroll();
+  const payrollRows = (exceptions, decisions) => exceptions.map((x) => {
+    const d = decisions[x.id + ':' + x.rule];
+    return { employee_id: x.id, rule: x.rule, evidence: x.ev, severity: x.sev, blocks_release: x.blocks ? 'yes' : 'no', decision: d ? d.action : '', decided_at: d ? d.at : '' };
+  });
+  const PAYROLL_COLUMNS = ['employee_id', 'rule', 'evidence', 'severity', 'blocks_release', 'decision', 'decided_at'];
   function renderPayroll() {
     const gross = TM.payroll.reduce((a, p) => a + p.gross, 0);
-    const openBlock = PAY.filter((x) => x.blocks && !payState.decisions[x.id + x.rule]).length;
+    const openBlock = PAY.filter((x) => x.blocks && !payState.decisions[x.id + ':' + x.rule]).length;
     $('#pay-stats').innerHTML =
       stat('Payroll records', TM.payroll.length, `${TM.hris.length} people in HRIS`) +
       stat('Gross this period', money(gross), 'CAD, before any hold') +
@@ -243,45 +247,40 @@
       stat('Release blockers', openBlock, openBlock ? 'payroll cannot release' : 'ready for a second approver', openBlock > 0);
     $('#pay-release').disabled = openBlock > 0;
     $('#pay-q-sub').textContent = 'High severity blocks release until a person decides';
-    $('#pay-q tbody').innerHTML = PAY.map((x) => {
-      const key = x.id + x.rule, d = payState.decisions[key];
-      return `<tr><td>${x.id}</td><td>${x.rule}</td><td>${esc(x.ev)}</td><td>${sevPill(x.sev)}</td><td>${d ? `<span class="pill ok">${d}</span>` : `<button type="button" class="b-sec" data-k="${key}" data-a="Held">Hold</button> <button type="button" class="b-sec" data-k="${key}" data-a="Cleared">Clear</button>`}</td></tr>`;
-    }).join('');
-    $$('#pay-q [data-k]').forEach((b) => b.addEventListener('click', () => {
-      payState.decisions[b.dataset.k] = b.dataset.a;
-      log('You', `${b.dataset.a} ${b.dataset.k.slice(0, 6)}`, b.dataset.k.slice(6));
+    payrollTable($('#pay-q tbody'), PAY, payState.decisions, (key, action) => {
+      payState.decisions[key] = { action, at: iso() };
+      store.set('payDecisions', payState.decisions);
+      log('You', `${action} ${key.split(':')[0]}`, key.split(':')[1]);
       renderPayroll();
-    }));
+    });
   }
   function drawPayrollCharts() {
     const rules = [...new Set(PAY.map((x) => x.rule))];
     Charts.barList($('#ch-rules'), rules.map((r) => ({ label: r, value: PAY.filter((x) => x.rule === r).length })), { format: Charts.fmt.int });
-    const depts = ['Finance', 'Engineering', 'Sales', 'Operations', 'People'];
-    const byDept = depts.map((d) => ({ label: d, value: TM.payroll.filter((p) => TM.hris.find((h) => h.id === p.id).dept === d).reduce((a, p) => a + p.gross, 0) }));
-    Charts.barList($('#ch-dept'), byDept.sort((a, b) => b.value - a.value), { format: Charts.fmt.money('CAD', 0) });
+    const deptOf = Object.fromEntries(TM.hris.map((h) => [h.id, h.dept]));
+    const totals = {};
+    TM.payroll.forEach((p) => { const d = deptOf[p.id] || '—'; totals[d] = (totals[d] || 0) + p.gross; });
+    Charts.barList($('#ch-dept'), Object.entries(totals).map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value), { format: Charts.fmt.money('CAD', 0) });
   }
   $('#pay-release').addEventListener('click', () => { log('You', 'Released payroll 1–15 Oct', 'Awaiting second approver (four-eyes)'); $('#pay-release').disabled = true; $('#pay-release').textContent = 'Sent to second approver'; });
 
-  // cash view: the matcher
+  // cash view (sample data)
+  const bankTable = (tbody, rec) => {
+    tbody.innerHTML = rec.rows.map((r) => `<tr><td class="num">${esc(r.date)}</td><td>${esc(r.desc)}</td><td class="num">${money(r.amt)}</td><td>${esc(r.gl)}</td><td class="${r.ok ? 'ok' : 'warn'}">${esc(r.res)}</td></tr>`).join('');
+  };
+  const bankStats = (rec, win, label) =>
+    stat('Statement lines', rec.rows.length, label) +
+    stat('Matched', `${rec.matched} of ${rec.rows.length}`, `window ±${win} days`) +
+    stat('Bank movement', money(rec.bankTotal), `ledger movement ${money(rec.glTotal)}`) +
+    stat('Unexplained', money(rec.unexplained), `${rec.rows.length - rec.matched} lines to a person`, rec.rows.length - rec.matched > 0);
+  const bankRows = (rec) => rec.rows.map((r) => ({ date: r.date, description: r.desc, amount: r.amt.toFixed(2), ledger_match: r.gl, result: r.res }));
+  const BANK_COLUMNS = ['date', 'description', 'amount', 'ledger_match', 'result'];
+  let cashRec = null;
   function renderCash() {
     const win = +$('#cash-window').value;
-    const used = new Set();
-    const rows = TM.bank.map(([date, desc, amt]) => {
-      let hit = -1;
-      TM.gl.forEach(([gd, , ga], i) => { if (hit < 0 && !used.has(i) && Math.abs(ga - amt) < 0.005 && Math.abs(new Date(gd) - new Date(date)) / 864e5 <= win) hit = i; });
-      if (hit >= 0) { used.add(hit); const lag = Math.round(Math.abs(new Date(TM.gl[hit][0]) - new Date(date)) / 864e5); return { date, desc, amt, gl: TM.gl[hit][1], res: lag ? `matched · ${lag} day${lag > 1 ? 's' : ''}` : 'matched', ok: true }; }
-      let near = null, nd = Infinity;
-      TM.gl.forEach(([gd, gdesc, ga], i) => { if (used.has(i)) return; const d = Math.abs(ga - amt); if (d < nd && d < Math.abs(amt) * 0.1) { nd = d; near = `${gdesc} ${money(ga)}`; } });
-      return { date, desc, amt, gl: near || '—', res: near ? `differs by ${money(nd)}` : 'no candidate', ok: false };
-    });
-    const m = rows.filter((r) => r.ok).length;
-    const bankBal = TM.bank.reduce((a, b) => a + b[2], 0), glBal = TM.gl.reduce((a, b) => a + b[2], 0);
-    $('#cash-stats').innerHTML =
-      stat('Statement lines', rows.length, 'October to date') +
-      stat('Matched', `${m} of ${rows.length}`, `window ±${win} days`) +
-      stat('Bank movement', money(bankBal), `GL movement ${money(glBal)}`) +
-      stat('Unexplained', money(Math.abs(bankBal - glBal)), `${rows.length - m} lines to a person`, rows.length - m > 0);
-    $('#cash-t tbody').innerHTML = rows.map((r) => `<tr><td class="num">${r.date.slice(5)}</td><td>${esc(r.desc)}</td><td class="num">${money(r.amt)}</td><td>${esc(r.gl)}</td><td class="${r.ok ? 'ok' : 'warn'}">${r.res}</td></tr>`).join('');
+    cashRec = E.matchBank(TM.bank, TM.gl, win);
+    $('#cash-stats').innerHTML = bankStats(cashRec, win, 'October to date');
+    bankTable($('#cash-t tbody'), cashRec);
   }
   $('#cash-window').addEventListener('change', () => { renderCash(); log('You', 'Changed match window', `±${$('#cash-window').value} days`); });
 
@@ -313,7 +312,7 @@
   const fxReval = (() => {
     if (!REAL) return null;
     const { sep, last, series } = REAL.fx;
-    const amt = Math.round(TM.eurBalance * (last.eur - sep.eur) * 100) / 100;
+    const amt = E.fxRevaluation(TM.eurBalance, sep.eur, last.eur);
     const je = TM.journals.find((j) => j.id === 'JE-1037'); je.dr = je.cr = Math.abs(amt);
     return { sep, last, series, amt };
   })();
@@ -336,26 +335,11 @@
   }
 
   // ---------- real data: controls on SEC filings ----------
-  const big = (v) => v == null ? '—' : (Math.abs(v) >= 1e9 ? (v / 1e9).toFixed(1) + ' bn' : (v / 1e6).toFixed(0) + ' m');
-  function secChecks(c, th) {
-    const e = c.equityTotal ?? c.equity;
-    const id = c.liabilities != null && e != null
-      ? { ok: Math.abs(c.assets - c.liabilities - e - (c.temp || 0)) < 0.5, txt: 'ties', note: `${big(c.assets)} = ${big(c.liabilities)} + ${big(e)}` }
-      : { ok: null, txt: 'Liabilities not tagged', note: c.lse != null ? `Derived ${big(c.lse - e)} from the liabilities-and-equity total less equity` : 'cannot test' };
-    const k = c.cash;
-    const diff = k && k.begin != null && k.chg != null ? k.end - k.begin - k.chg : null;
-    const roll = diff != null
-      ? { ok: Math.abs(diff) < 0.5, txt: Math.abs(diff) < 0.5 ? 'ties' : `off by ${big(diff)}`, note: `${big(k.begin)} opening + ${big(k.chg)} change = ${big(k.end)} closing` }
-      : { ok: null, txt: 'not tagged', note: 'cannot test' };
-    const g = c.revenue && c.revenuePrior ? c.revenue / c.revenuePrior - 1 : null;
-    const flux = g == null ? { ok: null, txt: '—' } : { ok: Math.abs(g) <= th, txt: (g >= 0 ? '+' : '−') + Math.abs(g * 100).toFixed(1) + '%' };
-    return { id, roll, flux };
-  }
   const secState = { sel: 0 };
   function renderSec() {
     if (!REAL) return;
     const th = +$('#sec-th').value, cos = REAL.companies;
-    const rows = cos.map((c) => ({ c, k: secChecks(c, th) }));
+    const rows = cos.map((c) => ({ c, k: E.secChecks(c, th) }));
     const tests = rows.flatMap((r) => [r.k.id, r.k.roll, r.k.flux]);
     const ran = tests.filter((t) => t.ok !== null).length, held = tests.filter((t) => t.ok === true).length;
     $('#sec-sub').textContent = `SEC EDGAR XBRL company facts · ${cos.length} companies · pulled ${REAL.pulled}`;
@@ -365,7 +349,7 @@
       stat('Untestable', tests.length - ran, 'a fact the filer did not tag', tests.length - ran > 0) +
       stat('Flux over threshold', rows.filter((r) => r.k.flux.ok === false).length, `revenue change above ${Math.round(th * 100)}%`, rows.some((r) => r.k.flux.ok === false));
     const cell = (t) => t.ok === null ? `<span class="warn">${esc(t.txt)}</span>` : t.ok ? `<span class="ok">${esc(t.txt)}</span>` : `<span class="pill warn">${esc(t.txt)}</span>`;
-    $('#sec-t tbody').innerHTML = rows.map(({ c, k }, i) => `<tr class="click${i === secState.sel ? ' on' : ''}" data-i="${i}" tabindex="0"><td><b>${esc(c.name)}</b><span class="sub">CIK ${c.cik}</span></td><td class="num">${c.end}</td><td>${cell(k.id)}</td><td>${cell(k.roll)}</td><td class="num">${big(c.revenue)}</td><td>${cell(k.flux)}</td></tr>`).join('');
+    $('#sec-t tbody').innerHTML = rows.map(({ c, k }, i) => `<tr class="click${i === secState.sel ? ' on' : ''}" data-i="${i}" tabindex="0"><td><b>${esc(c.name)}</b><span class="sub">CIK ${c.cik}</span></td><td class="num">${c.end}</td><td>${cell(k.id)}</td><td>${cell(k.roll)}</td><td class="num">${E.big(c.revenue)}</td><td>${cell(k.flux)}</td></tr>`).join('');
     const show = (i) => {
       secState.sel = i;
       $$('#sec-t tr.click').forEach((tr) => tr.classList.toggle('on', +tr.dataset.i === i));
@@ -377,7 +361,7 @@
           ? 'The identity cannot be tested from tags alone. Liabilities are derived from the balance-sheet total, and the figure is recorded as derived.'
           : 'Nothing to explain. The identity, the cash roll-forward and the revenue change all hold.';
       $('#sec-ev').innerHTML = `<div><p class="sl">Evidence · ${esc(c.name)} 10-K, fiscal ${c.fy}, filed ${c.filed}</p>
-        <p>Assets = L + E: ${esc(k.id.note)}</p><p>Cash: ${esc(k.roll.note)}</p><p>Revenue (${esc(c.revTag)}): ${big(c.revenuePrior)} → ${big(c.revenue)}</p>
+        <p>Assets = L + E: ${esc(k.id.note)}</p><p>Cash: ${esc(k.roll.note)}</p><p>Revenue (${esc(c.revTag)}): ${E.big(c.revenuePrior)} → ${E.big(c.revenue)}</p>
         <p class="sl sl-gap">Accession ${c.accn} · <a href="${url}" target="_blank" rel="noopener">open on EDGAR</a></p></div>
         <div><p class="sl">What a reviewer does next</p><p>${esc(next)}</p></div>`;
     };
@@ -389,22 +373,7 @@
   }
   $('#sec-th').addEventListener('change', () => { renderSec(); log('You', 'Changed flux threshold', `${Math.round(+$('#sec-th').value * 100)}% on public filings`); });
 
-  // ---------- real data: FinQA grader (same logic as scripts/finqa-grader.mjs) ----------
-  const fq = (() => {
-    const num = (t, mem) => { t = t.trim(); if (t.startsWith('#')) return mem[+t.slice(1)]; if (t.startsWith('const_')) return t === 'const_m1' ? -1 : +t.slice(6); const pct = t.endsWith('%'); const v = parseFloat(t.replace(/[%,$]/g, '')); return pct ? v / 100 : v; };
-    const run = (prog) => {
-      const mem = [];
-      for (const s of prog.split(/\)\s*,\s*/).map((x) => x.replace(/\)\s*$/, ''))) {
-        const m = s.trim().match(/^(\w+)\((.*)$/); if (!m) return NaN;
-        const [a, b] = m[2].split(','); const x = num(a, mem), y = num(b, mem);
-        const r = { add: x + y, subtract: x - y, multiply: x * y, divide: x / y, exp: x ** y, greater: x > y ? 'yes' : 'no' }[m[1]];
-        if (r === undefined) return NaN; mem.push(r);
-      }
-      return mem.at(-1);
-    };
-    const same = (p, g) => typeof g === 'string' || typeof p === 'string' ? String(p) === String(g) : Math.abs(p - g) <= Math.max(1e-4, Math.abs(g) * 0.005);
-    return { run, same };
-  })();
+  // ---------- real data: FinQA grader ----------
   function renderFinqa() {
     if (!REAL) return;
     const F = REAL.finqa;
@@ -413,25 +382,173 @@
     const show = (i) => {
       $$('#fq-pick button').forEach((b) => { const on = +b.dataset.i === i; b.classList.toggle('sel', on); b.setAttribute('aria-selected', String(on)); });
       const x = F.sample[i];
-      const audit = /debt to equity/.test(x.q) ? '<p class="notice">Label worth questioning: the evidence is an 82/18 asset allocation, not debt and equity. Benchmarks need auditing too.</p>' : '';
+      const note = /debt to equity/.test(x.q) ? '<p class="notice">Label worth questioning: the evidence is an 82/18 asset allocation, not debt and equity. Benchmarks need auditing too.</p>' : '';
       $('#fq-body').innerHTML = `<p class="fq-q">${esc(x.q)}</p>
-        <p class="sl">From the filing (${esc(x.id)})</p><p class="fq-ev">${esc(x.evidence[0] || '')}</p>${audit}
+        <p class="sl">From the filing (${esc(x.id)})</p><p class="fq-ev">${esc(x.evidence[0] || '')}</p>${note}
         <form class="fq-try" id="fq-form"><label for="fq-in">Your answer, or a program such as divide(121.4, 4187.8)</label>
         <div class="fq-row"><input id="fq-in" autocomplete="off"><button class="b-pri" type="submit">Grade</button><button class="b-sec" type="button" id="fq-gold">Show gold</button></div></form>
         <p class="fq-out" id="fq-out" aria-live="polite"></p>`;
       $('#fq-form').addEventListener('submit', (e) => {
         e.preventDefault();
         const v = $('#fq-in').value.trim(); if (!v) return;
-        const got = /\(/.test(v) ? fq.run(v) : (v.endsWith('%') ? parseFloat(v) / 100 : parseFloat(v.replace(/,/g, '')));
-        const pass = fq.same(got, x.ans);
-        $('#fq-out').innerHTML = Number.isNaN(got) ? '<span class="warn">Could not read that. Use a number or a FinQA program.</span>' : `<span class="${pass ? 'ok' : 'warn'}">${pass ? 'Correct' : 'Not correct'}</span> · yours ${typeof got === 'number' ? +got.toFixed(5) : got}, gold ${x.ans}, tolerance 0.5%`;
-        log('You', `Graded FinQA ${x.id}`, pass ? 'correct' : 'not correct');
+        const g = E.gradeAnswer(v, x.ans);
+        $('#fq-out').innerHTML = !g.readable ? '<span class="warn">Could not read that. Use a number or a FinQA program.</span>' : `<span class="${g.pass ? 'ok' : 'warn'}">${g.pass ? 'Correct' : 'Not correct'}</span> · yours ${typeof g.value === 'number' ? +g.value.toFixed(5) : g.value}, gold ${x.ans}, tolerance 0.5%`;
+        log('You', `Graded FinQA ${x.id}`, g.pass ? 'correct' : 'not correct');
       });
       $('#fq-gold').addEventListener('click', () => { $('#fq-in').value = x.prog; $('#fq-form').requestSubmit(); });
     };
     $$('#fq-pick button').forEach((b) => b.addEventListener('click', () => show(+b.dataset.i)));
     show(0);
   }
+
+  // ---------- your data: the same rules on the visitor's own files ----------
+  const MAX_BYTES = 2 * 1024 * 1024;
+  const mine = Object.assign({ files: {}, period: { ...SAMPLE_PERIOD }, window: 3, payDecisions: {}, ranPay: false, ranBank: false }, store.get('mine', {}));
+  const saveMine = () => store.set('mine', mine);
+  let myPay = null, myBank = null;
+  const SAMPLE_TABLES = { hris: TM.hris, payroll: TM.payroll, equity: TM.equity, bank: TM.bank, gl: TM.gl };
+
+  function fileState(kind) {
+    const el = $(`[data-state="${kind}"]`); if (!el) return;
+    const f = mine.files[kind];
+    if (!f) { el.textContent = ''; el.className = 'up-state'; return; }
+    const r = E.loadTable(kind, f.text);
+    el.className = 'up-state ' + (r.errors.length ? 'warn' : 'ok');
+    el.textContent = r.errors.length ? `${f.name} · ${r.errors.length} problem${r.errors.length > 1 ? 's' : ''}` : `${f.name} · ${r.records.length} rows`;
+  }
+  function refreshMineChrome() {
+    ['hris', 'payroll', 'equity', 'bank', 'gl'].forEach(fileState);
+    const n = Object.keys(mine.files).length;
+    $('#mine-count').hidden = !n; $('#mine-count').textContent = n;
+    $('#my-clear').hidden = !n && !mine.ranPay && !mine.ranBank;
+    $('#up-start').value = mine.period.start; $('#up-end').value = mine.period.end;
+    $('#up-window').value = String(mine.window);
+  }
+  function showErrors(listId, errors) {
+    $(listId).innerHTML = errors.map((e) => `<li>${esc(e)}</li>`).join('');
+  }
+  function loadKinds(kinds, optional = []) {
+    const errors = [], data = {};
+    for (const kind of kinds.concat(optional)) {
+      const f = mine.files[kind];
+      if (!f) { if (!optional.includes(kind)) errors.push(`Add the ${E.TABLES[kind].label.toLowerCase()}.`); continue; }
+      const r = E.loadTable(kind, f.text);
+      r.errors.forEach((e) => errors.push(`${E.TABLES[kind].label}: ${e}`));
+      data[kind] = r.records;
+    }
+    return { errors, data };
+  }
+
+  function runMyPayroll(quiet) {
+    const { start, end } = mine.period;
+    const errs = [];
+    if (!E.isDate(start) || !E.isDate(end)) errs.push('Set the pay period start and end.');
+    else if (end < start) errs.push('The pay period ends before it starts.');
+    const { errors, data } = loadKinds(['hris', 'payroll'], ['equity']);
+    errs.push(...errors);
+    showErrors('#up-err-pay', errs);
+    if (errs.length) { $('#my-pay').hidden = true; return; }
+    const exceptions = E.runPayroll({ hris: data.hris, payroll: data.payroll, equity: data.equity || [], period: mine.period });
+    const fp = E.fingerprint([mine.files.hris.text, mine.files.payroll.text, mine.files.equity?.text || '', start, end].join('|'));
+    myPay = { exceptions, fp, data };
+    mine.ranPay = true; saveMine();
+    renderMyPayroll();
+    if (!quiet) log('You', 'Ran payroll rules on your files', `${data.payroll.length} payroll rows · ${exceptions.length} exceptions · ${E.periodLabel(mine.period)}`);
+  }
+  function renderMyPayroll() {
+    if (!myPay) return;
+    const { exceptions, fp, data } = myPay;
+    const decisions = mine.payDecisions[fp] || {};
+    const openBlock = exceptions.filter((x) => x.blocks && !decisions[x.id + ':' + x.rule]).length;
+    const ccys = [...new Set(data.payroll.map((p) => p.ccy))];
+    $('#my-pay').hidden = false;
+    $('#my-pay-stats').innerHTML =
+      stat('Payroll rows', data.payroll.length, `${data.hris.length} people in your HRIS file`) +
+      stat('Gross this period', money(data.payroll.reduce((a, p) => a + p.gross, 0)), ccys.length === 1 ? ccys[0] : `${ccys.length} currencies`) +
+      stat('Exceptions', exceptions.length, `${Object.keys(decisions).length} decided · ${E.periodLabel(mine.period)}`) +
+      stat('Release blockers', openBlock, openBlock ? 'high severity, needs a decision' : 'none open', openBlock > 0);
+    $('#my-pay-sub').textContent = 'Same seven rules as the sample';
+    payrollTable($('#my-pay-q tbody'), exceptions, decisions, (key, action) => {
+      mine.payDecisions[fp] = { ...(mine.payDecisions[fp] || {}), [key]: { action, at: iso() } };
+      saveMine();
+      log('You', `${action} ${key.split(':')[0]} (your data)`, key.split(':')[1]);
+      renderMyPayroll();
+    });
+  }
+  function runMyBank(quiet) {
+    const { errors, data } = loadKinds(['bank', 'gl']);
+    showErrors('#up-err-bank', errors);
+    if (errors.length) { $('#my-bank').hidden = true; return; }
+    myBank = E.matchBank(data.bank, data.gl, mine.window);
+    mine.ranBank = true; saveMine();
+    $('#my-bank').hidden = false;
+    $('#my-bank-stats').innerHTML = bankStats(myBank, mine.window, 'from your statement');
+    bankTable($('#my-bank-t tbody'), myBank);
+    if (!quiet) log('You', 'Matched your bank statement', `${myBank.matched} of ${myBank.rows.length} matched · ±${mine.window} days`);
+  }
+
+  async function acceptFile(kind, file) {
+    const errList = ['bank', 'gl'].includes(kind) ? '#up-err-bank' : '#up-err-pay';
+    if (!/\.csv$/i.test(file.name) && file.type !== 'text/csv') { showErrors(errList, [`${file.name} is not a CSV file.`]); return; }
+    if (file.size > MAX_BYTES) { showErrors(errList, [`${file.name} is larger than 2 MB.`]); return; }
+    mine.files[kind] = { name: file.name, text: await file.text() };
+    saveMine(); refreshMineChrome();
+  }
+  $$('input[type="file"][data-kind]').forEach((input) => input.addEventListener('change', async () => {
+    if (input.files[0]) await acceptFile(input.dataset.kind, input.files[0]);
+    input.value = '';
+  }));
+  // each file box also takes a dropped file
+  $$('.up-f[data-kind]').forEach((box) => {
+    box.addEventListener('dragover', (e) => { e.preventDefault(); box.classList.add('drag'); });
+    box.addEventListener('dragleave', () => box.classList.remove('drag'));
+    box.addEventListener('drop', (e) => { e.preventDefault(); box.classList.remove('drag'); const f = e.dataTransfer.files[0]; if (f) acceptFile(box.dataset.kind, f); });
+  });
+  $$('[data-tpl]').forEach((b) => b.addEventListener('click', () => download(`tickmark-template-${b.dataset.tpl}.csv`, E.tableToCsv(b.dataset.tpl, SAMPLE_TABLES[b.dataset.tpl]))));
+  $('#up-start').addEventListener('change', () => { mine.period.start = $('#up-start').value; saveMine(); });
+  $('#up-end').addEventListener('change', () => { mine.period.end = $('#up-end').value; saveMine(); });
+  $('#up-window').addEventListener('change', () => { mine.window = +$('#up-window').value; saveMine(); if (myBank) runMyBank(true); });
+  $('#up-run-pay').addEventListener('click', () => runMyPayroll(false));
+  $('#up-run-bank').addEventListener('click', () => runMyBank(false));
+  $('#my-clear').addEventListener('click', () => {
+    Object.assign(mine, { files: {}, payDecisions: {}, ranPay: false, ranBank: false });
+    saveMine(); myPay = myBank = null;
+    $('#my-pay').hidden = $('#my-bank').hidden = true;
+    showErrors('#up-err-pay', []); showErrors('#up-err-bank', []);
+    refreshMineChrome();
+    log('You', 'Removed your data', 'Files and decisions deleted from this browser');
+  });
+  $$('[data-my]').forEach((b) => b.addEventListener('click', () => {
+    $$('[data-my]').forEach((t) => { const on = t === b; t.classList.toggle('sel', on); t.setAttribute('aria-selected', String(on)); });
+    $$('[data-my-pane]').forEach((p) => { p.hidden = p.dataset.myPane !== b.dataset.my; });
+  }));
+
+  // ---------- exports ----------
+  const exporters = {
+    close: () => ['close-exceptions', E.toCsv(['id', 'source', 'rule', 'title', 'amount', 'severity', 'blocks_signoff', 'decision', 'reason', 'decided_at'],
+      TM.close.map((x) => { const d = closeState.decisions[x.id] || {}; return { id: x.id, source: x.source, rule: x.rule, title: x.title, amount: x.amount ? x.amount.toFixed(2) : '', severity: x.sev, blocks_signoff: x.blocks ? 'yes' : 'no', decision: d.action || '', reason: d.reason || '', decided_at: d.at || '' }; }))],
+    journals: () => ['journal-drafts', E.toCsv(['journal', 'memo', 'debit', 'credit', 'balanced'],
+      TM.journals.map((j) => ({ journal: j.id, memo: j.memo, debit: j.dr.toFixed(2), credit: j.cr.toFixed(2), balanced: E.checkJournal({ debits: [j.dr], credits: [j.cr] }).ok.balance ? 'yes' : 'no' })))],
+    payroll: () => ['payroll-exceptions', E.toCsv(PAYROLL_COLUMNS, payrollRows(PAY, payState.decisions))],
+    cash: () => ['bank-reconciliation', E.toCsv(BANK_COLUMNS, bankRows(cashRec))],
+    'my-payroll': () => myPay && ['your-payroll-exceptions', E.toCsv(PAYROLL_COLUMNS, payrollRows(myPay.exceptions, mine.payDecisions[myPay.fp] || {}))],
+    'my-bank': () => myBank && ['your-bank-reconciliation', E.toCsv(BANK_COLUMNS, bankRows(myBank))],
+    audit: () => ['audit-log', E.toCsv(['at', 'actor', 'event', 'detail'], audit)],
+  };
+  $$('[data-export]').forEach((b) => b.addEventListener('click', () => {
+    const out = exporters[b.dataset.export]?.();
+    if (!out) return;
+    download(`tickmark-${out[0]}-${today()}.csv`, out[1]);
+  }));
+
+  // reset asks twice, on the button itself
+  (() => {
+    const b = $('#reset-session'); let armed = null;
+    b.addEventListener('click', () => {
+      if (!armed) { b.textContent = 'Click again to reset'; armed = setTimeout(() => { b.textContent = 'Reset session'; armed = null; }, 4000); return; }
+      clearTimeout(armed); store.clear(); location.reload();
+    });
+  })();
 
   // tabs
   function setView(v) {
@@ -447,7 +564,12 @@
       if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') { e.preventDefault(); tabs[(i - 1 + tabs.length) % tabs.length].focus(); }
     });
   });
-  renderCloseStats(); renderCloseQueue(); renderPayroll(); renderCash(); renderFx(); renderSec(); renderEval(); renderFinqa();
+  $$('[data-open-view]').forEach((b) => b.addEventListener('click', () => { setView(b.dataset.openView); $('#workbench').scrollIntoView({ behavior: reduced ? 'auto' : 'smooth' }); }));
+
+  renderCloseStats(); renderCloseQueue(); renderJournals(); renderPayroll(); renderCash(); renderFx(); renderSec(); renderEval(); renderFinqa(); renderAudit();
+  refreshMineChrome();
+  if (mine.ranPay) runMyPayroll(true);
+  if (mine.ranBank) runMyBank(true);
   // charts measure their container, so draw once fonts are in
   (document.fonts ? document.fonts.ready : Promise.resolve()).then(() => draw('close'));
 

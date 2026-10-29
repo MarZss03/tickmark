@@ -134,6 +134,7 @@
     ['Cash and FX', 'Workbench', go(home + '#workbench', 'cash')],
     ['Public filings', 'Workbench', go(home + '#workbench', 'sec')],
     ['Model evaluation', 'Workbench', go(home + '#workbench', 'eval')],
+    ['Your data', 'Workbench · run your own CSV', go(home + '#workbench', 'mine')],
     ['Audit log', 'Workbench', go(home + '#workbench', 'audit')],
     ['Try a control', 'Work', go(home + '#control')],
     ['Contact', 'Work', go(home + '#contact')],
