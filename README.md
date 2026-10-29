@@ -4,7 +4,7 @@
 
 Finance controls that show their work. A portfolio case study and working prototype for month-end close, payroll review and financial-model evaluation. It grew out of the earlier "Run Replay" prototype.
 
-Live: https://tickmark-one.vercel.app · Notes: https://tickmark-one.vercel.app/notes
+Live: https://tickmark-martinzhang.vercel.app · Notes: https://tickmark-martinzhang.vercel.app/notes
 
 A static site: open `index.html`, or run `node scripts/serve.mjs` and visit http://localhost:5173. It deploys to Vercel as-is, with no build step; every push to `main` redeploys.
 
