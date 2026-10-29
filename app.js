@@ -73,6 +73,16 @@
       set('period', r.ok.period, 'open');
       set('evidence', r.ok.evidence, r.ok.evidence ? 'ties' : `register ${money(REGISTER)}`);
       set('four', r.ok.four, r.ok.four ? 'separate' : 'same person');
+      // the scale leans toward the heavier side, up to 14 degrees
+      const scale = $('#je-scale');
+      if (scale) {
+        const diff = Number.isFinite(r.dr - r.cr) ? r.dr - r.cr : 0, base = Math.max(Math.abs(r.dr) || 0, Math.abs(r.cr) || 0, 1);
+        scale.style.setProperty('--tilt', `${Math.max(-14, Math.min(14, -(diff / base) * 600))}deg`);
+        scale.classList.toggle('balanced', r.ok.balance);
+        $('#sc-dr').textContent = $('#je-dr').textContent;
+        $('#sc-cr').textContent = $('#je-cr').textContent;
+        $('#sc-diff').textContent = r.ok.balance ? 'balanced' : Number.isFinite(diff) ? `off by ${money(Math.abs(diff))}` : 'not a number';
+      }
       const st = $('#je-state');
       st.textContent = released ? 'Released' : r.all ? 'Ready' : 'Blocked';
       st.className = 'pill ' + (released || r.all ? 'ok' : 'neg');
@@ -85,6 +95,15 @@
       i.addEventListener('blur', () => { const n = E.parseAmount(i.value); if (Number.isFinite(n)) i.value = money(n); check(); });
     });
     self.addEventListener('change', check);
+    // one-click scenarios beside the entry
+    const DEFAULTS = { d1: '48,250.00', d2: '3,691.13', c1: '51,941.13' };
+    $$('[data-try]').forEach((b) => b.addEventListener('click', () => {
+      if (b.dataset.try === 'unbalance') d2.value = '3,000.00';
+      if (b.dataset.try === 'self') self.checked = true;
+      if (b.dataset.try === 'reset') { d1.value = DEFAULTS.d1; d2.value = DEFAULTS.d2; c1.value = DEFAULTS.c1; self.checked = false; }
+      released = false; form.classList.remove('released');
+      check();
+    }));
     rel.addEventListener('click', () => {
       if (!check()) return;
       released = true; form.classList.add('released');
@@ -566,7 +585,22 @@
   });
   $$('[data-open-view]').forEach((b) => b.addEventListener('click', () => { setView(b.dataset.openView); $('#workbench').scrollIntoView({ behavior: reduced ? 'auto' : 'smooth' }); }));
 
+  // on phones each table row becomes a card, so every cell carries its column name
+  const WIDE = /^(Exception|Evidence|Bank description|Memo|Detail|Task|Measured by|Company|Event)$/;
+  function labelTables() {
+    $$('#app table.tbl').forEach((t) => {
+      const heads = $$('thead th', t).map((th) => th.textContent.trim());
+      $$('tbody tr', t).forEach((tr) => $$('td', tr).forEach((td, i) => {
+        if (td.colSpan > 1 || !heads[i]) return;
+        if (td.dataset.label !== heads[i]) td.dataset.label = heads[i];
+        td.classList.toggle('w', WIDE.test(heads[i]));
+      }));
+    });
+  }
+  new MutationObserver(() => labelTables()).observe($('#app'), { childList: true, subtree: true });
+
   renderCloseStats(); renderCloseQueue(); renderJournals(); renderPayroll(); renderCash(); renderFx(); renderSec(); renderEval(); renderFinqa(); renderAudit();
+  labelTables();
   refreshMineChrome();
   if (mine.ranPay) runMyPayroll(true);
   if (mine.ranBank) runMyBank(true);

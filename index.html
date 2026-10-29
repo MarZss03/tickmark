@@ -230,8 +230,9 @@
               </div>
             </div>
             <div class="up-row">
-              <label for="up-start">Pay period</label><input type="date" id="up-start" value="2026-10-01">
-              <label for="up-end">to</label><input type="date" id="up-end" value="2026-10-15">
+              <span class="up-l">Pay period</span>
+              <label for="up-start" class="up-dl">From</label><input type="date" id="up-start" value="2026-10-01">
+              <label for="up-end" class="up-dl">to</label><input type="date" id="up-end" value="2026-10-15">
               <button type="button" class="b-pri" id="up-run-pay">Run payroll rules</button>
             </div>
             <ul class="up-err" id="up-err-pay" aria-live="polite"></ul>
@@ -296,6 +297,29 @@
   <div class="control-copy">
     <h2 id="ct-try" class="head lines"><span class="line"><span data-line>Try a control</span></span></h2>
     <p class="sec-note" data-reveal>Change an amount. It releases only when every check holds.</p>
+    <figure class="scale" id="je-scale" data-reveal aria-label="Debits and credits balance">
+      <svg viewBox="0 0 520 250" aria-hidden="true">
+        <path class="sc-post" d="M260 78 L260 214 M200 214 L320 214"/>
+        <g class="sc-beam">
+          <line x1="60" y1="70" x2="460" y2="70"/>
+          <circle cx="260" cy="70" r="9"/>
+          <g class="sc-pan sc-pan-l"><path class="sc-str" d="M60 70 L28 150 M60 70 L92 150"/><path class="sc-dish" d="M14 150 H106 Q100 178 60 178 Q20 178 14 150 Z"/><text x="60" y="200">Dr</text></g>
+          <g class="sc-pan sc-pan-r"><path class="sc-str" d="M460 70 L428 150 M460 70 L492 150"/><path class="sc-dish" d="M414 150 H506 Q500 178 460 178 Q420 178 414 150 Z"/><text x="460" y="200">Cr</text></g>
+        </g>
+        <path class="sc-tick" d="M246 40 L256 50 L276 26"/>
+      </svg>
+      <figcaption class="sc-totals">
+        <span><small>Debits</small><b id="sc-dr">51,941.13</b></span>
+        <span class="sc-diff" id="sc-diff">balanced</span>
+        <span><small>Credits</small><b id="sc-cr">51,941.13</b></span>
+      </figcaption>
+    </figure>
+    <div class="try" data-reveal>
+      <span class="try-l">Try</span>
+      <button type="button" class="try-b" data-try="unbalance">Unbalance it</button>
+      <button type="button" class="try-b" data-try="self">Approve my own entry</button>
+      <button type="button" class="try-b" data-try="reset">Reset</button>
+    </div>
   </div>
   <div class="control-stage" data-reveal="wipe">
 <form class="je" data-ui id="je" aria-label="Journal entry control, try changing an amount" onsubmit="return false">
@@ -331,9 +355,19 @@
 </section>
 
 <section class="contact" id="contact" aria-labelledby="ct-h">
-  <h2 id="ct-h" class="head lines"><span class="line"><span data-line>Hiring for finance systems?</span></span></h2>
-  <p class="ct-who" data-reveal>Martin Zhang, Toronto. Finance systems and AI evaluation, open to full-time roles.</p>
+  <svg class="ct-mark" viewBox="0 0 191 225" aria-hidden="true"><path d="M0 80L191 0V60L48 165L0 140Z"/><path d="M0 156L48 181L191 76V145L0 225Z"/></svg>
+  <div class="ct-left">
+    <h2 id="ct-h" class="display lines"><span class="line"><span data-line style="--i:0">Hiring for</span></span><span class="line"><span data-line style="--i:1">finance systems?</span></span></h2>
+    <p class="ct-who" data-reveal>Martin Zhang builds finance controls, automation and AI evaluation that people can trust with real money.</p>
+    <dl class="ct-facts" data-reveal>
+      <div><dt>Email</dt><dd><a id="ct-mail" href="mailto:zhangsanshi2003@gmail.com">zhangsanshi2003@gmail.com</a></dd></div>
+      <div><dt>Based in</dt><dd>Toronto · open to remote</dd></div>
+      <div><dt>Looking for</dt><dd>Finance systems, finance-ops automation, AI evaluation · full-time</dd></div>
+      <div><dt>Elsewhere</dt><dd><a href="https://agile-topaz-x610qq5.vercel.app/">Portfolio</a> · <a href="https://github.com/MarZss03/tickmark">Source on GitHub</a></dd></div>
+    </dl>
+  </div>
   <form class="mail-form" id="ct-form" data-reveal novalidate>
+    <p class="mf-title">Write to Martin</p>
     <div class="mf-row">
       <label for="ct-email">Your email</label>
       <input id="ct-email" name="email" type="email" autocomplete="email" required placeholder="you@company.com">
@@ -345,7 +379,7 @@
     <input type="text" name="_honey" class="mf-trap" tabindex="-1" autocomplete="off" aria-hidden="true">
     <div class="mf-foot">
       <button type="submit" class="btn magnetic" id="ct-send">Send to Martin</button>
-      <p class="ct-help" id="ct-help" aria-live="polite">Goes straight to Martin's inbox. Or write to <a id="ct-mail" href="mailto:zhangsanshi2003@gmail.com">zhangsanshi2003@gmail.com</a>.</p>
+      <p class="ct-help" id="ct-help" aria-live="polite">Goes straight to Martin's inbox. He replies within two working days.</p>
     </div>
   </form>
 </section>
