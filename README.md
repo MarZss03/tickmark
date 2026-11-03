@@ -35,14 +35,21 @@ All rules live in `engine.js`, which has no page code: the site and the tests bo
 | --- | --- | --- |
 | MISSING_EMPLOYEE | A payroll row's employee is not in the HRIS file | High, blocks release |
 | DUPLICATE_PAYMENT | An employee appears twice in the register for the period | High, blocks release |
-| INACTIVE_PAID | Status is terminated / inactive / left / separated and the leaving date is before the period | High, blocks release |
+| INACTIVE_PAID | Status is terminated / inactive / left / separated / resigned / retired / dismissed / deceased, and the leaving date is before the period or blank | High, blocks release |
+| NOT_STARTED | The HRIS start date is after the pay period ends | High, blocks release |
 | OUTLIER | Gross differs from prior gross by more than 40% | Medium |
 | CURRENCY | Paid currency differs from the HRIS currency | Medium |
 | PRORATION | Hired inside the period; expected pay = gross × days worked ÷ days in period | Medium |
 | EQUITY_MISSING | A vest in the equity file has no equity value on the payslip | Medium |
-| INJECTION | A note contains instruction-like text (English or Chinese, after undoing lookalike characters) | Low; the note is withheld from any model |
+| INJECTION | A note contains instruction-like text (English or Chinese, after undoing full-width letters, invisible characters, Cyrillic and Greek lookalikes, and digits for letters) | Low; the note is withheld from any model |
 
 Employee IDs are matched without regard to case or surrounding spaces. Bank matching: each statement line takes the first unused ledger line with the same amount inside the date window; an unmatched line shows the nearest candidate within 10%.
+
+## Stress test
+
+The **Stress test** tab checks the rules themselves. It plants one known error at a time into a copy of the payroll data (the sample, or your own files), re-runs the rules and counts what they catch. 19 plants are errors a rule should raise on that employee; 4 are normal cases that must stay quiet (pay 39% up, leaving on the last day, starting on the first day, an ordinary approval note), which counts false alarms. Plants go only into rows the rules pass today, so every change in the result comes from the plant. A seed picks the employees; the same seed gives the same plants. Results export to CSV and the run lands in the audit log.
+
+The first run caught 11 of 19. The 8 misses were real gaps: a terminated person with no leaving date, the status "resigned", pay before the start date, and an injection note hidden with zero-width, Cyrillic or full-width characters. Those six are fixed. Two misses remain on purpose, and the page says why: pay tripled with the prior period left blank (nothing to compare against), and a reworded instruction (a keyword rule cannot recognise new wording). Today: 17 of 19 caught, 0 false alarms.
 
 ## Tests
 
@@ -50,7 +57,7 @@ Employee IDs are matched without regard to case or surrounding spaces. Bank matc
 node --test "tests/*.test.js"
 ```
 
-25 tests cover every payroll rule and its boundaries, bank matching, the SEC controls, the FinQA grader, journal checks, the FX revaluation, CSV parsing and validation, and a round trip of the sample through the CSV templates (same results either way). GitHub Actions runs them, plus a syntax check of the page scripts, on every push.
+30 tests cover every payroll rule and its boundaries, the stress test (expected misses, no false alarms, same seed same plants, input untouched), bank matching, the SEC controls, the FinQA grader, journal checks, the FX revaluation, CSV parsing and validation, and a round trip of the sample through the CSV templates (same results either way). GitHub Actions runs them, plus a syntax check of the page scripts, on every push.
 
 ## What is real and what is synthetic
 
@@ -85,7 +92,7 @@ The SEC asks for a contact address in the `User-Agent`; `fetch-real.mjs` sends M
 
 - `index.html`: the Work page (intro, hero, results, workbench, live control, contact).
 - `notes.html`: every explanation (principles, one exception end to end, scores, what broke, close calendar, data sources, history, letter, credits).
-- `engine.js`: every rule, plus CSV parsing, validation and export. No page code.
+- `engine.js`: every rule, the stress test, plus CSV parsing, validation and export. No page code.
 - `app.js`: renders the workbench, records decisions, saves the session, handles uploads and exports.
 - `motion.js`: intro, page wipe, reveals, progress bar, counters, magnetic buttons, jump palette, toasts, segmented indicators, spotlight and tilt.
 - `blender/mark3d.py`: the 3D mark in the hero (Blender 5.4). `blender -b -P blender/mark3d.py -- still <out>` and `-- anim <frames dir>/f_`. The frames are transparent; composite them onto #0a0a0a with ffmpeg before encoding.

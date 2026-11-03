@@ -130,6 +130,7 @@
     }
     if (view === 'payroll') drawPayrollCharts();
     if (view === 'cash') drawFx();
+    if (view === 'stress') runStress(true);
     if (view === 'eval') {
       Charts.line($('#ch-ver'), { labels: ['2.0.0 · 66', '2.0.0 · 74', '2.1.0 · 74'], series: [{ name: 'Recall', values: TM.versions.map((v) => v.r) }], yTicks: [0.8, 0.85, 0.9, 0.95, 1], format: Charts.fmt.pct(1), endLabel: true });
       Charts.barList($('#ch-cats'), TM.evalCats.map(([label, n, pass]) => ({ label: `${label} · ${pass}/${n}`, value: n })), { format: Charts.fmt.int, thin: true });
@@ -442,6 +443,7 @@
     $('#my-clear').hidden = !n && !mine.ranPay && !mine.ranBank;
     $('#up-start').value = mine.period.start; $('#up-end').value = mine.period.end;
     $('#up-window').value = String(mine.window);
+    refreshStressSource();
   }
   function showErrors(listId, errors) {
     $(listId).innerHTML = errors.map((e) => `<li>${esc(e)}</li>`).join('');
@@ -486,7 +488,7 @@
       stat('Gross this period', money(data.payroll.reduce((a, p) => a + p.gross, 0)), ccys.length === 1 ? ccys[0] : `${ccys.length} currencies`) +
       stat('Exceptions', exceptions.length, `${Object.keys(decisions).length} decided · ${E.periodLabel(mine.period)}`) +
       stat('Release blockers', openBlock, openBlock ? 'high severity, needs a decision' : 'none open', openBlock > 0);
-    $('#my-pay-sub').textContent = 'Same seven rules as the sample';
+    $('#my-pay-sub').textContent = 'Same nine rules as the sample';
     payrollTable($('#my-pay-q tbody'), exceptions, decisions, (key, action) => {
       mine.payDecisions[fp] = { ...(mine.payDecisions[fp] || {}), [key]: { action, at: iso() } };
       saveMine();
@@ -542,6 +544,50 @@
     $$('[data-my-pane]').forEach((p) => { p.hidden = p.dataset.myPane !== b.dataset.my; });
   }));
 
+  // ---------- stress test: plant known errors into a copy, count what the rules catch ----------
+  let stress = null, stressSeed = store.get('stressSeed', 1);
+  const RESULT_PILL = { caught: 'ok', quiet: 'ok', missed: 'neg', 'false alarm': 'warn' };
+  const RESULT_ORDER = { missed: 0, 'false alarm': 1, caught: 2, quiet: 3 };
+  function stressSource() {
+    if ($('#st-src').value === 'sample') return { data: { hris: TM.hris, payroll: TM.payroll, equity: TM.equity, period: SAMPLE_PERIOD }, label: 'the sample payroll' };
+    const { errors, data } = loadKinds(['hris', 'payroll'], ['equity']);
+    if (!E.isDate(mine.period.start) || !E.isDate(mine.period.end) || mine.period.end < mine.period.start) errors.push('Set the pay period.');
+    return errors.length ? { errors } : { data: { hris: data.hris, payroll: data.payroll, equity: data.equity || [], period: mine.period }, label: 'your files' };
+  }
+  function runStress(quiet) {
+    const src = stressSource(), err = $('#st-err');
+    const result = src.errors ? null : E.stressPayroll(src.data, stressSeed);
+    const problem = src.errors ? 'Fix your files on the Your data tab first. ' + src.errors.join(' ') : result.error;
+    err.hidden = !problem; err.textContent = problem || '';
+    if (problem) return;
+    stress = Object.assign(result, { label: src.label });
+    renderStress();
+    if (!quiet) log('You', 'Stress-tested the payroll rules', `${src.label} · ${stress.caught} of ${stress.planted} caught · ${stress.falseAlarms} false alarms · seed ${stressSeed}`);
+  }
+  function renderStress() {
+    const s = stress, missed = s.planted - s.caught;
+    $('#st-stats').innerHTML =
+      stat('Planted errors caught', `${s.caught} of ${s.planted}`, `${Math.round((s.caught / s.planted) * 100)}% · one error at a time`) +
+      stat('Got through', missed, missed ? 'each one listed with the reason' : 'none', missed > 0) +
+      stat('False alarms', `${s.falseAlarms} of ${s.quiet}`, 'normal cases that must stay quiet', s.falseAlarms > 0) +
+      stat('Planted into', `${new Set(s.cases.map((c) => c.employee)).size} people`, `from ${s.pool} clean rows · seed ${s.seed}`);
+    if (window.Charts) Charts.barList($('#ch-st'), Object.entries(s.byRule).map(([rule, r]) => ({ label: `${rule} · ${r.caught} of ${r.planted}`, value: r.caught / r.planted })), { format: Charts.fmt.pct(0) });
+    const through = s.cases.filter((c) => !c.ok);
+    $('#st-gaps').innerHTML = through.length
+      ? through.map((c) => `<li><p class="st-g-h">${esc(c.label)} <span class="pill ${RESULT_PILL[c.result]}">${c.result === 'missed' ? 'Missed' : 'False alarm'}</span></p><p>${esc(c.gap || `Raised ${c.raised.join(', ')} on a normal case.`)}</p></li>`).join('')
+      : '<li class="d-empty">Nothing got through.</li>';
+    $('#st-sub').textContent = `${s.cases.length} plants into ${s.label} · misses first`;
+    $('#st-t tbody').innerHTML = [...s.cases].sort((a, b) => RESULT_ORDER[a.result] - RESULT_ORDER[b.result]).map((c) =>
+      `<tr><td>${esc(c.label)}</td><td>${esc(c.employee)}</td><td>${c.expect || 'nothing'}</td><td>${c.raised.length ? esc(c.raised.join(', ')) : '—'}</td><td><span class="pill ${RESULT_PILL[c.result]}">${c.result[0].toUpperCase() + c.result.slice(1)}</span></td></tr>`).join('');
+  }
+  function refreshStressSource() {
+    const opt = $('#st-src option[value="mine"]');
+    opt.disabled = !(mine.files.hris && mine.files.payroll);
+    if (opt.disabled && $('#st-src').value === 'mine') $('#st-src').value = 'sample';
+  }
+  $('#st-run').addEventListener('click', () => { stressSeed += 1; store.set('stressSeed', stressSeed); runStress(false); });
+  $('#st-src').addEventListener('change', () => runStress(false));
+
   // ---------- exports ----------
   const exporters = {
     close: () => ['close-exceptions', E.toCsv(['id', 'source', 'rule', 'title', 'amount', 'severity', 'blocks_signoff', 'decision', 'reason', 'decided_at'],
@@ -551,6 +597,8 @@
     payroll: () => ['payroll-exceptions', E.toCsv(PAYROLL_COLUMNS, payrollRows(PAY, payState.decisions))],
     cash: () => ['bank-reconciliation', E.toCsv(BANK_COLUMNS, bankRows(cashRec))],
     'my-payroll': () => myPay && ['your-payroll-exceptions', E.toCsv(PAYROLL_COLUMNS, payrollRows(myPay.exceptions, mine.payDecisions[myPay.fp] || {}))],
+    stress: () => stress && ['stress-test', E.toCsv(['planted', 'employee_id', 'should_raise', 'rules_raised', 'result', 'why'],
+      stress.cases.map((c) => ({ planted: c.label, employee_id: c.employee, should_raise: c.expect || 'nothing', rules_raised: c.raised.join(' '), result: c.result, why: c.gap })))],
     'my-bank': () => myBank && ['your-bank-reconciliation', E.toCsv(BANK_COLUMNS, bankRows(myBank))],
     audit: () => ['audit-log', E.toCsv(['at', 'actor', 'event', 'detail'], audit)],
   };
@@ -655,7 +703,7 @@
       ['BD1', 'Mon 2', [
         ['09:00', 'Ingest the four source files', 'Contracts checked, 63 rows · CTL-03', ['TM'], 'Tickmark'],
         ['10:00', 'Bank reconciliation, operating', 'Match on amount, ±3 days · CTL-04', ['TM', 'GL'], 'Tickmark, GL'],
-        ['14:00', 'Payroll control cycle', 'Seven rules, blockers hold release · CTL-05', ['TM', 'PY'], 'Tickmark, Payroll'],
+        ['14:00', 'Payroll control cycle', 'Nine rules, blockers hold release · CTL-05', ['TM', 'PY'], 'Tickmark, Payroll'],
         ['16:30', 'Card receipts chased', 'Over-limit spend without receipt', ['AP'], 'AP lead'],
       ]],
       ['BD2', 'Tue 3', [

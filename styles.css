@@ -784,3 +784,13 @@ body[data-page="notes"] .bar-links a[href="notes.html"] { color: var(--ink); }
   .metric:nth-child(3)::before { display: block; }
   .metric:nth-of-type(3)::before { display: none; }
 }
+
+/* stress test */
+.st-err { margin: 0 0 10px; color: #e8c27e; font-size: 13px; }
+.st-gaps { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.st-gaps li p { margin: 0; color: var(--a-muted); font-size: 13px; }
+.st-gaps .st-g-h { color: var(--a-text); font-size: 14px; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+@media (max-width: 900px) {
+  [data-view="stress"] .v-title .c-acts { width: 100%; flex-wrap: wrap; }
+  #st-run { width: 100%; }
+}

@@ -71,7 +71,7 @@
 <section class="metrics" aria-labelledby="metrics-h">
   <h2 id="metrics-h" class="sr">Results</h2>
   <div class="metric" data-reveal><p class="m-v"><span data-count="8">8</span></p><p class="m-l">real 10-K filings checked, 3 findings</p></div>
-  <div class="metric" data-reveal><p class="m-v"><span data-count="25">25</span></p><p class="m-l">unit tests on the rules engine, run on every push</p></div>
+  <div class="metric" data-reveal><p class="m-v"><span data-count="30">30</span></p><p class="m-l">unit tests on the rules engine, run on every push</p></div>
   <div class="metric" data-reveal><p class="m-v"><span data-count="2">2</span></p><p class="m-l">checks you can run on your own CSV, kept in your browser</p></div>
   <div class="metric" data-reveal><p class="m-v"><span data-count="1147">1,147</span></p><p class="m-l">real FinQA questions, with a validated grader</p></div>
 </section>
@@ -91,6 +91,7 @@
         <button role="tab" class="nav-i" data-view="cash" aria-selected="false">Cash and FX</button>
         <button role="tab" class="nav-i" data-view="sec" aria-selected="false">Public filings</button>
         <button role="tab" class="nav-i" data-view="eval" aria-selected="false">Model evaluation</button>
+        <button role="tab" class="nav-i" data-view="stress" aria-selected="false">Stress test</button>
         <button role="tab" class="nav-i nav-mine" data-view="mine" aria-selected="false">Your data <span class="count" id="mine-count" hidden></span></button>
         <button role="tab" class="nav-i" data-view="audit" aria-selected="false">Audit log <span class="count" id="audit-count">0</span></button>
       </div>
@@ -189,6 +190,23 @@
         <div class="card fq"><div class="c-head"><p class="c-t">FinQA grader</p><p class="c-s" id="fq-sub"></p></div>
           <div class="fq-pick" id="fq-pick" role="tablist" aria-label="FinQA questions"></div>
           <div class="fq-body" id="fq-body"></div>
+        </div>
+      </div>
+
+      <!-- STRESS TEST: plant known errors into a copy of the data and count what the rules catch -->
+      <div class="view" data-view="stress" role="tabpanel" hidden>
+        <div class="v-title">
+          <div><p class="v-h">Stress test the rules</p><p class="v-sub">Plants one known error at a time into a copy of the payroll data, runs the rules again, and counts what they catch. Four plants are normal situations that must stay quiet, which counts false alarms. The data itself is never changed.</p></div>
+          <div class="c-acts"><label class="tol">Data <select id="st-src"><option value="sample">Sample payroll</option><option value="mine" disabled>Your files</option></select></label><button type="button" class="b-pri" id="st-run">Plant into other employees</button></div>
+        </div>
+        <p class="st-err" id="st-err" role="alert" hidden></p>
+        <div class="stats" id="st-stats"></div>
+        <div class="two">
+          <div class="card"><div class="c-head"><p class="c-t">Caught by rule</p><p class="c-s">Raised on the employee it was planted into</p></div><div class="chart" id="ch-st"></div></div>
+          <div class="card"><div class="c-head"><p class="c-t">What got through</p><p class="c-s">Each miss, and why the rule cannot see it</p></div><ul class="st-gaps" id="st-gaps"></ul></div>
+        </div>
+        <div class="card"><div class="c-head"><p class="c-t">Every plant</p><div class="c-acts"><p class="c-s" id="st-sub"></p><button type="button" class="b-sec b-sm" data-export="stress">Export CSV</button></div></div>
+          <table class="tbl" id="st-t"><thead><tr><th scope="col">Planted</th><th scope="col">Employee</th><th scope="col">Should raise</th><th scope="col">Rules raised</th><th scope="col">Result</th></tr></thead><tbody></tbody></table>
         </div>
       </div>
 
