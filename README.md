@@ -6,6 +6,8 @@ Finance operations staff often see two records that should agree, and don't: the
 
 It started on 27 Oct 2026 as a finance review experiment (controls that show their work, for close, payroll and cash). On 3 Nov 2026, industry research and my mortgage servicing work narrowed it to one problem: settling exceptions whose facts sit with other teams. The [Notes](https://tickmark-martinzhang.vercel.app/notes) tell that story in order. It grew out of the earlier "Run Replay" prototype. All operational data is synthetic.
 
+**Start here:** [Try the payout exception](https://tickmark-martinzhang.vercel.app/#try) opens the main mortgage case with a step-by-step guide: ask Payments, switch roles, read the reply, ask the authorised reviewer, re-check.
+
 Live: https://tickmark-martinzhang.vercel.app · Notes: https://tickmark-martinzhang.vercel.app/notes
 
 A static site: open `index.html`, or run `node scripts/serve.mjs` and visit http://localhost:5173. It deploys to Vercel as-is, with no build step; every push to `main` redeploys.
@@ -28,7 +30,7 @@ When a reply or a new document changes the inputs, the module's checks re-run, b
 
 The eleven mortgage files also cover a late wire (estimated shortfall until confirmed, notice, top-up), a moved closing date (old approval goes to re-review), an approved waiver not on the statement, a statement for the wrong registration, a paid-off loan with no final registration receipt (overdue follow-up, a wrong receipt sent back), a cancellation with a wire in transit, an internal refinance, an assignment prepared as a discharge, a reverse mortgage with an estate, and a commercial partial release. Branches without a checked rule go to a person.
 
-**Simulated:** sign-in (switch people with *Acting as*), notices, sending and every bank system. **Deterministic stand-ins:** the document extractor and the drafted questions stand in for a model. **Not verified:** any lender's real rules for holds, per diem, waivers or cut-off times; the demo rules are labelled as such. **Not measured:** time saved, round trips or error rates with real users.
+**Simulated:** sign-in (switch people with *Acting as*), notices, sending and every bank system. **Deterministic stand-ins:** the document extractor and the drafted questions stand in for a model. Each case separates what the evidence confirms from a possible explanation, which is labelled as not confirmed until the facts it depends on are in. **Not verified:** any lender's real rules for holds, per diem, waivers or cut-off times; the demo rules are labelled as such. **Not measured:** time saved, round trips or error rates with real users.
 
 ## Use it on your own data
 

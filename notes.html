@@ -92,6 +92,7 @@
       <li><b>Keep urgency apart from confidence.</b><span>A closing tomorrow is urgent however sure the reading is; a confident reading is not a reason to rush.</span></li>
       <li><b>A person confirms what the data can't.</b><span>A settlement date, a waiver, a release scope: the rule pauses only the step that depends on it and names who can decide.</span></li>
     </ul>
+    <p data-reveal><a class="btn" href="index.html#try">Try the payout exception</a></p>
     <p class="story-note" data-reveal>Out of scope on purpose: sending payments, statement requests, portal tracking and land registration. Those stay in the systems that run them; the demo shows their states, marked as simulated.</p>
   </div>
 </section>
@@ -114,7 +115,7 @@
   <h2 id="pr-h" class="head lines"><span class="line"><span data-line>Three rules</span></span></h2>
   <ol class="rules">
     <li data-reveal><b>Rules calculate.</b><span>Amounts, dates, differences and every rule decision stay in deterministic code that can be tested.</span></li>
-    <li data-reveal><b>Evidence stays attached.</b><span>Each exception carries the rows and fields that raised it. A model may explain them; it cites only fields that exist.</span></li>
+    <li data-reveal><b>Evidence stays attached.</b><span>Each exception carries the rows and fields that raised it. Explanations cite only fields that exist. In this build they come from deterministic code; a model may draft them later, under the same rule.</span></li>
     <li data-reveal><b>People release.</b><span>High-severity exceptions block release until a person decides. An override needs a written reason, kept in the log.</span></li>
   </ol>
 </section>
@@ -130,8 +131,8 @@
     <p class="field-c">Then a rule fires and keeps its evidence.</p>
   </div>
   <div class="field f3">
-    <div class="tcard" data-ui><p class="t-t">Inactive employee paid</p><p class="t-m">Brief: hold, confirm leaving date</p><p class="t-m">2 citations · validated</p></div>
-    <p class="field-c">A model explains it. It never sets the amount.</p>
+    <div class="tcard" data-ui><p class="t-t">Inactive employee paid</p><p class="t-m">Brief: hold, confirm leaving date</p><p class="t-m">2 citations · deterministic brief</p></div>
+    <p class="field-c">A brief explains it from the cited fields. Today that is deterministic code, not a model, and it never sets the amount.</p>
   </div>
   <div class="field f4">
     <div class="tcard" data-ui><p class="t-t">Held by the reviewer</p><p class="t-m">Decision by reviewer · 14:02</p><p class="t-m">Reason: “confirmed with People”</p></div>
@@ -219,7 +220,7 @@
     <h2 id="letter-h" class="sr">A letter from Martin</h2>
     <svg class="mk seal" viewBox="0 0 191 225" aria-hidden="true"><path class="m-cream" d="M0 80L191 0V60L48 165L0 140Z"/><path class="m-gold" d="M0 156L48 181L191 76V145L0 225Z"/></svg>
     <p>Tickmark started as an experiment: could finance checks show their work? The rules answered that part. What they could not answer was the question I meet at work, when the money is in the bank and the loan still shows a balance: who knows which date applies, and how fast can I find out?</p>
-    <p>So the project now rests on one rule: <mark>amounts, dates and approvals stay in code and with people</mark>. A model may read documents and draft the question, because that is reversible and it is where reviewers lose time. It does not decide.</p>
+    <p>So the project now rests on one rule: <mark>amounts, dates and approvals stay in code and with people</mark>. In this build, reading documents and drafting the question are done by deterministic code that stands in for a model. A model could take that work on later, because it is reversible and it is where reviewers lose time. It would not decide.</p>
     <p>Writing cases to break my own rules taught me more than building them did: 66 of my own cases scored 100%, and eight hostile ones dropped recall to 92.3%. The stress test did the same again, catching six real gaps on its first run.</p>
     <p>What is missing for production: real servicing, payments, HRIS and ledger connections, single sign-on and real permissions, sending through the bank's own channels, and results from real reviewers. Whether this saves time or prevents errors is still a question I have to test.</p>
     <p class="sign">Martin Zhang</p>

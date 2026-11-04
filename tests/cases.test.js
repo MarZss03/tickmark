@@ -128,7 +128,7 @@ test('mortgage: on-time wire, late posting: Payments, then the authorised review
   assert.deepEqual(open(c), ['LATE_POSTING']);
   assert.equal(c.exceptions.find((x) => x.code === 'LATE_POSTING').cls, 'timing');
   assert.equal(notice().ready, false, 'a late posting alone does not trigger a shortfall notice');
-  assert.match(notice().prereqs[0].label, /on time/);
+  assert.match(notice().prereqs[0].label, /before the demo cut-off/);
   ok(C.accept(s, D, t1, 'ava'));
   const bad = C.escalate(s, D, c.id, { ...m.drafts.LATE_POSTING, person: 'eliza' }, 'ava');
   assert.equal(bad.ok, false);

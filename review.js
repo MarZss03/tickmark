@@ -48,7 +48,12 @@
       const r = fn();
       if (r && r.ok === false) { ui.msg = r.error + (r.suggest ? ` Authorised: ${r.suggest.map((p) => `${p.name} (${team(p.team)})`).join(', ')}.` : ''); }
       else { ui.msg = ''; ui.form = null; save(); if (okMsg) log(okMsg[0], okMsg[1]); }
-    } finally { ui.busy = false; render(); }
+    } finally {
+      ui.busy = false; render();
+      // in the guided case, each finished step brings the next instruction back into view
+      const c = ui.open && state.cases[ui.open];
+      if (!ui.msg && c && c.key === TRY_KEY && $('.rq-guide')) window.scrollTo({ top: $('.rq-guide').getBoundingClientRect().top + window.scrollY - 84, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    }
   }
 
   // ---------- queue ----------
@@ -79,6 +84,36 @@
       </tbody></table>`;
   }
 
+  // ---------- the guided payout case: each step read from the case's own state ----------
+  const TRY_KEY = 'ms:ML-40311';
+  const caseByKey = (k) => state.order.map((id) => state.cases[id]).find((c) => c.key === k);
+  const WAIT = ['open', 'claimed', 'more-info'];
+  function guideStep(c) {
+    const tasks = c.tasks.map((id) => state.tasks[id]);
+    const pay = tasks.find((t) => t.team === 'payments');
+    const dan = tasks.find((t) => t.original === 'person:daniel' || t.assignee === 'daniel');
+    const open = (code) => c.exceptions.some((x) => x.status === 'open' && x.code === code);
+    if (c.closed) return { n: 8, done: true, text: 'Done. The timeline below keeps every step, with before-and-after values, and the shortfall notice was never sent. The same handling runs on payroll and cash:' };
+    if (!pay) return { n: 1, who: 'ava', at: '[data-form="esc"]', text: 'Read the four answers below: the balance is a fact, its cause is not confirmed yet. Click “Ask a team or a person…”. The question to Payments is already drafted; send it.' };
+    if (WAIT.includes(pay.status)) return { n: 2, who: 'leo', at: pay.status === 'open' ? '[data-do="claim"]' : '[data-do="form-reply"]', text: pay.status === 'open' ? 'You are Leo Park in Payments. Under “Checks sent from this case”, click Claim, then Reply: tick the wire log and send.' : 'Click Reply on the Payments check, tick the wire log and send.' };
+    if (pay.status === 'replied') return { n: 3, who: 'ava', at: '[data-do="acceptT"]', text: 'Payments replied and the checks re-ran. The receipt time is now a confirmed fact; the settlement date is still open, so the shortfall notice stays locked. Click “Reply answers it”.' };
+    if (!dan) return { n: 4, who: 'ava', at: '[data-form="esc"]', text: 'Click “Ask a team or a person…” again. The draft now goes to Daniel Roy, the authorised reviewer. Pick Eliza Moreau first if you want to see a refusal.' };
+    if (WAIT.includes(dan.status)) return { n: 5, who: 'daniel', at: '[data-do="form-reply"]', text: 'As Daniel, click Reply on his check, tick the settlement decision and send.' };
+    if (dan.status === 'replied') return { n: 6, who: 'ava', at: '[data-do="acceptT"]', text: 'Daniel set the settlement date. Click “Reply answers it” to accept.' };
+    if (open('LATE_POSTING')) return { n: 7, who: 'daniel', at: '[data-a="apply-adjustment"]', text: 'Only Daniel holds settlement authority. Click “Reverse the interest charged during our hold”; the checks re-run.' };
+    return { n: 8, who: 'daniel', at: '[data-a="resume"]', text: 'Every condition now holds. Click “Resume discharge preparation”.' };
+  }
+  function guideHtml(c) {
+    const g = guideStep(c);
+    const others = ['payroll:E-1017:DUPLICATE_PAYMENT', 'cash:2026-10-22:-6850'].map((k) => caseByKey(k)).filter(Boolean);
+    return `<div class="card rq-guide" aria-live="polite"><div class="c-head"><p class="c-t">${g.done ? 'Walkthrough done' : `Walkthrough · step ${g.n} of 8`}</p><button type="button" class="link-btn sm" data-do="tryreset">Start over</button></div>
+      <ol class="rq-steps" aria-hidden="true">${Array.from({ length: 8 }, (_, i) => `<li class="${i + 1 < g.n || g.done ? 'done' : i + 1 === g.n ? 'now' : ''}"></li>`).join('')}</ol>
+      <p class="rq-gtext">${esc(g.text).replace(/“([^”]+)”/g, '<b>“$1”</b>')}</p>
+      ${g.done ? `<div class="rq-btns">${others.map((o) => `<button type="button" class="b-sec" data-do="open" data-id="${o.id}">${esc(o.title)} →</button>`).join('')}</div>`
+        : g.who && g.who !== me ? `<div class="rq-btns"><button type="button" class="b-pri" data-do="as" data-p="${g.who}">Act as ${esc(name(g.who))}</button><span class="c-s">Switching people simulates signing in as them.</span></div>`
+        : `<div class="rq-btns"><button type="button" class="b-pri" data-do="goto" data-at="${esc(g.at)}">Show me where</button><span class="c-s">Acting as ${esc(name(me))}.</span></div>`}</div>`;
+  }
+
   // ---------- case review ----------
   function caseHtml(c) {
     const facts = C.trace(c);
@@ -105,28 +140,30 @@
           <p class="c-s">${esc((c.priority ? c.priority.reasons : []).join(' · '))}</p>
           ${onCase ? `<button type="button" class="link-btn sm" data-do="form" data-form="priority">Change priority</button>` : ''}</div>
       </div>
+      ${c.key === TRY_KEY ? guideHtml(c) : ''}
       ${ui.form === 'priority' ? `<div class="rq-form"><label class="tol">Priority <select id="pr-l">${['P1', 'P2', 'P3', 'auto'].map((l) => `<option value="${l}">${l === 'auto' ? 'Back to computed' : l}</option>`).join('')}</select></label><label class="sr" for="pr-r">Reason</label><textarea id="pr-r" placeholder="Why (8+ characters)"></textarea><button type="button" class="b-pri" data-do="priority">Save</button></div>` : ''}
 
       <div class="rq-four">
-        <section class="card"><p class="c-t">What differs</p>
-          ${open.length ? open.map((x) => `<div class="rq-x"><p><b>${esc(x.title)}</b></p>
-            <dl class="rq-ev"><div><dt>Expected</dt><dd>${esc(x.expected)}</dd></div><div><dt>Found</dt><dd>${esc(x.actual)}</dd></div></dl>
+        <section class="card"><p class="c-t"><span class="rq-q">1</span>What differs</p>
+          ${open.length ? open.map((x) => `<div class="rq-x"><p class="rq-find"><b>${esc(x.title)}</b></p>
+            <dl class="rq-ev"><div><dt>Expected</dt><dd class="${String(x.expected).length > 14 ? 'rq-long' : ''}">${esc(x.expected)}</dd></div><div><dt>Found</dt><dd class="${x.expected !== x.actual ? 'rq-off' : ''}${String(x.actual).length > 14 ? ' rq-long' : ''}">${esc(x.actual)}</dd></div></dl>
             <p class="c-s">${esc(x.by)} · <span class="pill">${esc(CLS[x.cls] || x.cls)}</span>${x.clsBy ? ` set by ${esc(name(x.clsBy))}` : ''}${x.confidence ? ` · confidence in the reading: ${esc(x.confidence)}` : ''}${x.seen > 1 ? ` · seen ${x.seen} times, one case` : ''}</p>
-            ${x.cause ? `<p class="rq-inf"><span class="sl">Inference, not a finding</span>${esc(x.cause)}</p>` : ''}
+            ${x.missing && x.missing.length ? `<p class="rq-pend"><b>Not confirmed yet:</b> ${esc(x.missing.map((m) => m.what).join('; '))}</p>` : ''}
+            ${x.cause ? `<p class="rq-inf"><span class="sl">${x.missing && x.missing.length ? 'Possible explanation · not confirmed' : 'Explanation from the evidence above'}</span>${esc(x.cause)}</p>` : ''}
             ${onCase ? `<button type="button" class="link-btn sm" data-do="form" data-form="cls:${x.id}">Change classification</button>` : ''}
             ${ui.form === 'cls:' + x.id ? `<div class="rq-form"><select id="cl-v">${Object.entries(CLS).map(([k, l]) => `<option value="${k}"${k === x.cls ? ' selected' : ''}>${l}</option>`).join('')}</select><textarea id="cl-r" placeholder="Why (8+ characters)"></textarea><button type="button" class="b-pri" data-do="cls" data-x="${x.id}">Save</button></div>` : ''}</div>`).join('') : `<p class="d-empty">Nothing open. ${c.exceptions.filter((x) => x.status !== 'open').length} exception${c.exceptions.length === 1 ? '' : 's'} closed or accepted; history below.</p>`}
         </section>
-        <section class="card"><p class="c-t">Where the evidence comes from</p>
+        <section class="card"><p class="c-t"><span class="rq-q">2</span>Where the evidence comes from</p>
           <p>${sources.length} sources, ${origins.size} independent</p>
-          ${conflicts.length ? `<p class="rq-bad">Disagree: ${esc(conflicts.map((f) => f.label + (f.leading ? ` (most independent sources say ${/^d+.dd$/.test(f.leading) ? E.money(+f.leading) : f.leading})` : '')).join('; '))}</p>` : '<p class="c-s">No conflicting values.</p>'}
+          ${conflicts.length ? `<p class="rq-bad">Disagree: ${esc(conflicts.map((f) => f.label + (f.leading ? ` (most independent sources say ${/^\d+\.\d\d$/.test(f.leading) ? E.money(+f.leading) : f.leading})` : '')).join('; '))}</p>` : '<p class="c-s">No conflicting values.</p>'}
           ${pending.length ? pending.map((f) => `<p class="rq-pend"><b>To confirm: ${esc(f.label)}.</b> Checked: ${esc(f.checked || [...new Set(sources.map((e) => e.system))].join(', '))}. Who can supply it: ${esc(team(f.who) || 'the owning team')}.</p>`).join('') : '<p class="c-s">Nothing required is missing.</p>'}
         </section>
-        <section class="card"><p class="c-t">What it holds up</p>
-          <p>${esc((c.affects || '—').replace(/^w/, (m) => m.toUpperCase()))}</p><p class="c-s">${esc(c.dueLabel || 'Due')}: ${esc(at(c.due))}</p>
+        <section class="card"><p class="c-t"><span class="rq-q">3</span>What it holds up</p>
+          <p>${esc((c.affects || '—').replace(/^\w/, (m) => m.toUpperCase()))}</p><p class="c-s">${esc(c.dueLabel || 'Due')}: ${esc(at(c.due))}</p>
           ${tasks.filter((t) => C.OPEN_TASK.includes(t.status)).map((t) => `<p class="c-s">${t.blocking ? 'Must wait for' : 'Question to'} ${esc(t.assignee ? name(t.assignee) : team(t.team))} · ${esc(TASK[t.status])}${C.isOverdue(state, t) ? ' <span class="pill neg">Overdue</span>' : ''}</p>`).join('')}
         </section>
-        <section class="card"><p class="c-t">What you can do now</p><p class="c-s">Acting as ${esc(name(me))}, ${esc(D.people[me].role)}</p>
-          ${onCase && !c.closed ? `<div class="rq-btns"><button type="button" class="b-sec" data-do="form" data-form="esc">Ask a team or a person…</button><button type="button" class="b-sec" data-do="recheck">Re-run checks</button></div>` : ''}
+        <section class="card"><p class="c-t"><span class="rq-q">4</span>What you can do now</p><p class="c-s">Acting as ${esc(name(me))}, ${esc(D.people[me].role)}</p>
+          ${onCase && !c.closed ? `<div class="rq-btns"><button type="button" class="${acts.some((a) => a.allowed && a.ready && a.kind !== 'accept') ? 'b-sec' : 'b-pri'}" data-do="form" data-form="esc">Ask a team or a person…</button><button type="button" class="b-sec" data-do="recheck">Re-run checks</button></div>` : ''}
           ${acts.length ? acts.map(actBtn).join('') : `<p class="c-s">${c.closed ? 'Closed. History stays below.' : 'No action for this case.'}</p>`}
         </section>
       </div>
@@ -169,11 +206,11 @@
     const x = c.exceptions.find((e) => e.status === 'open');
     const draft = (x && c.drafts && c.drafts[x.code]) || {};
     const to = ui.escTo || draft.to || 'team';
-    return `<div class="card rq-esc"><div class="c-head"><p class="c-t">Ask a team or a person</p><p class="c-s">${draft.question ? 'Drafted from the case evidence by the demo assistant. Check it and the recipient before sending.' : 'Write one clear question.'}</p></div>
+    return `<div class="card rq-esc"><div class="c-head"><p class="c-t">Ask a team or a person</p><p class="c-s">${draft.question ? 'Drafted by a fixed template from this case’s evidence. It stands in for an AI draft; check the question and the recipient before sending.' : 'Write one clear question.'}</p></div>
       <div class="rq-seg" role="radiogroup" aria-label="Send to"><label><input type="radio" name="es-to" value="team"${to === 'team' ? ' checked' : ''}> A team (anyone in it can claim)</label><label><input type="radio" name="es-to" value="person"${to === 'person' ? ' checked' : ''}> A named person</label></div>
       <div class="rq-grid">
-        <label class="tol">Team <select id="es-team">${Object.entries(D.teams).map(([k, t]) => `<option value="${k}"${k === draft.team ? ' selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label>
-        <label class="tol">Person <select id="es-person">${Object.entries(D.people).map(([k, p]) => `<option value="${k}"${k === draft.person ? ' selected' : ''}>${esc(p.name)} · ${esc(team(p.team))}</option>`).join('')}</select></label>
+        <label class="tol" id="es-team-l"${to === 'team' ? '' : ' hidden'}>Team <select id="es-team">${Object.entries(D.teams).map(([k, t]) => `<option value="${k}"${k === draft.team ? ' selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label>
+        <label class="tol" id="es-person-l"${to === 'person' ? '' : ' hidden'}>Person <select id="es-person">${Object.entries(D.people).map(([k, p]) => `<option value="${k}"${k === draft.person ? ' selected' : ''}>${esc(p.name)} · ${esc(team(p.team))}</option>`).join('')}</select></label>
         <label class="tol">Due in <select id="es-due"><option value="4">4 hours</option><option value="24" selected>1 day</option><option value="48">2 days</option></select></label>
         <label class="tol"><input type="checkbox" id="es-block"${draft.blocking === false ? '' : ' checked'}> The case must wait for this</label>
       </div>
@@ -247,7 +284,7 @@
   $('#rq-body').addEventListener('change', (e) => {
     const f = e.target.dataset.f;
     if (f) { ui.f[f] = e.target.value || undefined; render(); }
-    if (e.target.name === 'es-to') ui.escTo = e.target.value;
+    if (e.target.name === 'es-to') { ui.escTo = e.target.value; $('#es-team-l').hidden = ui.escTo !== 'team'; $('#es-person-l').hidden = ui.escTo !== 'person'; }
   });
   $('#rq-body').addEventListener('click', (e) => {
     const b = e.target.closest('[data-do]'); if (!b || b.disabled) return;
@@ -255,8 +292,11 @@
     if (d === 'view') { ui.view = b.dataset.v; return render(); }
     if (d === 'open') { ui.open = b.dataset.id; ui.form = null; ui.msg = ''; ui.escTo = null; render(); $('#rq-body').scrollIntoView({ block: 'start' }); return; }
     if (d === 'back') { ui.open = null; ui.form = null; ui.msg = ''; return render(); }
-    if (d === 'form') { ui.form = b.dataset.form || null; ui.escTo = null; return render(); }
-    if (d.startsWith('form-')) { ui.form = `${t}:${d.slice(5)}`; return render(); }
+    if (d === 'as') { setMe(b.dataset.p); return render(); }
+    if (d === 'goto') return spot($('#rq-body ' + b.dataset.at));
+    if (d === 'tryreset') { state = fresh(); save(); log('Restarted the payout walkthrough', 'Demo back to its starting cases'); return tryPayout(); }
+    if (d === 'form') { ui.form = b.dataset.form || null; ui.escTo = null; render(); return ui.form === 'esc' && spot($('.rq-esc')); }
+    if (d.startsWith('form-')) { ui.form = `${t}:${d.slice(5)}`; render(); return spot($('.rq-task .rq-form')); }
     if (d === 'priority') return run(() => C.setPriority(state, D, c.id, val('#pr-l'), val('#pr-r'), me), ['Changed priority', `${c.id} → ${val('#pr-l')}`]);
     if (d === 'cls') return run(() => C.reclassify(state, D, c.id, b.dataset.x, val('#cl-v'), val('#cl-r'), me), ['Changed classification', `${b.dataset.x} → ${CLS[val('#cl-v')]}`]);
     if (d === 'recheck') return run(() => ({ ok: true, ...C.runCheck(state, A, c.id, me, 'Re-run by ' + name(me)) }), ['Re-ran checks', c.id]);
@@ -287,6 +327,15 @@
     if (d === 'lead') return run(() => C.escalateToLead(state, D, t, me), ['Passed an overdue check to the lead', t]);
   });
 
+  function spot(el) {
+    if (!el) return;
+    // focus first: moving focus during a smooth scroll cancels the scroll in Chrome
+    const f = el.matches('button') ? el : el.querySelector('textarea, button'); if (f) f.focus({ preventScroll: true });
+    // after the redraw settles, so the browser's own scroll adjustment does not undo it
+    requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - window.innerHeight / 3, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })));
+    el.classList.remove('rq-spot'); void el.offsetWidth; el.classList.add('rq-spot');
+  }
+
   // ---------- links from the module views ----------
   window.tmCaseLink = (key) => {
     const c = state.order.map((id) => state.cases[id]).find((x) => x.key === key);
@@ -294,6 +343,16 @@
   };
   window.tmOpenCase = (id) => { ui.open = id; ui.form = null; ui.msg = ''; app.setView && app.setView('queue'); render(); };
   document.addEventListener('click', (e) => { const b = e.target.closest('[data-case]'); if (b) window.tmOpenCase(b.dataset.case); });
+  // "Try the payout exception": straight into the guided case, as its owner
+  function setMe(p) { me = p; try { localStorage.setItem(AS, me); } catch {} $('#rq-as').value = me; ui.form = null; ui.msg = ''; }
+  function tryPayout() {
+    const c = caseByKey(TRY_KEY); if (!c) return;
+    if (!c.tasks.length) setMe('ava');
+    window.tmOpenCase(c.id);
+    const target = $('#rq-body'); if (target) window.scrollTo({ top: target.getBoundingClientRect().top + window.scrollY - 84, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  }
+  document.addEventListener('click', (e) => { const t = e.target.closest('[data-try-case]'); if (!t) return; e.preventDefault(); try { history.replaceState(null, '', '#try'); } catch {} tryPayout(); });
+  if (location.hash === '#try') setTimeout(tryPayout, 400);
   window.tmSyncCash = (win) => { C.sync(state, D, A, 'cash', { bank: window.TM.bank, gl: window.TM.gl, window: win }); save(); render(); };
 
   render();

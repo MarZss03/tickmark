@@ -145,15 +145,17 @@
       if (r.request.status === 'active' && fund && fund.posted && loan.balance > 0) {
         if (!fund.bank) {
           add({ code: 'BALANCE_AFTER_PAYOUT', short: 'Balance after payout', title: `Loan shows ${money(loan.balance)} owing after the payout posted ${day(fund.posted)}`, expected: money(0), actual: money(loan.balance), cls: 'insufficient', confidence: 'low', by: 'Servicing rule + extractor',
-            cause: `Posted ${day(fund.posted)}, after the ${day(closing)} closing. Either the wire was late (the borrower owes per diem) or it waited on our side (the bank owes the interest). The bank receipt time decides which.`,
+            cause: `Posted ${day(fund.posted)}, after the ${day(closing)} closing. Late receipt or a posting delay may explain the balance. Confirm the bank receipt time and the applicable settlement date before deciding whether an adjustment is needed.`,
             next: 'Ask Payments when the bank received the wire', facts: ['bank', 'posted', 'balance'], missing: missingOf(c, facts, ['bank']) });
         } else {
           const late = fund.bank.slice(0, 10) > closing || (fund.bank.slice(0, 10) === closing && rule && rule.cutoff && fund.bank.slice(11, 16) > rule.cutoff);
           if (!late) {
             add({ code: 'LATE_POSTING', short: 'Posted late after our hold', cls: 'timing', confidence: 'high', by: 'Servicing rule', facts: ['bank', 'posted', 'settlement', 'balance'],
               title: r.settlement ? `Settlement date ${day(r.settlement.date)} confirmed; ${money(loan.balance)} of interest still on the loan` : `Funds reached the bank ${when(fund.bank)}; posted to the loan ${day(fund.posted)} after a hold`,
-              expected: `Interest stops ${day(closing)}`, actual: `${money(loan.balance)} charged after it`,
-              cause: `The bank had the money before the ${rule && rule.cutoff ? rule.cutoff + ' ' : ''}cut-off on the closing date. The delay is the review hold (${fund.holdOn ? when(fund.holdOn) : '?'} to ${fund.holdOff ? when(fund.holdOff) : '?'}), not the borrower. A late posting alone does not trigger a shortfall notice.`,
+              expected: r.settlement ? `Interest stops ${day(r.settlement.date)}` : 'Interest stop date: to confirm', actual: `${money(loan.balance)} charged after ${day(closing)}`,
+              cause: r.settlement
+                ? `An authorised reviewer set the settlement date to ${day(r.settlement.date)} (${r.settlement.ref}), so the interest charged after it is an adjustment to make.`
+                : `Payments' record shows the bank received the funds ${when(fund.bank)}, before the ${rule && rule.cutoff ? rule.cutoff + ' ' : ''}cut-off on the closing date, and a review hold until ${fund.holdOff ? when(fund.holdOff) : '?'}. The hold may explain the late posting. Whether the interest after ${day(closing)} should be reversed depends on the settlement date an authorised reviewer confirms. Under the demo rule, a late posting alone does not trigger a shortfall notice.`,
               next: r.settlement ? 'Authorised reviewer reverses the interest charged during the hold' : 'Authorised reviewer confirms the settlement date', missing: missingOf(c, facts, ['settlement']) });
           } else {
             const days = E.daysBetween(closing, fund.bank.slice(0, 10));
@@ -200,7 +202,7 @@
       if (open('LATE_POSTING') || open('LATE_FUNDS') || open('BALANCE_AFTER_PAYOUT')) {
         const late = fund && fund.bank && (fund.bank.slice(0, 10) > r.closing.latest);
         list.push({ id: 'send-notice', label: 'Send shortfall notice (simulated)', perm: 'mortgage.decide', facts: ['bank', 'settlement'],
-          prereqs: [{ ok: !!late, label: !fund || !fund.bank ? 'Bank receipt time known' : late ? `Funds reached the bank after closing (${when(fund.bank)})` : `Funds reached the bank on time (${when(fund.bank)}); a late posting alone does not trigger a notice` },
+          prereqs: [{ ok: !!late, label: !fund || !fund.bank ? 'Bank receipt time known' : late ? `Funds reached the bank after closing (${when(fund.bank)})` : `Funds reached the bank before the demo cut-off (${when(fund.bank)}); under the demo rule a late posting alone does not trigger a notice` },
             { ok: !!r.settlement, label: 'Authorised settlement date on file' }, { ok: !r.noticeSent, label: r.noticeSent ? 'Already sent' : 'Not sent before' }] });
       }
       if (r.request.status === 'cancel-requested') list.push({ id: 'confirm-cancel', label: 'Confirm the cancellation', perm: 'mortgage.decide', needsReason: true, facts: ['bank'], prereqs: [nothingOpen(c, 'confirm-cancel'), noBlockingTasks(ctx)] });
