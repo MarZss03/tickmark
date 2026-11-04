@@ -23,7 +23,7 @@
   };
   const nothingOpen = (c, action) => {
     const open = c.exceptions.filter((x) => x.status === 'open' && (x.blocks || []).includes(action));
-    return { ok: !open.length, label: open.length ? `Still open: ${open.map((x) => x.short || x.title).join('; ')}` : 'No open exception blocks this' };
+    return { ok: !open.length, label: open.length ? `${open.map((x) => x.short || x.title).join('; ')} resolved first` : 'No open exception blocks this' };
   };
   const staleOk = (c) => { const s = c.decisions.filter((d) => d.stale && !d.rereviewed); return { ok: !s.length, label: s.length ? `Needs re-review first: ${s.map((d) => d.label).join('; ')}` : 'No earlier approval is waiting for re-review' }; };
   const rereview = (c) => (c.decisions.some((d) => d.stale && !d.rereviewed) ? [{
@@ -31,6 +31,41 @@
     prereqs: [{ ok: !c.exceptions.some((x) => x.status === 'open' && x.code !== 'STATEMENT_EXPIRING'), label: 'The changed facts are settled' }],
   }] : []);
   const rereviewApply = (c, at) => { c.decisions.filter((d) => d.stale && !d.rereviewed).forEach((d) => { d.rereviewed = at; }); return { detail: 'Earlier approval replaced by this one', recheck: false }; };
+
+  // ---------- month-end close: the exceptions the close run raises ----------
+  const slug = (t) => String(t).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+  const close = {
+    detect({ exceptions }) {
+      return exceptions.map((x) => {
+        const extra = TMC.close[x.id] || {};
+        const facts = Object.fromEntries(x.evidence.map(([k, v]) => [slug(k), v]));
+        return {
+          key: 'close:' + x.id, title: x.title, owner: 'hana', openedBecause: `Close rule "${x.rule}" fired`,
+          amount: x.amount, amountLabel: 'Amount', due: '2026-11-06T22:00:00Z', dueLabel: 'October close sign-off (BD5)', affects: x.blocks ? 'the October close sign-off' : 'a clean close',
+          records: { ref: x.id, rule: x.rule, sev: x.sev, blocks: x.blocks, source: x.source, resolved: false },
+          evidence: [{ id: 'src', label: `${x.source} · ${x.id}`, system: x.source, origin: slug(x.source), kind: 'record', recorded: '2026-11-04T08:00:00Z', loc: `Close run · ${x.rule}`, facts }],
+          factDefs: x.evidence.map(([k]) => ({ key: slug(k), label: k })),
+          drafts: extra.draft ? { [slug(x.rule)]: extra.draft } : {},
+        };
+      });
+    },
+    check(c) {
+      const r = c.records, extra = TMC.close[r.ref] || {};
+      if (r.resolved) return [];
+      return [{ code: slug(r.rule), by: 'Close rule', short: r.rule, title: c.title, headline: c.title, expected: extra.expected || '—', actual: extra.actual || r.rule,
+        cls: extra.cls || 'business', confidence: 'high', cause: extra.cause || '', next: extra.draft ? extra.draft.question : 'Resolve before sign-off',
+        blocks: r.blocks ? ['signoff'] : [], impact: r.blocks ? 'signoff' : 'info', facts: c.factDefs.map((d) => d.key), missing: [] }];
+    },
+    actions(c, ctx) {
+      if (c.closed) return [];
+      return [{ id: 'resolve', label: 'Mark resolved', perm: 'close.decide', needsReason: true, facts: [], prereqs: [noBlockingTasks(ctx)] }, ...rereview(c)];
+    },
+    apply(c, id, { now }) {
+      if (id === 'resolve') { c.records.resolved = true; c.stage = 'Resolved'; c.closed = now; return { detail: 'Cleared for sign-off', changes: [{ label: 'Status', before: 'open', after: 'resolved' }] }; }
+      if (id === 'rereview') return rereviewApply(c, now);
+      return null;
+    },
+  };
 
   // ---------- cash: bank lines the matcher could not match ----------
   const cash = {
@@ -92,6 +127,13 @@
   // ---------- payroll: exceptions the payroll rules raise ----------
   const PAY_CLS = { DUPLICATE_PAYMENT: 'source-error', MISSING_EMPLOYEE: 'timing', INACTIVE_PAID: 'timing', NOT_STARTED: 'timing', OUTLIER: 'business', CURRENCY: 'source-error', PRORATION: 'business', EQUITY_MISSING: 'timing', INJECTION: 'business' };
   const PAY_SHORT = { DUPLICATE_PAYMENT: 'Paid twice', MISSING_EMPLOYEE: 'Not in HRIS', INACTIVE_PAID: 'Paid after leaving', NOT_STARTED: 'Paid before starting', OUTLIER: 'Pay jump', CURRENCY: 'Currency differs', PRORATION: 'Not prorated', EQUITY_MISSING: 'Equity missing', INJECTION: 'Instruction in a note' };
+  const PAY_HEAD = {
+    DUPLICATE_PAYMENT: (id) => `${id} is paid twice this period`, MISSING_EMPLOYEE: (id) => `${id} is paid but not in HRIS`,
+    INACTIVE_PAID: (id) => `${id} is paid after leaving`, NOT_STARTED: (id) => `${id} is paid before their start date`,
+    OUTLIER: (id) => `${id}'s pay moved more than 40%`, CURRENCY: (id) => `${id} is paid in a different currency`,
+    PRORATION: (id) => `${id} got a full period after a mid-period start`, EQUITY_MISSING: (id) => `${id}'s vested shares are not on the payslip`,
+    INJECTION: (id) => `A note on ${id}'s pay line contains instructions`,
+  };
   const key = (id) => String(id).trim().toUpperCase();
   const payroll = {
     detect({ hris, payroll: rows, equity, period }) {
@@ -114,7 +156,7 @@
     check(c, { facts }) {
       const r = c.records;
       return E.runPayroll({ hris: r.hr ? [r.hr] : [], payroll: r.pay, equity: r.equity, period: r.period }).map((x) => ({
-        code: x.rule, by: 'Payroll rule', short: PAY_SHORT[x.rule], title: x.ev, expected: x.rule === 'DUPLICATE_PAYMENT' ? '1 pay line' : x.rule === 'PRORATION' ? money(x.expected) : '—',
+        code: x.rule, by: 'Payroll rule', short: PAY_SHORT[x.rule], title: x.ev, headline: PAY_HEAD[x.rule] ? PAY_HEAD[x.rule](x.id) : x.ev, expected: x.rule === 'DUPLICATE_PAYMENT' ? '1 pay line' : x.rule === 'PRORATION' ? money(x.expected) : '—',
         actual: x.rule === 'DUPLICATE_PAYMENT' ? `${r.pay.length} pay lines` : x.ev, cls: PAY_CLS[x.rule] || 'business',
         confidence: x.rule === 'DUPLICATE_PAYMENT' && facts.source_file && facts.source_file.readings.length > 1 && facts.source_file.independent === 1 ? 'high' : 'medium',
         cause: x.rule === 'DUPLICATE_PAYMENT' && facts.source_file ? 'Both pay lines come from imports of the same file, and Timekeeping holds one approved sheet. The second import looks like a re-run.' : '',
@@ -144,13 +186,13 @@
       if (!rule) add({ code: 'RULE_TO_VERIFY', short: 'Rule not verified', title: `No checked rule for ${r.rule.split('|').slice(2).join(' · ')}`, expected: 'A checked rule for this lender, province, product and purpose', actual: 'None on file', cls: 'insufficient', cause: 'Tickmark does not guess which policy applies. A person confirms it before anything moves.', next: 'Confirm the policy with Servicing Approvals', impact: 'info' });
       if (r.request.status === 'active' && fund && fund.posted && loan.balance > 0) {
         if (!fund.bank) {
-          add({ code: 'BALANCE_AFTER_PAYOUT', short: 'Balance after payout', title: `Loan shows ${money(loan.balance)} owing after the payout posted ${day(fund.posted)}`, expected: money(0), actual: money(loan.balance), cls: 'insufficient', confidence: 'low', by: 'Servicing rule + extractor',
+          add({ code: 'BALANCE_AFTER_PAYOUT', short: 'Balance after payout', title: `Loan shows ${money(loan.balance)} owing after the payout posted ${day(fund.posted)}`, headline: `Loan still shows a $${money(loan.balance)} balance`, expected: money(0), actual: money(loan.balance), cls: 'insufficient', confidence: 'low', by: 'Servicing rule + extractor',
             cause: `Posted ${day(fund.posted)}, after the ${day(closing)} closing. Late receipt or a posting delay may explain the balance. Confirm the bank receipt time and the applicable settlement date before deciding whether an adjustment is needed.`,
-            next: 'Ask Payments when the bank received the wire', facts: ['bank', 'posted', 'balance'], missing: missingOf(c, facts, ['bank']) });
+            next: 'Ask Payments when the bank received the wire', facts: ['posted', 'balance', 'bank', 'settlement'], missing: missingOf(c, facts, ['bank', 'settlement']) });
         } else {
           const late = fund.bank.slice(0, 10) > closing || (fund.bank.slice(0, 10) === closing && rule && rule.cutoff && fund.bank.slice(11, 16) > rule.cutoff);
           if (!late) {
-            add({ code: 'LATE_POSTING', short: 'Posted late after our hold', cls: 'timing', confidence: 'high', by: 'Servicing rule', facts: ['bank', 'posted', 'settlement', 'balance'],
+            add({ code: 'LATE_POSTING', short: 'Posted late after our hold', cls: 'timing', confidence: 'high', by: 'Servicing rule', facts: ['bank', 'posted', 'balance', 'settlement'], headline: r.settlement ? `$${money(loan.balance)} of hold interest to reverse` : `Loan still shows a $${money(loan.balance)} balance`,
               title: r.settlement ? `Settlement date ${day(r.settlement.date)} confirmed; ${money(loan.balance)} of interest still on the loan` : `Funds reached the bank ${when(fund.bank)}; posted to the loan ${day(fund.posted)} after a hold`,
               expected: r.settlement ? `Interest stops ${day(r.settlement.date)}` : 'Interest stop date: to confirm', actual: `${money(loan.balance)} charged after ${day(closing)}`,
               cause: r.settlement
@@ -160,7 +202,7 @@
           } else {
             const days = E.daysBetween(closing, fund.bank.slice(0, 10));
             const est = E.round2(days * loan.perDiem);
-            add({ code: 'LATE_FUNDS', short: 'Funds arrived late', cls: 'business', confidence: 'high', by: 'Servicing rule', facts: ['bank', 'settlement', 'per_diem', 'balance'],
+            add({ code: 'LATE_FUNDS', short: 'Funds arrived late', cls: 'business', confidence: 'high', by: 'Servicing rule', facts: ['bank', 'balance', 'per_diem', 'settlement'], headline: r.settlement ? `Shortfall of $${money(est)} confirmed` : `Payout reached the bank ${days} days after closing`,
               title: r.settlement ? `Shortfall ${money(est)} confirmed for ${days} days` + (r.noticeSent ? '; waiting for the top-up' : '') : `Funds reached the bank ${days} days after closing; shortfall about ${money(est)} (estimate)`,
               expected: money(0), actual: `${money(loan.balance)} owing`,
               cause: `${days} days × ${money(loan.perDiem)} per diem from statement v${r.statement.v}. ${r.settlement ? `Settlement date ${day(r.settlement.date)} set by an authorised reviewer (${r.settlement.ref}).` : 'An estimate until an authorised reviewer confirms the date and rate.'}`,
@@ -202,7 +244,7 @@
       if (open('LATE_POSTING') || open('LATE_FUNDS') || open('BALANCE_AFTER_PAYOUT')) {
         const late = fund && fund.bank && (fund.bank.slice(0, 10) > r.closing.latest);
         list.push({ id: 'send-notice', label: 'Send shortfall notice (simulated)', perm: 'mortgage.decide', facts: ['bank', 'settlement'],
-          prereqs: [{ ok: !!late, label: !fund || !fund.bank ? 'Bank receipt time known' : late ? `Funds reached the bank after closing (${when(fund.bank)})` : `Funds reached the bank before the demo cut-off (${when(fund.bank)}); under the demo rule a late posting alone does not trigger a notice` },
+          prereqs: [{ ok: !!late, label: !fund || !fund.bank ? 'the bank receipt time' : late ? `Funds reached the bank after closing (${when(fund.bank)})` : `Funds reached the bank before the demo cut-off (${when(fund.bank)}); under the demo rule a late posting alone does not trigger a notice` },
             { ok: !!r.settlement, label: 'Authorised settlement date on file' }, { ok: !r.noticeSent, label: r.noticeSent ? 'Already sent' : 'Not sent before' }] });
       }
       if (r.request.status === 'cancel-requested') list.push({ id: 'confirm-cancel', label: 'Confirm the cancellation', perm: 'mortgage.decide', needsReason: true, facts: ['bank'], prereqs: [nothingOpen(c, 'confirm-cancel'), noBlockingTasks(ctx)] });
@@ -227,5 +269,64 @@
     },
   };
 
-  return { cash, payroll, mortgage };
+
+  // ---------- merchant payouts: a processor's payouts against the store's bank account ----------
+  // Each payout should add up (charges, refunds, adjustments, reserve, fees = total) and arrive in the bank
+  // as that total. A chargeback, a reserve or a fee above the plan explains a gap but still needs a decision.
+  const payoutParts = (p) => E.round2(p.charges + (p.refunds || 0) + (p.adjustments || []).reduce((a, x) => a + x.amount, 0) + (p.reserve || 0) + (p.fees || 0));
+  const payouts = {
+    detect() { return (TMC.payouts || []).map((m) => JSON.parse(JSON.stringify(m))); },
+    check(c, { now, facts }) {
+      const r = c.records, p = r.payout, out = [];
+      const add = (x) => out.push({ facts: [], missing: [], blocks: ['record'], impact: 'signoff', by: 'Payout rule', confidence: 'high', ...x });
+      const parts = payoutParts(p);
+      if (Math.abs(parts - p.total) > 0.005) add({ code: 'COMPOSITION_BREAK', short: 'Report does not add up', headline: `Payout ${p.id} is $${money(Math.abs(parts - p.total))} short of its own lines`, title: `Lines add to ${money(parts)}; the payout total is ${money(p.total)}`,
+        expected: money(parts), actual: money(p.total), cls: 'source-error', facts: ['refunds', 'payout_total'], cause: 'The store’s refund export shows two refunds of 245.00 on order #4471 a minute apart; the payout summary counts one. A duplicate refund may explain the gap.', next: 'Check the refund history for #4471' });
+      if (r.doubleRefund && !r.recovered) add({ code: 'DUPLICATE_REFUND', short: 'Refunded twice', headline: `Order ${r.doubleRefund} was refunded twice`, title: `Order ${r.doubleRefund}: a second refund of $245.00 went to the customer`, expected: 'One refund of 245.00', actual: 'Two refunds of 245.00', cls: 'source-error', facts: ['refunds'], cause: 'The store’s refund history shows a duplicate click. The money can be requested back from the customer.', next: 'Decide whether to ask the customer for the 245.00' });
+      const dep = (r.deposits || []).find((d) => Math.abs(d.amount - p.total) < 0.005);
+      if (!dep) {
+        const near = (r.deposits || [])[0];
+        if (near) add({ code: 'DEPOSIT_DIFFERS', short: 'Deposit differs', headline: `Bank received $${money(Math.abs(p.total - near.amount))} less than payout ${p.id}`, title: `Payout ${p.id} is ${money(p.total)}; the bank received ${money(near.amount)} on ${day(near.date)}`,
+          expected: money(p.total), actual: money(near.amount), cls: 'insufficient', confidence: 'medium', facts: ['payout_total', 'deposit', 'adjustments'], missing: missingOf(c, facts, ['adjustments']),
+          cause: 'The payout summary and the bank disagree. A deduction made after the summary (a chargeback or an adjustment) may explain it; the payout’s transaction list would show it.', next: 'Get the payout’s transactions from the dashboard' });
+        else if (new Date(now) > new Date(r.arrival + 'T23:59:00Z')) add({ code: 'DEPOSIT_MISSING', short: 'Not in the bank', headline: `Payout ${p.id} has not reached the bank`, title: `Payout ${p.id} (${money(p.total)}) was marked paid on ${day(p.date)}; expected by ${day(r.arrival)}`,
+          expected: `Deposit by ${day(r.arrival)}`, actual: 'No deposit', cls: 'timing', confidence: 'medium', facts: ['payout_total', 'deposit'], missing: missingOf(c, facts, ['deposit']),
+          cause: 'A bank hold or a change to the payout account details may explain it. The bank statement or the account settings would show which.', next: 'Ask the store to check the bank and the payout account' });
+      }
+      for (const x of (p.adjustments || []).filter((a) => a.type === 'chargeback')) {
+        if (!r.dispute) add({ code: 'CHARGEBACK', short: 'Chargeback deducted', headline: `A $${money(-x.amount)} chargeback was taken from payout ${p.id}`, title: `Chargeback ${x.ref} (${money(x.amount)}) for dispute ${x.dispute}; evidence due ${day(x.due)}`,
+          expected: 'Decision on the dispute', actual: 'Open dispute', cls: 'business', facts: ['adjustments', 'deposit'], blocks: ['record'], cause: 'The deduction explains the gap with the bank. Whether to contest it is a business decision for the store owner, before the evidence deadline.', next: 'Store owner decides: submit evidence or accept the loss' });
+      }
+      if ((p.reserve || 0) < 0 && !r.reserveRelease) add({ code: 'RESERVE_HELD', short: 'Reserve held', headline: `$${money(-p.reserve)} of payout ${p.id} is held in reserve`, title: `${money(p.reserve)} held as a reserve; no release date on file`,
+        expected: 'A release date', actual: 'None on file', cls: 'timing', facts: ['reserve', 'reserve_release'], missing: missingOf(c, facts, ['reserve_release']), blocks: [], impact: 'info', cause: 'The money is held, not lost. Cash planning needs the release date.', next: 'Ask processor support for the release date' });
+      if (r.rate) {
+        const expect = E.round2(p.charges * r.rate.pct + p.orders * r.rate.fixed);
+        if (Math.abs(Math.abs(p.fees) - expect) > 1 && !r.feeExplained) add({ code: 'FEE_ABOVE_RATE', short: 'Fees above plan', headline: `Fees are $${money(Math.abs(p.fees) - expect)} above the plan rate`, title: `Fees ${money(p.fees)}; the plan gives ${money(expect)} for ${p.orders} orders`,
+          expected: money(expect), actual: money(p.fees), cls: 'business', confidence: 'medium', facts: ['fees', 'fee_reason'], missing: missingOf(c, facts, ['fee_reason']), cause: `${p.usdOrders || 0} of ${p.orders} orders were in USD; a currency conversion fee may explain the difference.`, next: 'Ask processor support for the fee breakdown' });
+      }
+      return out;
+    },
+    actions(c, ctx) {
+      if (c.closed) return [];
+      const r = c.records, list = [];
+      const open = (code) => c.exceptions.some((x) => x.status === 'open' && x.code === code);
+      if (open('CHARGEBACK')) {
+        list.push({ id: 'dispute', label: 'Submit dispute evidence (simulated)', perm: 'payouts.approve', needsReason: true, facts: ['adjustments'], prereqs: [noBlockingTasks(ctx)] });
+        list.push({ id: 'accept-loss', label: 'Accept the chargeback', perm: 'payouts.approve', needsReason: true, facts: ['adjustments'], prereqs: [noBlockingTasks(ctx)] });
+      }
+      if (open('DUPLICATE_REFUND')) list.push({ id: 'recover', label: 'Ask the customer to return the second refund (simulated)', perm: 'payouts.approve', needsReason: true, facts: ['refunds'], prereqs: [] });
+      list.push({ id: 'record', label: `Record payout ${r.payout.id} in the books`, perm: 'payouts.decide', facts: ['payout_total', 'deposit'], prereqs: [nothingOpen(c, 'record'), noBlockingTasks(ctx)] });
+      return list.concat(rereview(c));
+    },
+    apply(c, id, { now }) {
+      const r = c.records;
+      if (id === 'dispute' || id === 'accept-loss') { r.dispute = id === 'dispute' ? 'evidence submitted' : 'accepted'; c.stage = id === 'dispute' ? 'Dispute evidence submitted (simulated)' : 'Chargeback accepted'; return { detail: c.stage, changes: [{ label: 'Dispute', before: 'open', after: r.dispute }] }; }
+      if (id === 'recover') { r.recovered = now; c.stage = 'Refund recovery requested (simulated)'; return { detail: c.stage, changes: [{ label: 'Duplicate refund', before: 'open', after: 'recovery requested' }] }; }
+      if (id === 'record') { c.stage = 'Recorded in the books'; c.closed = now; return { detail: `${r.payout.id} recorded`, recheck: false }; }
+      if (id === 'rereview') return rereviewApply(c, now);
+      return null;
+    },
+  };
+
+  return { close, cash, payroll, mortgage, payouts };
 });

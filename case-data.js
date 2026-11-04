@@ -16,13 +16,16 @@ window.TMC = (() => {
     statements: { name: 'Payout Statements', lead: 'noah' },
     adjustments: { name: 'Settlement Adjustments', lead: 'ines' },
     registration: { name: 'Discharge and Registration', lead: 'kofi' },
+    books: { name: 'Bookkeeping (store)', lead: 'sam' },
+    store: { name: 'Store Operations', lead: 'jada' },
+    support: { name: 'Processor Support (simulated)', lead: 'remy' },
   };
   const people = {
     sara: { name: 'Sara Novak', team: 'treasury', role: 'Treasury analyst, owns cash cases', perms: ['cash.decide', 'cash.confirm'] },
     tom: { name: 'Tom Becker', team: 'ap', role: 'AP clerk', perms: [] },
     rina: { name: 'Rina Shah', team: 'ap', role: 'AP lead', perms: [] },
     amir: { name: 'Amir Haddad', team: 'ar', role: 'AR lead', perms: [] },
-    hana: { name: 'Hana Sato', team: 'gl', role: 'GL accountant', perms: [] },
+    hana: { name: 'Hana Sato', team: 'gl', role: 'GL accountant, owns close exceptions', perms: ['close.decide'] },
     mei: { name: 'Mei Lin', team: 'payroll', role: 'Payroll lead, can release', perms: ['payroll.decide', 'payroll.release'] },
     jon: { name: 'Jon Reyes', team: 'payroll', role: 'Payroll analyst', perms: ['payroll.decide'] },
     omar: { name: 'Omar Diallo', team: 'time', role: 'Keeps the timesheet imports', perms: [] },
@@ -36,6 +39,10 @@ window.TMC = (() => {
     ines: { name: 'Ines Duarte', team: 'adjustments', role: 'Settlement adjustments lead', perms: [] },
     kofi: { name: 'Kofi Mensah', team: 'registration', role: 'Registration lead', perms: [] },
     lucy: { name: 'Lucy Grant', team: 'registration', role: 'Registration clerk', perms: [] },
+    sam: { name: 'Sam Ortiz', team: 'books', role: 'Bookkeeper for Fernleaf Ceramics, owns payout cases', perms: ['payouts.decide'] },
+    jada: { name: 'Jada Brooks', team: 'store', role: 'Store owner, decides disputes', perms: ['payouts.decide', 'payouts.approve'] },
+    kai: { name: 'Kai Morgan', team: 'store', role: 'Store operations, has the payments dashboard', perms: [] },
+    remy: { name: 'Remy Laurent', team: 'support', role: 'Payment processor support (simulated)', perms: [] },
   };
 
   // ---------- extra evidence for cash differences the matcher already finds ----------
@@ -51,7 +58,7 @@ window.TMC = (() => {
       ],
       glOrigin: 'ap-entry', glLabel: 'Ledger line · Legal · Sept invoice (posted from AP-55102)',
       factDefs: [{ key: 'amount', label: 'Amount paid', required: true, who: 'ap' }, { key: 'payee', label: 'Payee' }, { key: 'invoice', label: 'Invoice' }],
-      draft: { to: 'person', person: 'tom', kind: 'correction', question: 'Please check the amount on Lindqvist Law invoice LGL-0917 and correct AP entry AP-55102 if it was keyed as 6,580.00. Attach the corrected entry.', why: 'The bank paid 6,850.00 and the invoice says 6,850.00; the ledger copies AP-55102 at 6,580.00, which looks like two digits swapped.', requested: ['Corrected AP entry'] },
+      draft: { cta: 'Request AP correction', to: 'person', person: 'tom', kind: 'correction', question: 'Please check the amount on Lindqvist Law invoice LGL-0917 and correct AP entry AP-55102 if it was keyed as 6,580.00. Attach the corrected entry.', why: 'The bank paid 6,850.00 and the invoice says 6,850.00; the ledger copies AP-55102 at 6,580.00, which looks like two digits swapped.', requested: ['Corrected AP entry'] },
       available: [
         { id: 'ap-fix', label: 'Corrected AP entry AP-55102 (v2) and its ledger posting', teams: ['ap'], correction: true, supersedes: ['ap', 'gl'],
           evidence: { label: 'AP entry AP-55102 v2 · ledger reposted', system: 'AP subledger', origin: 'ap-entry', kind: 'record', loc: 'Entry AP-55102 v2 · amount field', facts: { amount: 6850, payee: 'Lindqvist Law LLP', invoice: 'LGL-0917' } },
@@ -62,7 +69,7 @@ window.TMC = (() => {
       title: 'Customer receipt 7,400.00 with no ledger line', amountLabel: 'Receipt',
       evidence: [],
       factDefs: [{ key: 'amount', label: 'Amount received', required: true }, { key: 'payer', label: 'Who paid', required: true, who: 'ar' }, { key: 'invoice', label: 'Which invoice', required: true, who: 'ar' }],
-      draft: { to: 'team', team: 'ar', kind: 'evidence', question: 'Who sent the 7,400.00 received on 20 Oct with no reference, and which invoice does it settle? Please attach the remittance advice.', why: 'The bank line has no reference and no open ledger line matches it, so it cannot be applied.', requested: ['Remittance advice'] },
+      draft: { cta: 'Ask AR who paid', to: 'team', team: 'ar', kind: 'evidence', question: 'Who sent the 7,400.00 received on 20 Oct with no reference, and which invoice does it settle? Please attach the remittance advice.', why: 'The bank line has no reference and no open ledger line matches it, so it cannot be applied.', requested: ['Remittance advice'] },
       available: [
         { id: 'remit', label: 'Remittance advice from Northgate Supply (email)', teams: ['ar'],
           evidence: { label: 'Remittance advice · Northgate Supply', system: 'AR inbox · email', origin: 'customer', kind: 'document',
@@ -74,7 +81,7 @@ window.TMC = (() => {
     '2026-10-09:-412.8': {
       title: 'Bank fee 412.80 not in the ledger yet', amountLabel: 'Fee',
       evidence: [{ id: 'je', label: 'Close journal draft JE-1036', system: 'Close journals', origin: 'gl-draft', kind: 'record', recorded: '2026-11-03T16:00:00Z', loc: 'JE-1036 · drafted, not posted', facts: { amount: 412.8 } }],
-      draft: { to: 'person', person: 'hana', kind: 'correction', question: 'Draft JE-1036 for the 412.80 bank fee is not posted. Can you post it to 9 Oct so the statement line matches?', why: 'The fee is on the bank statement and in the draft journal, but not in the ledger.', requested: ['Posted JE-1036'] },
+      draft: { cta: 'Ask GL to post JE-1036', to: 'person', person: 'hana', kind: 'correction', question: 'Draft JE-1036 for the 412.80 bank fee is not posted. Can you post it to 9 Oct so the statement line matches?', why: 'The fee is on the bank statement and in the draft journal, but not in the ledger.', requested: ['Posted JE-1036'] },
       factDefs: [{ key: 'amount', label: 'Fee amount', required: true }],
       available: [
         { id: 'je-post', label: 'JE-1036 posted to 9 Oct', teams: ['gl'], correction: true,
@@ -95,13 +102,29 @@ window.TMC = (() => {
       ],
       register: { origin: 'export:TS-1015', loc: 'Register rows 6 and 30 · both from TS-export-1015.csv' },
       factDefs: [{ key: 'pay_lines', label: 'Pay lines this period', required: true }, { key: 'source_file', label: 'Where the lines came from' }, { key: 'approved', label: 'Timesheet approval', required: true, who: 'time' }],
-      draft: { to: 'person', person: 'omar', kind: 'correction', question: 'E-1017 has two pay lines from imports IMP-1015-07 and IMP-1015-09, which read the same file. Was the second import a re-run? If so, please reverse it and attach the reversal.', why: 'Timekeeping has one approved sheet for E-1017; the register pays two.', requested: ['Reversal of the duplicate import'] },
+      draft: { cta: 'Request import check', to: 'person', person: 'omar', kind: 'correction', question: 'E-1017 has two pay lines from imports IMP-1015-07 and IMP-1015-09, which read the same file. Was the second import a re-run? If so, please reverse it and attach the reversal.', why: 'Timekeeping has one approved sheet for E-1017; the register pays two.', requested: ['Reversal of the duplicate import'] },
       available: [
         { id: 'rev', label: 'Reversal of IMP-1015-09 (re-run of the same file)', teams: ['time'], correction: true, supersedes: ['reg'],
           evidence: { label: 'Payroll register after reversal', system: 'Payroll register', origin: 'export:TS-1015', kind: 'record', loc: 'Row 30 reversed by REV-1015-02', facts: { pay_lines: 1 } },
           patch: [{ path: 'pay.1', value: undefined, label: 'Second pay line' }] },
       ],
     },
+  };
+
+  // ---------- month-end close: the exceptions in data.js, with what each should be and who can answer ----------
+  const close = {
+    'CL-02': { expected: 'Within 500.00 of the warehouse', actual: 'Off by 5,250.00', cls: 'business', cause: 'GL 2400 and the metrics warehouse disagree by more than the tolerance. The revenue schedule decides which is right.',
+      draft: { cta: 'Ask AR for the revenue schedule', to: 'team', team: 'ar', kind: 'evidence', question: 'Deferred revenue in GL 2400 is 5,250.00 above the metrics warehouse. Which contracts make up the difference? Please attach the October revenue schedule.', why: 'The gap is over the 500.00 tolerance and blocks sign-off.', requested: ['October revenue schedule'] } },
+    'CL-05': { expected: 'Posted in October', actual: 'Posted into closed September', cls: 'source-error', cause: 'JE-0977 is dated 2 Oct but sits in the closed September period.',
+      draft: { cta: 'Ask AP about JE-0977', to: 'team', team: 'ap', kind: 'correction', question: 'JE-0977 (12,000.00) was posted on 2 Oct into the closed September period. Should it be reversed and reposted in October?', why: 'A posting into a closed period blocks sign-off.', requested: ['Reversal and repost, or the reason it belongs in September'] } },
+    'CL-06': { expected: 'Accrual of 51,941.13', actual: 'Booked 0.00', cls: 'timing', cause: 'The payroll register expects October contractor cost; draft JE-1031 is ready but not posted.',
+      draft: { cta: 'Ask Payroll to confirm the estimate', to: 'team', team: 'payroll', kind: 'verify', question: 'Can you confirm the October contractor payroll estimate of 51,941.13 so JE-1031 can be posted?', why: 'The accrual is missing and blocks sign-off.', requested: ['Confirmed estimate'] } },
+    'CL-01': { expected: 'Receipt on file', actual: 'No receipt', cls: 'insufficient', cause: 'Card spend of 2,480.00 is over the 1,000.00 limit with no receipt.',
+      draft: { cta: 'Request the receipt', to: 'team', team: 'ap', kind: 'evidence', question: 'Please get the receipt for the 2,480.00 cloud marketplace charge on card ·· 4410.', why: 'Over the policy limit with no receipt.', requested: ['Receipt'] } },
+    'CL-03': { expected: 'One charge', actual: 'Two identical charges', cls: 'source-error', cause: 'Two charges of 1,350.00 from the same merchant on 14 Oct.',
+      draft: { cta: 'Ask AP about the second charge', to: 'team', team: 'ap', kind: 'verify', question: 'Were both 1,350.00 design-tool charges on 14 Oct intended, or should one be refunded?', why: 'Looks like a duplicate.', requested: ['Confirmation or refund'] } },
+    'CL-04': { expected: 'Owner assigned, due BD2', actual: 'Unassigned on BD3', cls: 'timing', cause: 'The operating bank reconciliation has no owner and is a day late.',
+      draft: { cta: 'Ask Treasury to take it', to: 'team', team: 'treasury', kind: 'verify', question: 'The operating bank reconciliation was due on BD2 and has no owner. Can someone in Treasury take it today?', why: 'Late and unassigned.', requested: ['An owner'] } },
   };
 
   // ---------- mortgage servicing: synthetic files ----------
@@ -137,8 +160,8 @@ window.TMC = (() => {
         { key: 'balance', label: 'Balance on the loan' },
       ],
       drafts: {
-        BALANCE_AFTER_PAYOUT: { to: 'team', team: 'payments', kind: 'verify', question: 'Please confirm when the bank received wire W-88213 (412,880.00) for ML-40311, and why it reached the loan on 2 Nov. Attach the records that show both times.', why: 'The loan charges three days of interest after the 30 Oct closing. If the wire arrived on time, the delay is ours and no shortfall notice should go out.', requested: ['Incoming wire record', 'Any hold and its release'] },
-        LATE_POSTING: { to: 'person', person: 'daniel', requires: 'mortgage.settlement-date', kind: 'verify', question: 'Payments confirms W-88213 reached the bank on 30 Oct at 14:02 and sat on a review hold until 2 Nov. Please confirm the settlement date that applies to ML-40311 and the next step for the 123.54.', why: 'Only an authorised reviewer can set the settlement date. Discharge preparation waits on it.', requested: ['Settlement date decision'] },
+        BALANCE_AFTER_PAYOUT: { cta: 'Request receipt confirmation', to: 'team', team: 'payments', kind: 'verify', question: 'Please confirm when the bank received wire W-88213 (412,880.00) for ML-40311, and why it reached the loan on 2 Nov. Attach the records that show both times.', why: 'The loan charges three days of interest after the 30 Oct closing. If the wire arrived on time, the delay is ours and no shortfall notice should go out.', requested: ['Incoming wire record', 'Any hold and its release'] },
+        LATE_POSTING: { cta: 'Request settlement decision', to: 'person', person: 'daniel', requires: 'mortgage.settlement-date', kind: 'verify', question: 'Payments confirms W-88213 reached the bank on 30 Oct at 14:02 and sat on a review hold until 2 Nov. Please confirm the settlement date that applies to ML-40311 and the next step for the 123.54.', why: 'Only an authorised reviewer can set the settlement date. Discharge preparation waits on it.', requested: ['Settlement date decision'] },
       },
       available: [
         { id: 'wire', label: 'Incoming wire log: W-88213 with hold and release', teams: ['payments'], touches: ['bank'],
@@ -167,14 +190,14 @@ window.TMC = (() => {
           extract: [{ fact: 'payout_amount', re: 'wired \\$([0-9,]+\\.\\d{2})', number: true, origin: 'statement' }, { fact: 'sent', re: 'on (\\d+ \\w+ \\d{4})' }] },
       ],
       factDefs: [{ key: 'bank', label: 'Bank received the funds', required: true }, { key: 'settlement', label: 'Authorised settlement date', required: true, who: 'approvals', checked: 'No approval on file' }, { key: 'per_diem', label: 'Per diem' }, { key: 'balance', label: 'Balance on the loan' }],
-      drafts: { LATE_FUNDS: { to: 'person', person: 'daniel', requires: 'mortgage.settlement-date', kind: 'verify', question: 'W-88540 reached the bank on 3 Nov, four days after the 30 Oct closing on statement v1. Please confirm the settlement date and per diem so the 208.28 shortfall can be sent.', why: 'The shortfall is an estimate until an authorised reviewer confirms the date and rate.', requested: ['Settlement date and per diem'] } },
+      drafts: { LATE_FUNDS: { cta: 'Request settlement decision', to: 'person', person: 'daniel', requires: 'mortgage.settlement-date', kind: 'verify', question: 'W-88540 reached the bank on 3 Nov, four days after the 30 Oct closing on statement v1. Please confirm the settlement date and per diem so the 208.28 shortfall can be sent.', why: 'The shortfall is an estimate until an authorised reviewer confirms the date and rate.', requested: ['Settlement date and per diem'] } },
       available: [
         { id: 'settle', label: 'Settlement decision: 3 Nov at 52.07 per day', teams: ['approvals'], touches: ['settlement'],
           evidence: { label: 'Settlement decision SD-3112', system: 'Servicing approvals', origin: 'approvals', kind: 'record', loc: 'SD-3112 · signed by D. Roy', facts: { settlement: '2026-11-03', per_diem: 52.07 } },
           patch: [{ path: 'settlement', value: { date: '2026-11-03', by: 'daniel', ref: 'SD-3112' }, label: 'Settlement date' }] },
       ],
       inbox: [
-        { id: 'topup', label: 'Top-up wire W-88602 for 208.28', note: 'Arrives after the shortfall notice',
+        { id: 'topup', label: 'Top-up wire W-88602 for 208.28', note: 'Arrives after the shortfall notice', after: 'noticeSent',
           evidence: { label: 'Wire log W-88602 (top-up)', system: 'Payments · incoming wires', origin: 'bank-wire', kind: 'record', loc: 'W-88602 · posted to ML-38774', facts: { balance: 0 } },
           patch: [{ path: 'funds.1', value: { id: 'W-88602', amount: 208.28, sent: '2026-11-04', bank: '2026-11-04T15:20', posted: '2026-11-04' }, label: 'Top-up' }, { path: 'loans.0.balance', value: 0, label: 'Balance' }], supersedes: ['loan'] },
       ],
@@ -195,8 +218,8 @@ window.TMC = (() => {
       decisions: [{ id: 'DC-seed-1', action: 'approve-statement', label: 'Approved statement v1 for this payout', by: 'grace', at: '2026-10-28T11:00:00Z', reason: 'Figures and registration match the request.', version: 1, facts: ['closing', 'good_to'], stale: false }],
       factDefs: [{ key: 'closing', label: 'Closing date', required: true }, { key: 'good_to', label: 'Statement good to' }, { key: 'funds', label: 'Funds seen', required: true, who: 'payments', checked: 'Incoming wires to date' }],
       drafts: {
-        CLOSING_CHANGED: { to: 'team', team: 'statements', kind: 'correction', question: 'Closing for ML-41902 moved from 6 Nov to 13 Nov. Please reissue the payout statement good to 13 Nov, or confirm v1 can stand.', why: 'Statement v1 and its approval rest on the old date.', requested: ['Statement v2'] },
-        STATEMENT_EXPIRING: { to: 'team', team: 'payments', kind: 'verify', question: 'Have any funds or wire confirmations arrived for ML-41902 (payout 356,215.00)? Statement v1 is good only to 6 Nov.', why: 'Nothing is seen yet and the statement is close to expiry.', requested: ['Wire confirmation, if any'], blocking: false },
+        CLOSING_CHANGED: { cta: 'Request updated statement', to: 'team', team: 'statements', kind: 'correction', question: 'Closing for ML-41902 moved from 6 Nov to 13 Nov. Please reissue the payout statement good to 13 Nov, or confirm v1 can stand.', why: 'Statement v1 and its approval rest on the old date.', requested: ['Statement v2'] },
+        STATEMENT_EXPIRING: { cta: 'Ask Payments about funds', to: 'team', team: 'payments', kind: 'verify', question: 'Have any funds or wire confirmations arrived for ML-41902 (payout 356,215.00)? Statement v1 is good only to 6 Nov.', why: 'Nothing is seen yet and the statement is close to expiry.', requested: ['Wire confirmation, if any'], blocking: false },
       },
       inbox: [
         { id: 'move', label: 'Email: closing moved to 13 Nov', touches: ['closing'], due: '2026-11-13T20:00:00Z',
@@ -225,7 +248,7 @@ window.TMC = (() => {
         { id: 'stmt', label: 'Payout statement v2', system: 'Payout statements', origin: 'statement', kind: 'record', recorded: '2026-10-31T10:00:00Z', loc: 'Statement v2 · prepayment charge line', facts: { prepay: 6120 } },
       ],
       factDefs: [{ key: 'prepay', label: 'Prepayment charge', required: true }],
-      drafts: { WAIVER_NOT_APPLIED: { to: 'team', team: 'adjustments', kind: 'correction', question: 'Waiver A-5521 cut the prepayment charge on ML-37150 from 6,120.00 to 3,060.00, but statement v2 still shows 6,120.00. Please apply it and attach the statement it lands on.', why: 'The borrower would pay 3,060.00 more than approved.', requested: ['Statement with the approved charge'] } },
+      drafts: { WAIVER_NOT_APPLIED: { cta: 'Request the waiver applied', to: 'team', team: 'adjustments', kind: 'correction', question: 'Waiver A-5521 cut the prepayment charge on ML-37150 from 6,120.00 to 3,060.00, but statement v2 still shows 6,120.00. Please apply it and attach the statement it lands on.', why: 'The borrower would pay 3,060.00 more than approved.', requested: ['Statement with the approved charge'] } },
       available: [
         { id: 'v3', label: 'Payout statement v3 with A-5521 applied', teams: ['adjustments'], correction: true, supersedes: ['stmt'],
           evidence: { label: 'Payout statement v3', system: 'Payout statements', origin: 'statement', kind: 'record', loc: 'Statement v3 · prepayment charge line', facts: { prepay: 3060 } },
@@ -271,7 +294,7 @@ window.TMC = (() => {
           text: 'Parcel 0412-118 (synthetic)\nCharge ON 3301122 to Demo Bank, 2019\nCharge ON 3307740 to Demo Bank (credit line), 2022', extract: [{ fact: 'registration', re: 'Charge (ON 3301122)' }] },
       ],
       factDefs: [{ key: 'registration', label: 'Registration the statement covers', required: true }],
-      drafts: { STATEMENT_REG_MISMATCH: { to: 'team', team: 'statements', kind: 'correction', question: 'Request PR-77311 asks to discharge ON 3301122; statement v1 names ON 3307740 (the 2022 credit line). Please issue a corrected statement for ON 3301122, or confirm both charges are in scope.', why: 'A statement for the wrong charge could leave a registration in place after payout.', requested: ['Corrected statement'] } },
+      drafts: { STATEMENT_REG_MISMATCH: { cta: 'Request corrected statement', to: 'team', team: 'statements', kind: 'correction', question: 'Request PR-77311 asks to discharge ON 3301122; statement v1 names ON 3307740 (the 2022 credit line). Please issue a corrected statement for ON 3301122, or confirm both charges are in scope.', why: 'A statement for the wrong charge could leave a registration in place after payout.', requested: ['Corrected statement'] } },
       available: [
         { id: 'v2', label: 'Payout statement v2 for ON 3301122', teams: ['statements'], correction: true, supersedes: ['stmt'],
           evidence: { label: 'Payout statement v2', system: 'Payout statements', origin: 'statement', kind: 'record', loc: 'Statement v2 · security line', facts: { registration: 'ON 3301122' } },
@@ -292,7 +315,7 @@ window.TMC = (() => {
         { id: 'sent', label: 'Wire confirmation W-88710 (sender copy)', system: 'Servicing inbox', origin: 'lawyer', kind: 'document', recorded: '2026-11-03T10:15:00Z', text: 'Outgoing wire W-88710 (synthetic)\nAmount: 402,100.00\nSent: 2026-11-03', extract: [{ fact: 'wire_ref', re: 'wire (W-\\d+)' }] },
       ],
       factDefs: [{ key: 'bank', label: 'Wire received or returned', required: true, who: 'payments', checked: 'Incoming wires to date' }],
-      drafts: { CANCEL_OPEN_ITEMS: { to: 'team', team: 'payments', kind: 'verify', question: 'The payout for ML-42207 is being cancelled but wire W-88710 (402,100.00) was sent on 3 Nov. Has it arrived? If so, please hold it for return and confirm.', why: 'The cancellation cannot be confirmed while money may land on the loan.', requested: ['Wire status'] } },
+      drafts: { CANCEL_OPEN_ITEMS: { cta: 'Ask Payments to locate the wire', to: 'team', team: 'payments', kind: 'verify', question: 'The payout for ML-42207 is being cancelled but wire W-88710 (402,100.00) was sent on 3 Nov. Has it arrived? If so, please hold it for return and confirm.', why: 'The cancellation cannot be confirmed while money may land on the loan.', requested: ['Wire status'] } },
       available: [
         { id: 'ret', label: 'W-88710 received and returned to sender', teams: ['payments'],
           evidence: { label: 'Wire log W-88710 · returned', system: 'Payments · incoming wires', origin: 'bank-wire', kind: 'record', loc: 'W-88710 · received 4 Nov 10:02 · returned RT-901', facts: { bank: 'received 4 Nov, returned RT-901' } },
@@ -313,7 +336,7 @@ window.TMC = (() => {
         { id: 'instr', label: 'Refinance instruction', system: 'Credit file', origin: 'credit', kind: 'record', recorded: '2026-10-25T10:00:00Z', loc: 'Charge ON 1650092: keep and amend', facts: { charge: 'keep and amend' } },
       ],
       factDefs: [{ key: 'transfer', label: 'Internal settlement transfer', required: true, who: 'payments', checked: 'Internal transfers to date' }],
-      drafts: { REFI_NOT_LINKED: { to: 'team', team: 'payments', kind: 'verify', question: 'ML-51220 funded on 1 Nov to refinance ML-35020, but no internal transfer to the old loan is recorded. Please confirm the transfer and attach it.', why: 'No external funds or payout statement apply here; the internal transfer is the settlement evidence.', requested: ['Internal transfer record'] } },
+      drafts: { REFI_NOT_LINKED: { cta: 'Request transfer record', to: 'team', team: 'payments', kind: 'verify', question: 'ML-51220 funded on 1 Nov to refinance ML-35020, but no internal transfer to the old loan is recorded. Please confirm the transfer and attach it.', why: 'No external funds or payout statement apply here; the internal transfer is the settlement evidence.', requested: ['Internal transfer record'] } },
       available: [
         { id: 'xfer', label: 'Internal transfer IT-4410 to ML-35020', teams: ['payments'],
           evidence: { label: 'Internal transfer IT-4410', system: 'Payments · internal transfers', origin: 'bank-wire', kind: 'record', loc: 'IT-4410 · 1 Nov', facts: { transfer: 'IT-4410 · 210,450.00 · 1 Nov', old_balance: 0 } },
@@ -333,7 +356,7 @@ window.TMC = (() => {
         { id: 'docs', label: 'Prepared documents', system: 'Discharge and registration', origin: 'registration', kind: 'record', recorded: '2026-11-03T15:00:00Z', loc: 'Package DP-2290 · document type', facts: { doc_type: 'discharge' } },
       ],
       factDefs: [{ key: 'doc_type', label: 'Document the deal needs', required: true }],
-      drafts: { DOC_TYPE_MISMATCH: { to: 'team', team: 'registration', kind: 'correction', question: 'The new lender asked for an assignment of ON 2066450, but package DP-2290 is a discharge. Please prepare the assignment or confirm the instruction changed.', why: 'Releasing a discharge would remove the charge the new lender expects to take over.', requested: ['Assignment package'] } },
+      drafts: { DOC_TYPE_MISMATCH: { cta: 'Request assignment package', to: 'team', team: 'registration', kind: 'correction', question: 'The new lender asked for an assignment of ON 2066450, but package DP-2290 is a discharge. Please prepare the assignment or confirm the instruction changed.', why: 'Releasing a discharge would remove the charge the new lender expects to take over.', requested: ['Assignment package'] } },
       available: [
         { id: 'asg', label: 'Assignment package DP-2291', teams: ['registration'], correction: true, supersedes: ['docs'],
           evidence: { label: 'Prepared documents v2', system: 'Discharge and registration', origin: 'registration', kind: 'record', loc: 'Package DP-2291 · document type', facts: { doc_type: 'assignment' } },
@@ -365,10 +388,84 @@ window.TMC = (() => {
         { id: 'stmt', label: 'Partial release statement v1', system: 'Payout statements', origin: 'statement', kind: 'record', recorded: '2026-11-03T10:00:00Z', loc: 'Properties released', facts: { scope: '12 Main St, 14 Main St, 3 Dock Rd' } },
       ],
       factDefs: [{ key: 'scope', label: 'Properties released', required: true }],
-      drafts: { SCOPE_MISMATCH: { to: 'person', person: 'daniel', requires: 'mortgage.resume', kind: 'verify', question: 'Credit approval CA-881 releases only 12 Main St; release statement v1 lists all three properties. Please confirm the scope before anything is sent.', why: 'A full release would discharge security the bank means to keep.', requested: ['Scope decision'] } },
+      drafts: { SCOPE_MISMATCH: { cta: 'Request scope decision', to: 'person', person: 'daniel', requires: 'mortgage.resume', kind: 'verify', question: 'Credit approval CA-881 releases only 12 Main St; release statement v1 lists all three properties. Please confirm the scope before anything is sent.', why: 'A full release would discharge security the bank means to keep.', requested: ['Scope decision'] } },
       available: [{ id: 'v2', label: 'Release statement v2: 12 Main St only', teams: ['statements'], correction: true, supersedes: ['stmt'], evidence: { label: 'Partial release statement v2', system: 'Payout statements', origin: 'statement', kind: 'record', loc: 'Properties released', facts: { scope: '12 Main St' } }, patch: [{ path: 'release.statement', value: ['12 Main St'], label: 'Statement scope' }] }],
     },
   ];
 
-  return { dir: { teams, people }, cash, payroll, mortgage, rules };
+  // ---------- merchant payouts: a small online store's processor payouts against its bank account ----------
+  // Fernleaf Ceramics is fictional. The payout report is shaped like a typical processor payout summary:
+  // charges, refunds, adjustments, reserve, fees, and the total sent to the bank. No real provider's data.
+  const pay = (o) => ({ currency: 'CAD', status: 'paid', refunds: 0, adjustments: [], reserve: 0, ...o });
+  const payouts = [
+    {
+      key: 'po:PO-1028', title: 'Payout PO-1028 · 28 Oct', owner: 'sam', branch: 'payout', branchLabel: 'Payout',
+      openedBecause: 'Bank deposit differs from the payout total', amount: 4888.04, amountLabel: 'Payout', due: '2026-11-06T22:00:00Z', dueLabel: 'October books close', affects: 'recording October sales in the books',
+      records: { payout: pay({ id: 'PO-1028', date: '2026-10-28', charges: 5240.0, refunds: -180.0, fees: -171.96, total: 4888.04, orders: 41 }), deposits: [{ date: '2026-10-30', desc: 'PROCESSOR PAYOUT PO-1028', amount: 4588.04 }], arrival: '2026-10-30' },
+      evidence: [
+        { id: 'rep', label: 'Payout report PO-1028 (summary)', system: 'Processor dashboard · payout summary', origin: 'processor', kind: 'record', recorded: '2026-10-28T09:00:00Z', loc: 'Summary row · total', facts: { payout_total: 4888.04 } },
+        { id: 'bank', label: 'Bank deposit 30 Oct', system: 'Store bank account', origin: 'bank', kind: 'record', recorded: '2026-10-30T12:00:00Z', loc: 'Statement line · PROCESSOR PAYOUT PO-1028', facts: { deposit: 4588.04 } },
+      ],
+      factDefs: [{ key: 'payout_total', label: 'Payout total' }, { key: 'deposit', label: 'Bank deposit' }, { key: 'adjustments', label: 'Adjustments in the payout', required: true, who: 'store', checked: 'Payout summary, bank statement' }],
+      drafts: { DEPOSIT_DIFFERS: { cta: 'Request payout detail', to: 'person', person: 'kai', kind: 'evidence', question: 'PO-1028 says 4,888.04 but the bank received 4,588.04. Can you export the payout’s transactions from the payments dashboard so we can see the 300.00?', why: 'The books cannot record October sales until the payout ties to the bank.', requested: ['Payout transactions export'] } },
+      available: [{ id: 'txns', label: 'Payout transactions export PO-1028', teams: ['store'], correction: true, supersedes: ['rep'],
+        evidence: { label: 'Payout transactions PO-1028', system: 'Processor dashboard · payout transactions', origin: 'processor', kind: 'record', loc: 'Rows 1–44 · adjustment CB-5521', facts: { payout_total: 4588.04, adjustments: 'Chargeback CB-5521 −300.00 (dispute DP-881)' } },
+        patch: [{ path: 'payout.adjustments.0', value: { type: 'chargeback', ref: 'CB-5521', dispute: 'DP-881', amount: -300, due: '2026-11-09' }, label: 'Adjustment' }, { path: 'payout.total', value: 4588.04, label: 'Payout total' }] }],
+    },
+    {
+      key: 'po:PO-1030', title: 'Payout PO-1030 · 30 Oct', owner: 'sam', branch: 'payout', branchLabel: 'Payout',
+      openedBecause: 'Payout marked paid; no bank deposit yet', amount: 2311.4, amountLabel: 'Payout', due: '2026-11-06T22:00:00Z', dueLabel: 'October books close', affects: 'recording October sales in the books',
+      records: { payout: pay({ id: 'PO-1030', date: '2026-10-30', charges: 2402.0, fees: -90.6, total: 2311.4, orders: 18 }), deposits: [], arrival: '2026-11-03' },
+      evidence: [{ id: 'rep', label: 'Payout report PO-1030', system: 'Processor dashboard · payout summary', origin: 'processor', kind: 'record', recorded: '2026-10-30T09:00:00Z', loc: 'Status paid · expected 3 Nov', facts: { payout_total: 2311.4 } }],
+      factDefs: [{ key: 'payout_total', label: 'Payout total' }, { key: 'deposit', label: 'Bank deposit', required: true, who: 'store', checked: 'Bank statement to 4 Nov' }],
+      drafts: { DEPOSIT_MISSING: { cta: 'Ask the store to check the bank', to: 'team', team: 'store', kind: 'evidence', question: 'PO-1030 (2,311.40) was marked paid on 30 Oct and expected by 3 Nov, but no deposit shows on the statement. Can someone check the bank account and the payout account details?', why: 'Money marked paid but not received may be a bank delay or the wrong account.', requested: ['Bank statement or account details'] } },
+      inbox: [{ id: 'stmt', label: 'Bank statement update to 4 Nov', touches: ['deposit'],
+        evidence: { label: 'Bank deposit 4 Nov', system: 'Store bank account', origin: 'bank', kind: 'record', loc: 'Statement line · PAYOUT 1030 (held by bank one day)', facts: { deposit: 2311.4 } },
+        patch: [{ path: 'deposits.0', value: { date: '2026-11-04', desc: 'PAYOUT 1030', amount: 2311.4 }, label: 'Bank deposit' }] }],
+    },
+    {
+      key: 'po:PO-1101', title: 'Payout PO-1101 · 1 Nov', owner: 'sam', branch: 'payout', branchLabel: 'Payout',
+      openedBecause: 'Part of the sales held back as a reserve', amount: 6125.0, amountLabel: 'Sales', due: '2026-11-06T22:00:00Z', dueLabel: 'October books close', affects: 'cash planning for November',
+      records: { payout: pay({ id: 'PO-1101', date: '2026-11-01', charges: 6125.0, reserve: -612.5, fees: -201.93, total: 5310.57, orders: 21 }), deposits: [{ date: '2026-11-03', desc: 'PROCESSOR PAYOUT PO-1101', amount: 5310.57 }], arrival: '2026-11-03' },
+      evidence: [
+        { id: 'rep', label: 'Payout report PO-1101', system: 'Processor dashboard · payout summary', origin: 'processor', kind: 'record', recorded: '2026-11-01T09:00:00Z', loc: 'Reserve line', facts: { payout_total: 5310.57, reserve: '10% rolling reserve, 612.50 held' } },
+        { id: 'bank', label: 'Bank deposit 3 Nov', system: 'Store bank account', origin: 'bank', kind: 'record', recorded: '2026-11-03T12:00:00Z', loc: 'Statement line', facts: { deposit: 5310.57 } },
+      ],
+      factDefs: [{ key: 'reserve', label: 'Reserve held' }, { key: 'reserve_release', label: 'When the reserve is released', required: true, who: 'support', checked: 'Payout summary, account settings' }],
+      drafts: { RESERVE_HELD: { cta: 'Ask support when it is released', to: 'team', team: 'support', kind: 'verify', question: 'PO-1101 held 612.50 as a 10% rolling reserve. When will it be released, and why was the reserve applied to this account?', why: 'The store plans November cash on the full amount.', requested: ['Release date and reason'] } },
+      available: [{ id: 'rel', label: 'Reserve notice: release 1 Dec', teams: ['support'],
+        evidence: { label: 'Reserve notice RS-207', system: 'Processor support (simulated)', origin: 'processor-support', kind: 'document', text: 'Reserve RS-207 (synthetic)\nReason: sales volume up 3x in October\nReserve: 10% rolling\nRelease date: 2026-12-01', extract: [{ fact: 'reserve_release', re: 'Release date: (\\d{4}-\\d{2}-\\d{2})' }] },
+        patch: [{ path: 'reserveRelease', value: '2026-12-01', label: 'Reserve release' }] }],
+    },
+    {
+      key: 'po:PO-1102', title: 'Payout PO-1102 · 2 Nov', owner: 'sam', branch: 'payout', branchLabel: 'Payout',
+      openedBecause: 'Fees above the agreed rate', amount: 1980.0, amountLabel: 'Sales', due: '2026-11-06T22:00:00Z', dueLabel: 'October books close', affects: 'recording fees in the books',
+      records: { payout: pay({ id: 'PO-1102', date: '2026-11-02', charges: 1980.0, fees: -87.12, total: 1892.88, orders: 12, usdOrders: 7 }), deposits: [{ date: '2026-11-04', desc: 'PROCESSOR PAYOUT PO-1102', amount: 1892.88 }], arrival: '2026-11-04', rate: { pct: 0.029, fixed: 0.3 } },
+      evidence: [
+        { id: 'rep', label: 'Payout report PO-1102', system: 'Processor dashboard · payout summary', origin: 'processor', kind: 'record', recorded: '2026-11-02T09:00:00Z', loc: 'Fees line', facts: { fees: 87.12, payout_total: 1892.88 } },
+        { id: 'plan', label: 'Plan: 2.9% + 0.30 per order', system: 'Store account settings', origin: 'plan', kind: 'record', recorded: '2026-01-15T09:00:00Z', loc: 'Billing · payment rates', facts: { fees: 61.02 } },
+      ],
+      factDefs: [{ key: 'fees', label: 'Fees' }, { key: 'fee_reason', label: 'Why the fees differ', required: true, who: 'support', checked: 'Payout summary, plan' }],
+      drafts: { FEE_ABOVE_RATE: { cta: 'Ask support about the fees', to: 'team', team: 'support', kind: 'verify', question: 'PO-1102 charged 87.12 in fees; our plan (2.9% + 0.30) gives 61.02 for 12 orders. Seven orders were in USD. Is the difference currency conversion, and at what rate?', why: 'The books need the right fee split, and an overcharge would need a refund.', requested: ['Fee breakdown'] } },
+      available: [{ id: 'fx', label: 'Fee breakdown: currency conversion on 7 USD orders', teams: ['support'],
+        evidence: { label: 'Fee breakdown PO-1102', system: 'Processor support (simulated)', origin: 'processor-support', kind: 'record', loc: 'Processing 61.02 · currency conversion 26.10 (1.5% on 1,740.00 USD)', facts: { fees: 87.12, fee_reason: 'Currency conversion 26.10 on USD orders' } },
+        patch: [{ path: 'feeExplained', value: 'Currency conversion 26.10', label: 'Fee explanation' }] }],
+    },
+    {
+      key: 'po:PO-1103', title: 'Payout PO-1103 · 3 Nov', owner: 'sam', branch: 'payout', branchLabel: 'Payout',
+      openedBecause: 'The payout report does not add up', amount: 3120.0, amountLabel: 'Sales', due: '2026-11-06T22:00:00Z', dueLabel: 'October books close', affects: 'recording October sales in the books',
+      records: { payout: pay({ id: 'PO-1103', date: '2026-11-03', charges: 3120.0, refunds: -245.0, fees: -102.48, total: 2527.52, orders: 25 }), deposits: [{ date: '2026-11-05', desc: 'PROCESSOR PAYOUT PO-1103', amount: 2527.52 }], arrival: '2026-11-05' },
+      evidence: [
+        { id: 'rep', label: 'Payout report PO-1103', system: 'Processor dashboard · payout summary', origin: 'processor', kind: 'record', recorded: '2026-11-03T09:00:00Z', loc: 'Charges 3,120.00 · refunds −245.00 · fees −102.48 · total 2,527.52', facts: { payout_total: 2527.52, refunds: 245 } },
+        { id: 'csv', label: 'Store refunds export (CSV)', system: 'Store admin · refunds', origin: 'store-admin', kind: 'record', recorded: '2026-11-03T18:00:00Z', loc: 'Two refunds of 245.00, order #4471, 2 Nov 09:14 and 09:15', facts: { refunds: 490 } },
+      ],
+      factDefs: [{ key: 'refunds', label: 'Refunds in the payout' }, { key: 'payout_total', label: 'Payout total' }],
+      drafts: { COMPOSITION_BREAK: { cta: 'Ask the store about order #4471', to: 'person', person: 'kai', kind: 'verify', question: 'Order #4471 shows two refunds of 245.00 one minute apart, and PO-1103 is 245.00 short of its own lines. Was the customer refunded twice?', why: 'A double refund is money the store needs to recover.', requested: ['Refund history for #4471'] } },
+      available: [{ id: 'dbl', label: 'Refund history #4471: refunded twice by mistake', teams: ['store'],
+        evidence: { label: 'Refund history #4471', system: 'Store admin · order #4471', origin: 'store-admin', kind: 'record', loc: 'Refund 1 09:14 (customer request) · refund 2 09:15 (duplicate click)', facts: { refunds: 490 } },
+        patch: [{ path: 'payout.refunds', value: -490, label: 'Refunds in the payout' }, { path: 'doubleRefund', value: '#4471', label: 'Duplicate refund' }] }],
+    },
+  ];
+
+  return { dir: { teams, people }, close, cash, payroll, mortgage, payouts, rules };
 })();

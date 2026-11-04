@@ -142,7 +142,7 @@
   }
 
   function createCase(state, dir, adapters, seed, by = 'Engine') {
-    const prefix = { cash: 'CF', payroll: 'PY', mortgage: 'MS' }[seed.module] || 'CS';
+    const prefix = { close: 'MC', cash: 'CF', payroll: 'PY', mortgage: 'MS', payouts: 'PO' }[seed.module] || 'CS';
     const c = {
       id: nextId(state, prefix), status: 'open', version: 1, exceptions: [], tasks: [], decisions: [], history: [],
       evidence: [], available: [], inbox: [], factDefs: [], stage: '', ...clone(seed),
@@ -192,6 +192,7 @@
     const pool = via === 'inbox' ? c.inbox : c.available;
     const item = pool.find((i) => i.id === itemId);
     if (!item) return fail('That evidence is no longer available on this case.');
+    if (item.after && !(c.records || {})[item.after]) return fail('That evidence has not arrived yet.');
     if (via !== 'inbox' && item.teams && !item.teams.includes(who(dir, by).team)) return fail(`${who(dir, by).name} cannot reach ${item.label}; it is held by ${item.teams.map((t) => dir.teams[t] ? dir.teams[t].name : t).join(', ')}.`);
     const at = tick(state, 2);
     const before = factMap(c);
@@ -420,6 +421,73 @@
     return { ok: true };
   }
 
+  // ---------- the one next step for a person on a case ----------
+  // It reads the same tasks and actions as the rest of the page and only chooses which comes first:
+  // a check this person can answer or claim, then a reply to review, then a decision they can make,
+  // then who the case is waiting on, then the question to ask.
+  function primaryAction(state, dir, adapters, caseId, pid) {
+    const c = state.cases[caseId];
+    const tasks = c.tasks.map((id) => state.tasks[id]);
+    const person = who(dir, pid);
+    const toAnswer = tasks.find((t) => t.assignee === pid && ['claimed', 'more-info'].includes(t.status));
+    if (toAnswer) return { kind: 'reply', task: toAnswer.id, label: 'Reply with evidence', why: toAnswer.question };
+    const sent = tasks.find((t) => t.assignee === pid && t.status === 'replied' && !onCase(dir, pid, c));
+    if (sent) return { kind: 'waiting', task: sent.id, label: `Your reply is with ${who(dir, c.owner).name}`, why: sent.question, mine: false };
+    const claimable = tasks.find((t) => t.status === 'open' && person.team === t.team);
+    if (claimable) return { kind: 'claim', task: claimable.id, label: 'Claim check', why: claimable.question };
+    if (c.closed) return { kind: 'done', label: c.stage || 'Closed', why: '' };
+    const mine = onCase(dir, pid, c);
+    if (mine) {
+      const replied = tasks.find((t) => t.status === 'replied');
+      if (replied) return { kind: 'review', task: replied.id, label: 'Review reply', why: `${who(dir, replied.reply.by).name} replied` };
+      const asked = tasks.find((t) => t.status === 'clarify');
+      if (asked) return { kind: 'clarify', task: asked.id, label: 'Answer the question', why: asked.clarify.q };
+      const back = tasks.find((t) => t.status === 'returned');
+      if (back) return { kind: 'returned', task: back.id, label: 'Redirect the returned check', why: back.returnReason };
+      const arrived = c.inbox.find((i) => !i.after || (c.records || {})[i.after]);
+      if (arrived) return { kind: 'inbox', item: arrived.id, label: 'Add the new evidence', why: arrived.label };
+    }
+    const acts = actionsFor(state, dir, adapters, caseId, pid).filter((a) => a.kind !== 'accept');
+    const ready = acts.find((a) => a.allowed && a.ready);
+    if (ready) return { kind: 'act', action: ready.id, label: ready.label, needsReason: !!ready.needsReason, why: '' };
+    const waiting = tasks.filter((t) => WAITING.includes(t.status));
+    if (waiting.length) {
+      const t = waiting[0];
+      return { kind: 'waiting', task: t.id, label: `Waiting on ${t.assignee ? who(dir, t.assignee).name : dir.teams[t.team].name}`, why: t.question, overdue: isOverdue(state, t), mine };
+    }
+    if (mine) {
+      const authority = acts.find((a) => a.ready && !a.allowed);
+      if (authority) {
+        const able = Object.values(dir.people).filter((p) => p.perms.includes(authority.perm)).map((p) => p.name);
+        return { kind: 'authority', label: `Waiting on ${able[0] || 'an authorised person'}`, why: `Only ${able.join(' or ') || 'an authorised person'} can ${authority.label.toLowerCase()}.` };
+      }
+      const x = c.exceptions.find((e) => e.status === 'open');
+      if (x) { const d = c.drafts && c.drafts[x.code]; return { kind: 'request', exception: x.id, label: (d && d.cta) || 'Request confirmation', why: x.next || '' }; }
+      return { kind: 'none', label: 'Nothing open', why: 'Every exception is closed or accepted.' };
+    }
+    return { kind: 'none', label: 'No action for you', why: `${who(dir, c.owner).name} owns this case.` };
+  }
+
+  // My Work: what this person owns that needs them, checks given to them, what their team can claim,
+  // and what they are waiting on. Every row points at the one case record.
+  function myWork(state, dir, adapters, pid) {
+    const team = who(dir, pid).team;
+    const cases = state.order.map((id) => state.cases[id]);
+    const tasks = Object.values(state.tasks);
+    const needs = [], waiting = [];
+    for (const c of cases) {
+      if (c.closed) continue;
+      const p = primaryAction(state, dir, adapters, c.id, pid);
+      const owns = c.owner === pid;
+      if ((owns && ['review', 'clarify', 'returned', 'inbox', 'act', 'request'].includes(p.kind)) || (!owns && p.kind === 'act')) needs.push({ caseId: c.id, action: p });
+      else if (owns && ['waiting', 'authority'].includes(p.kind)) waiting.push({ caseId: c.id, action: p });
+    }
+    for (const t of tasks) if (t.from === pid && t.owner !== pid && WAITING.includes(t.status)) waiting.push({ caseId: t.caseId, task: t.id, action: { kind: 'waiting', label: `Waiting on ${t.assignee ? who(dir, t.assignee).name : dir.teams[t.team].name}`, why: t.question } });
+    const assigned = tasks.filter((t) => t.assignee === pid && ['claimed', 'more-info', 'clarify'].includes(t.status)).map((t) => ({ caseId: t.caseId, task: t.id }));
+    const inbox = tasks.filter((t) => t.status === 'open' && t.team === team).map((t) => ({ caseId: t.caseId, task: t.id }));
+    return { needs, assigned, inbox, waiting };
+  }
+
   // ---------- reading the desk ----------
   function caseStatus(state, c) {
     const open = c.exceptions.filter((x) => x.status === 'open');
@@ -469,6 +537,6 @@
     DEMO_NOW, newState, tick, advance, can, isLead, onCase, seesEvidence, who,
     readingsOf, trace, factMap, priorityOf, effectivePriority, runCheck, createCase, sync, attachEvidence,
     escalate, claim, assign, reassign, reply, askClarify, answerClarify, returnTask, accept, askMore, closeTask, remind, escalateToLead, isOverdue,
-    actionsFor, act, reclassify, setPriority, caseStatus, row, queue, fmt, OPEN_TASK,
+    actionsFor, act, reclassify, setPriority, caseStatus, row, queue, fmt, OPEN_TASK, WAITING, primaryAction, myWork,
   };
 });

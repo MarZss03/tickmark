@@ -127,23 +127,28 @@
     else location.href = sel;
   };
   const home = work ? '' : 'index.html';
+  // workbench pages have their own addresses
+  const wb = (route) => () => { if (work && window.tmGo) window.tmGo('#' + route); else location.href = 'index.html#' + route; };
   const notes = work ? 'notes.html' : '';
   const items = [
-    ['Close', 'Workbench', go(home + '#workbench', 'close')],
-    ['Payroll', 'Workbench', go(home + '#workbench', 'payroll')],
-    ['Cash and FX', 'Workbench', go(home + '#workbench', 'cash')],
-    ['Public filings', 'Workbench', go(home + '#workbench', 'sec')],
-    ['Model evaluation', 'Workbench', go(home + '#workbench', 'eval')],
-    ['Stress test', 'Workbench · plant errors, count what is caught', go(home + '#workbench', 'stress')],
-    ['Your data', 'Workbench · run your own CSV', go(home + '#workbench', 'mine')],
-    ['Audit log', 'Workbench', go(home + '#workbench', 'audit')],
+    ['My Work', 'Workbench', wb('workbench')],
+    ['Month-end Close', 'Work Queues', wb('queue/close')],
+    ['Payroll', 'Work Queues', wb('queue/payroll')],
+    ['Cash Reconciliation', 'Work Queues', wb('queue/cash')],
+    ['Mortgage Servicing', 'Work Queues', wb('queue/mortgage')],
+    ['Merchant Payouts', 'Work Queues', wb('queue/payouts')],
+    ['Guided demo', 'Try the payout exception', wb('try')],
+    ['Data & Imports', 'Workbench · run your own CSV', wb('imports')],
+    ['Audit Log', 'Workbench', wb('audit')],
+    ['Public filings', 'Demo & Validation', wb('demo/filings')],
+    ['Model evaluation', 'Demo & Validation', wb('demo/eval')],
+    ['Stress test', 'Demo & Validation · plant errors, count what is caught', wb('demo/stress')],
     ['Try a control', 'Work', go(home + '#control')],
     ['Contact', 'Work', go(home + '#contact')],
     ['The problem', 'Notes', go(notes + '#problem')],
     ['What I found', 'Notes', go(notes + '#found')],
     ['What I chose to build', 'Notes', go(notes + '#chose')],
     ['Build log', 'Notes', go(notes + '#log')],
-    ['Review queue', 'Workbench · one queue for payroll, cash and mortgage', go(home + '#workbench', 'queue')],
     ['Principles', 'Notes', go(notes + '#principles')],
     ['Scores', 'Notes', go(notes + '#scores')],
     ['What broke', 'Notes', go(notes + '#broke')],
@@ -228,14 +233,3 @@
   }, { passive: true });
 })();
 
-// ---------- the workbench runs its close controls once, the first time it is seen ----------
-(() => {
-  const app = document.getElementById('app'), run = document.getElementById('run-close');
-  if (!app || !run || !('IntersectionObserver' in window)) return;
-  const io = new IntersectionObserver(([e]) => {
-    if (!e.isIntersecting) return;
-    io.disconnect();
-    setTimeout(() => { if (run.textContent.trim() === 'Run close controls') run.click(); }, 600);
-  }, { threshold: 0.25 });
-  io.observe(app.closest('[data-reveal]') || app);
-})();

@@ -635,7 +635,7 @@
   $$('[data-open-view]').forEach((b) => b.addEventListener('click', () => { setView(b.dataset.openView); $('#workbench').scrollIntoView({ behavior: reduced ? 'auto' : 'smooth' }); }));
 
   // on phones each table row becomes a card, so every cell carries its column name
-  const WIDE = /^(Exception|Evidence|Bank description|Memo|Detail|Task|Measured by|Company|Event|Case|What was found|Why it is first|Who has it|Fact|Source|Independence|Planted)$/;
+  const WIDE = /^(Exception|Evidence|Bank description|Memo|Detail|Task|Measured by|Company|Event|Case|Finding|Next step|Fact|Field|Source|Independence|Planted)$/;
   function labelTables() {
     $$('#app table.tbl').forEach((t) => {
       const heads = $$('thead th', t).map((th) => th.textContent.trim());

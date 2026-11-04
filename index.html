@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="styles.css?v=20261104">
 <script>document.documentElement.classList.add('js');try{if(sessionStorage.getItem('tm-wipe'))document.documentElement.classList.add('arriving')}catch(e){}</script>
 </head>
 <body data-page="work">
@@ -87,27 +87,38 @@
 <div class="app" data-ui id="app">
     <aside class="app-side" aria-label="Workbench navigation">
       <p class="app-brand"><svg class="mk" viewBox="0 0 191 225" aria-hidden="true"><path class="m-cream" d="M0 80L191 0V60L48 165L0 140Z"/><path class="m-gold" d="M0 156L48 181L191 76V145L0 225Z"/></svg>Tickmark</p>
-      <div class="app-nav" role="tablist" aria-label="Views">
-        <button role="tab" class="nav-i" data-view="close" aria-selected="true">Close</button>
-        <button role="tab" class="nav-i" data-view="queue" aria-selected="false">Review queue <span class="count" id="rq-count"></span></button>
-        <button role="tab" class="nav-i" data-view="payroll" aria-selected="false">Payroll</button>
-        <button role="tab" class="nav-i" data-view="cash" aria-selected="false">Cash and FX</button>
-        <button role="tab" class="nav-i" data-view="sec" aria-selected="false">Public filings</button>
-        <button role="tab" class="nav-i" data-view="eval" aria-selected="false">Model evaluation</button>
-        <button role="tab" class="nav-i" data-view="stress" aria-selected="false">Stress test</button>
-        <button role="tab" class="nav-i nav-mine" data-view="mine" aria-selected="false">Your data <span class="count" id="mine-count" hidden></span></button>
-        <button role="tab" class="nav-i" data-view="audit" aria-selected="false">Audit log <span class="count" id="audit-count">0</span></button>
-      </div>
-      <p class="app-env">Close, payroll and bank lines are synthetic. Filings, exchange rates and FinQA are real public data.</p>
+      <button type="button" class="wb-menu" id="wb-menu" aria-expanded="false" aria-controls="wb-nav"><span id="wb-menu-l">My Work</span><span aria-hidden="true">▾</span></button>
+      <nav class="wb-nav" id="wb-nav" aria-label="Workbench">
+        <a class="wb-i" href="#workbench" data-route="mywork"><span>My Work</span><span class="count" id="n-mywork" title="Cases and checks waiting on you"></span></a>
+        <button type="button" class="wb-g" id="wb-q-t" aria-expanded="true" aria-controls="wb-q">Work Queues</button>
+        <div class="wb-sub" id="wb-q">
+          <a class="wb-i" href="#queue/close" data-route="queue/close"><span>Month-end Close</span><span class="count" data-n="close" title="Open cases"></span></a>
+          <a class="wb-i" href="#queue/payroll" data-route="queue/payroll"><span>Payroll</span><span class="count" data-n="payroll" title="Open cases"></span></a>
+          <a class="wb-i" href="#queue/cash" data-route="queue/cash"><span>Cash Reconciliation</span><span class="count" data-n="cash" title="Open cases"></span></a>
+          <a class="wb-i" href="#queue/mortgage" data-route="queue/mortgage"><span>Mortgage Servicing</span><span class="count" data-n="mortgage" title="Open cases"></span></a>
+          <a class="wb-i" href="#queue/payouts" data-route="queue/payouts"><span>Merchant Payouts</span><span class="count" data-n="payouts" title="Open cases"></span></a>
+        </div>
+        <a class="wb-i" href="#imports" data-route="imports"><span>Data &amp; Imports</span><span class="count" id="mine-count" hidden></span></a>
+        <a class="wb-i" href="#audit" data-route="audit"><span>Audit Log</span><span class="count" id="audit-count" title="Entries">0</span></a>
+        <p class="wb-g wb-demo-h">Demo &amp; Validation</p>
+        <div class="wb-sub wb-demo">
+          <a class="wb-i" href="#try" data-try-case><span>Guided demo</span></a>
+          <a class="wb-i" href="#demo/filings" data-route="demo/filings"><span>Public filings</span></a>
+          <a class="wb-i" href="#demo/eval" data-route="demo/eval"><span>Model evaluation</span></a>
+          <a class="wb-i" href="#demo/stress" data-route="demo/stress"><span>Stress test</span></a>
+        </div>
+      </nav>
+      <p class="app-env">Close, payroll, cash, mortgage and payout records are synthetic, and sign-in and sending are simulated. Filings, exchange rates and FinQA are real public data.</p>
     </aside>
     <div class="app-top">
-      <span class="period">October 2026 close · BD3 of 5</span>
-      <span class="who">Reviewer: you</span>
+      <span class="period" id="wb-where">My Work</span>
+      <label class="who">Acting as <select id="rq-as"></select><span class="sim">simulated sign-in</span></label>
     </div>
     <div class="sheet" id="sheet">
+      <div id="wb-head"></div>
 
       <!-- CLOSE -->
-      <div class="view" data-view="close" role="tabpanel">
+      <div class="view" data-view="close" role="tabpanel" hidden>
         <div class="v-title">
           <div><p class="v-h">Month-end close</p><p class="v-sub">NetSuite-, Ramp-, Numeric- and Snowflake-shaped CSVs · 63 rows</p></div>
           <button type="button" class="b-pri" id="run-close">Run close controls</button>
@@ -147,15 +158,10 @@
         </div>
       </div>
 
-      <!-- REVIEW QUEUE: payroll, cash and mortgage exceptions on one queue, one case review -->
-      <div class="view" data-view="queue" role="tabpanel" hidden>
-        <div class="v-title">
-          <div><p class="v-h">Review queue</p><p class="v-sub">Payroll, cash and mortgage exceptions in one queue. Each case shows what differs, where the evidence comes from, what it holds up and what you can do now. All data is synthetic; sign-in, notices and sending are simulated.</p></div>
-          <div class="c-acts"><label class="tol">Acting as <select id="rq-as"></select></label><button type="button" class="b-pri" id="rq-run">Run checks</button></div>
-        </div>
-        <p class="rq-bar"><span id="rq-clock"></span> · switch people to see each queue · <button type="button" class="link-btn sm" id="rq-reset">Reset the demo</button></p>
-        <p class="st-err" id="rq-msg" role="alert" hidden></p>
-        <div id="rq-body"></div>
+      <!-- MY WORK, THE BUSINESS QUEUES AND CASE REVIEW: drawn by review.js from the shared case records -->
+      <div class="view" data-view="queue" role="tabpanel">
+        <p class="rq-msg" id="rq-msg" role="alert" hidden></p>
+        <div id="rq-body"><p class="d-empty">Loading your work…</p></div>
       </div>
 
       <!-- CASH -->
@@ -427,15 +433,15 @@
   </div>
 </footer>
 
-<script src="charts.js"></script>
-<script src="engine.js"></script>
-<script src="data.js"></script>
-<script src="real-data.js"></script>
-<script src="case-data.js"></script>
-<script src="cases.js"></script>
-<script src="case-rules.js"></script>
-<script src="app.js"></script>
-<script src="review.js"></script>
-<script src="motion.js"></script>
+<script src="charts.js?v=20261104"></script>
+<script src="engine.js?v=20261104"></script>
+<script src="data.js?v=20261104"></script>
+<script src="real-data.js?v=20261104"></script>
+<script src="case-data.js?v=20261104"></script>
+<script src="cases.js?v=20261104"></script>
+<script src="case-rules.js?v=20261104"></script>
+<script src="app.js?v=20261104"></script>
+<script src="review.js?v=20261104"></script>
+<script src="motion.js?v=20261104"></script>
 </body>
 </html>

@@ -26,6 +26,7 @@ function desk() {
   C.sync(s, D, A, 'cash', { bank: TM.bank, gl: TM.gl, window: 3 });
   C.sync(s, D, A, 'payroll', { hris: TM.hris, payroll: TM.payroll, equity: TM.equity, period: PERIOD });
   C.sync(s, D, A, 'mortgage', {});
+  C.sync(s, D, A, 'close', { exceptions: TM.close });
   return s;
 }
 const byKey = (s, key) => s.order.map((id) => s.cases[id]).find((c) => c.key === key);
@@ -35,7 +36,7 @@ const ok = (r) => { assert.equal(r.ok, true, r.error); return r; };
 test('detection: the three modules land in one queue, and a re-scan updates instead of duplicating', () => {
   const s = desk();
   const mods = new Set(s.order.map((id) => s.cases[id].module));
-  assert.deepEqual([...mods].sort(), ['cash', 'mortgage', 'payroll']);
+  assert.deepEqual([...mods].sort(), ['cash', 'close', 'mortgage', 'payroll']);
   const n = s.order.length;
   const again = C.sync(s, D, A, 'cash', { bank: TM.bank, gl: TM.gl, window: 3 });
   assert.equal(again.created.length, 0);
@@ -251,4 +252,98 @@ test('priority keeps impact apart from confidence, and a person can override it 
   ok(C.reclassify(s, D, c.id, c.exceptions[0].id, 'timing', 'Payments said it was a hold.', 'ava'));
   C.runCheck(s, A, c.id, 'Engine', 'Re-check');
   assert.equal(c.exceptions[0].cls, 'timing', 'a person’s classification survives a re-check');
+});
+
+test('first action: MS-0011 gives each role one clear next step, in order', () => {
+  const s = desk();
+  const c = byKey(s, 'ms:ML-40311');
+  const m = TMC.mortgage[0];
+  const P = (pid) => C.primaryAction(s, D, A, c.id, pid);
+  assert.deepEqual([P('ava').kind, P('ava').label], ['request', 'Request receipt confirmation']);
+  assert.equal(P('leo').kind, 'none');
+  const t1 = ok(C.escalate(s, D, c.id, m.drafts.BALANCE_AFTER_PAYOUT, 'ava')).task;
+  assert.deepEqual([P('ava').kind, P('ava').label], ['waiting', 'Waiting on Payments']);
+  assert.deepEqual([P('leo').kind, P('leo').label], ['claim', 'Claim check']);
+  ok(C.claim(s, D, t1, 'leo'));
+  assert.deepEqual([P('leo').kind, P('leo').label], ['reply', 'Reply with evidence']);
+  assert.equal(P('priya').kind, 'waiting', 'once Leo has it, his lead only sees who it waits on');
+  ok(C.reply(s, D, A, t1, 'leo', { answer: 'Received 30 Oct 14:02; hold to 2 Nov.', conclusion: 'confirmed', attach: ['wire'] }));
+  assert.deepEqual([P('ava').kind, P('ava').label], ['review', 'Review reply']);
+  ok(C.accept(s, D, t1, 'ava'));
+  assert.deepEqual([P('ava').kind, P('ava').label], ['request', 'Request settlement decision']);
+  const t2 = ok(C.escalate(s, D, c.id, m.drafts.LATE_POSTING, 'ava')).task;
+  assert.equal(P('daniel').kind, 'reply');
+  ok(C.reply(s, D, A, t2, 'daniel', { answer: 'Settlement date is 30 Oct.', conclusion: 'confirmed', attach: ['settle'] }));
+  ok(C.accept(s, D, t2, 'ava'));
+  assert.equal(P('ava').kind, 'authority');
+  assert.match(P('ava').why, /Daniel Roy/);
+  assert.deepEqual([P('daniel').kind, P('daniel').action], ['act', 'apply-adjustment']);
+  ok(C.act(s, D, A, c.id, 'apply-adjustment', { by: 'daniel', version: c.version }));
+  assert.deepEqual([P('daniel').kind, P('daniel').action], ['act', 'resume']);
+  ok(C.act(s, D, A, c.id, 'resume', { by: 'daniel', version: c.version }));
+  assert.equal(P('ava').kind, 'done');
+});
+
+test('My Work: needs my action, assigned to me, team inbox and waiting all point at the same case', () => {
+  const s = desk();
+  const c = byKey(s, 'ms:ML-40311');
+  const W = (pid) => C.myWork(s, D, A, pid);
+  assert.ok(W('ava').needs.some((r) => r.caseId === c.id));
+  const t = ok(C.escalate(s, D, c.id, TMC.mortgage[0].drafts.BALANCE_AFTER_PAYOUT, 'ava')).task;
+  assert.ok(W('ava').waiting.some((r) => r.caseId === c.id));
+  assert.ok(!W('ava').needs.some((r) => r.caseId === c.id));
+  assert.ok(W('leo').inbox.some((r) => r.task === t && r.caseId === c.id));
+  ok(C.claim(s, D, t, 'leo'));
+  assert.ok(!W('priya').inbox.some((r) => r.task === t), 'claimed checks leave the team inbox');
+  assert.ok(W('leo').assigned.some((r) => r.task === t && r.caseId === c.id));
+  // a check sent straight to a person lands in their Assigned list
+  const p = byKey(s, 'payroll:E-1017:DUPLICATE_PAYMENT');
+  const t2 = ok(C.escalate(s, D, p.id, TMC.payroll['E-1017:DUPLICATE_PAYMENT'].draft, 'jon')).task;
+  assert.ok(W('omar').assigned.some((r) => r.task === t2));
+  assert.ok(W('jon').waiting.some((r) => r.caseId === p.id));
+});
+
+test('close: each close exception is a case with its own queue; resolving needs a reason and the right person', () => {
+  const s = desk();
+  const cl = s.order.map((id) => s.cases[id]).filter((c) => c.module === 'close');
+  assert.equal(cl.length, TM.close.length);
+  assert.ok(cl.every((c) => c.id.startsWith('MC-')));
+  const c = byKey(s, 'close:CL-06');
+  assert.equal(C.queue(s, D, { module: 'close', me: 'hana' }).length, TM.close.length);
+  assert.equal(C.act(s, D, A, c.id, 'resolve', { by: 'hana', reason: 'short', version: c.version }).ok, false);
+  assert.equal(C.act(s, D, A, c.id, 'resolve', { by: 'sara', reason: 'JE-1031 posted after Payroll confirmed.', version: c.version }).ok, false);
+  ok(C.act(s, D, A, c.id, 'resolve', { by: 'hana', reason: 'JE-1031 posted after Payroll confirmed.', version: c.version }));
+  assert.deepEqual(open(c), []);
+  assert.equal(C.caseStatus(s, c), 'closed');
+});
+
+test('payouts: a short deposit traces to a chargeback; only the store owner decides the dispute; then it is recorded', () => {
+  const s = desk();
+  C.sync(s, D, A, 'payouts', {});
+  const c = byKey(s, 'po:PO-1028');
+  assert.deepEqual(open(c), ['DEPOSIT_DIFFERS']);
+  assert.equal(C.primaryAction(s, D, A, c.id, 'sam').label, 'Request payout detail');
+  const t = ok(C.escalate(s, D, c.id, TMC.payouts[0].drafts.DEPOSIT_DIFFERS, 'sam')).task;
+  ok(C.reply(s, D, A, t, 'kai', { answer: 'The payout includes chargeback CB-5521 for 300.00.', conclusion: 'confirmed', attach: ['txns'] }));
+  ok(C.accept(s, D, t, 'sam'));
+  assert.deepEqual(open(c), ['CHARGEBACK']);
+  assert.match(c.exceptions.find((x) => x.code === 'CHARGEBACK').headline, /\$300\.00 chargeback/);
+  assert.equal(C.primaryAction(s, D, A, c.id, 'sam').kind, 'authority', 'the bookkeeper cannot decide a dispute');
+  assert.equal(C.act(s, D, A, c.id, 'dispute', { by: 'sam', reason: 'Customer received the order.', version: c.version }).ok, false);
+  ok(C.act(s, D, A, c.id, 'dispute', { by: 'jada', reason: 'Tracking shows the order was delivered.', version: c.version }));
+  assert.deepEqual(open(c), []);
+  ok(C.act(s, D, A, c.id, 'record', { by: 'sam', version: c.version }));
+  assert.equal(C.caseStatus(s, c), 'closed');
+});
+
+test('payouts: a report that does not add up turns into a duplicate refund once the store confirms it', () => {
+  const s = desk();
+  C.sync(s, D, A, 'payouts', {});
+  const c = byKey(s, 'po:PO-1103');
+  assert.deepEqual(open(c), ['COMPOSITION_BREAK']);
+  const t = ok(C.escalate(s, D, c.id, TMC.payouts[4].drafts.COMPOSITION_BREAK, 'sam')).task;
+  ok(C.reply(s, D, A, t, 'kai', { answer: 'Yes, a duplicate click refunded #4471 twice.', conclusion: 'confirmed', attach: ['dbl'] }));
+  assert.deepEqual(open(c), ['DUPLICATE_REFUND']);
+  const reserve = byKey(s, 'po:PO-1101');
+  assert.match(reserve.exceptions[0].headline, /^\$612\.50 of payout/);
 });

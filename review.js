@@ -1,5 +1,5 @@
-// Tickmark Review Queue and Case Review: the page's casework. The rules live in cases.js and
-// case-rules.js; this file renders them, keeps the demo in this browser, and writes to the audit log.
+// Tickmark Workbench: My Work, the business queues and Case Review. The rules live in cases.js and
+// case-rules.js; this file routes, renders them, keeps the demo in this browser, and writes to the audit log.
 (() => {
   const E = window.TickmarkEngine, C = window.TickmarkCases, TMC = window.TMC;
   const A = window.TickmarkCaseRules(E, window.TM, TMC);
@@ -9,36 +9,94 @@
   const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
   const app = window.tmApp || {};
   const PERIOD = { start: '2026-10-01', end: '2026-10-15' };
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  const MOD = { cash: 'Cash', payroll: 'Payroll', mortgage: 'Mortgage' };
+  // ---------- the businesses ----------
+  const MODULES = {
+    close: { label: 'Month-end Close', short: 'Close', scan: 'Re-run close checks', other: { route: 'checks/close', view: 'close', label: 'Checks' }, intro: 'October 2026 close · business day 3 of 5' },
+    payroll: { label: 'Payroll', short: 'Payroll', scan: 'Run payroll checks', other: { route: 'checks/payroll', view: 'payroll', label: 'Checks' }, intro: 'Pay period 1–15 Oct 2026' },
+    cash: { label: 'Cash Reconciliation', short: 'Cash', scan: 'Run the bank match', other: { route: 'reports/cash', view: 'cash', label: 'Reports' }, intro: 'Operating account against GL 1010 · October' },
+    mortgage: { label: 'Mortgage Servicing', short: 'Mortgage', scan: 'Run servicing checks', intro: 'Payouts, discharges and transfers' },
+    payouts: { label: 'Merchant Payouts', short: 'Payouts', scan: 'Match payouts to the bank', intro: 'Payment-processor payouts against the store’s bank account' },
+  };
   const CLS = { 'source-error': 'Suspected source error', timing: 'Timing or sync gap', business: 'Real business difference', insufficient: 'Not enough evidence' };
   const STATUS = { open: 'Open', waiting: 'Waiting on a check', 'reply-in': 'Reply to review', resolved: 'Nothing open', closed: 'Closed' };
   const TASK = { open: 'Waiting to be claimed', claimed: 'With the handler', clarify: 'Handler asked a question', 'more-info': 'Sent back for more', returned: 'Returned', replied: 'Reply in', closed: 'Closed' };
-  const FACT = { agree: ['ok', 'Independent sources agree'], single: ['', 'One source'], conflict: ['neg', 'Sources disagree'], pending: ['warn', 'To confirm'] };
   const PRI = { P1: 'neg', P2: 'warn', P3: '', P4: 'ok' };
-  const at = (s) => { if (!s) return '—'; const d = new Date(s); return Number.isNaN(d.getTime()) ? s : d.toUTCString().slice(0, 11).replace(',', '') + ' ' + d.toISOString().slice(11, 16); };
+  const at = (s) => { if (!s) return '—'; const d = new Date(s); return Number.isNaN(d.getTime()) ? s : d.toUTCString().slice(0, 11).replace(',', '') + ' ' + d.toISOString().slice(11, 16) + ' UTC'; };
+  const day = (s) => { if (!s) return '—'; const d = new Date(String(s).slice(0, 10) + 'T00:00:00Z'); return Number.isNaN(d.getTime()) ? s : d.toUTCString().slice(5, 16).replace(/^0/, ''); };
   const name = (pid) => (D.people[pid] ? D.people[pid].name : pid);
   const team = (t) => (D.teams[t] ? D.teams[t].name : t);
+  const money = (v, cur = true) => (cur ? '$' : '') + E.money(Math.abs(v));
+  const MONEY_KEYS = ['balance', 'payout_amount', 'amount', 'gross', 'prepay', 'old_balance', 'per_diem', 'deposit', 'fees', 'net'];
+  const showVal = (v, mod, key) => (typeof v === 'number' ? (Number.isInteger(v) && Math.abs(v) < 100 && !MONEY_KEYS.includes(key) ? String(v) : money(v, mod !== 'payroll')) : /^\d{4}-\d{2}-\d{2}$/.test(String(v)) ? day(v) : /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}$/.test(String(v)) ? `${day(v)} ${String(v).slice(11, 16)}` : String(v));
 
   // ---------- the demo, saved in this browser ----------
-  const KEY = 'tickmark:cases:v1', AS = 'tickmark:as';
+  const KEY = 'tickmark:cases:v1', AS = 'tickmark:as', FKEY = 'tickmark:filters';
+  const SOURCES = {
+    cash: () => ({ bank: window.TM.bank, gl: window.TM.gl, window: +($('#cash-window') ? $('#cash-window').value : 3) }),
+    payroll: () => ({ hris: window.TM.hris, payroll: window.TM.payroll, equity: window.TM.equity, period: PERIOD }),
+    mortgage: () => ({}),
+    close: () => ({ exceptions: window.TM.close }),
+    payouts: () => ({}),
+  };
+  const live = Object.keys(SOURCES).filter((m) => A[m]);
   let state = null;
-  function fresh() {
-    const s = C.newState();
-    C.sync(s, D, A, 'cash', { bank: window.TM.bank, gl: window.TM.gl, window: +($('#cash-window') ? $('#cash-window').value : 3) });
-    C.sync(s, D, A, 'payroll', { hris: window.TM.hris, payroll: window.TM.payroll, equity: window.TM.equity, period: PERIOD });
-    C.sync(s, D, A, 'mortgage', {});
-    return s;
-  }
+  function fresh() { const s = C.newState(); for (const m of live) C.sync(s, D, A, m, SOURCES[m]()); return s; }
   try { state = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch { state = null; }
   if (!state || state.v !== 1) state = fresh();
+  // a session saved before a module existed gets that module's cases, and keeps everything else
+  for (const m of live) if (!state.order.some((id) => state.cases[id].module === m)) C.sync(state, D, A, m, SOURCES[m]());
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {} };
   save();
   let me = 'ava';
   try { me = localStorage.getItem(AS) || 'ava'; } catch {}
   if (!D.people[me]) me = 'ava';
-  const ui = { open: null, view: 'all', f: {}, form: null, msg: '', busy: false };
+  let filters = {};
+  try { filters = JSON.parse(sessionStorage.getItem(FKEY) || '{}') || {}; } catch { filters = {}; }
+  const ui = { route: { page: 'mywork' }, form: null, msg: '', busy: false, escTo: null, guided: false };
   const log = (event, detail) => app.log && app.log(name(me), event, detail);
+  const cases = () => state.order.map((id) => state.cases[id]);
+  const caseByKey = (k) => cases().find((c) => c.key === k);
+  const topX = (c) => c.exceptions.find((x) => x.status === 'open');
+  const headline = (c) => { const x = topX(c); return x ? (x.headline || x.title) : c.title; };
+
+  // ---------- routes: every page has an address, so refresh and links land in the same place ----------
+  function parse(hash) {
+    const h = String(hash || '').replace(/^#/, '');
+    if (h === 'try') return { page: 'case', try: true };
+    const [a, b] = h.split('/');
+    if (a === 'queue' && MODULES[b]) return { page: 'queue', module: b };
+    if (a === 'case' && b) return { page: 'case', id: decodeURIComponent(b) };
+    if ((a === 'checks' || a === 'reports') && MODULES[b]) return { page: 'other', module: b };
+    if (a === 'imports') return { page: 'view', view: 'mine', label: 'Data & Imports' };
+    if (a === 'audit') return { page: 'view', view: 'audit', label: 'Audit Log' };
+    if (a === 'demo' && ['filings', 'eval', 'stress'].includes(b)) return { page: 'view', view: { filings: 'sec', eval: 'eval', stress: 'stress' }[b], label: { filings: 'Public filings', eval: 'Model evaluation', stress: 'Stress test' }[b], demo: true };
+    return { page: 'mywork' };
+  }
+  const hashOf = (r) => (r.page === 'queue' ? `#queue/${r.module}` : r.page === 'case' ? (r.try ? '#try' : `#case/${encodeURIComponent(r.id)}`) : r.page === 'other' ? '#' + MODULES[r.module].other.route : r.page === 'view' ? { mine: '#imports', audit: '#audit', sec: '#demo/filings', eval: '#demo/eval', stress: '#demo/stress' }[r.view] : '#workbench');
+  function go(r, { replace = false } = {}) {
+    const h = hashOf(r);
+    if (location.hash !== h) { try { history[replace ? 'replaceState' : 'pushState'](null, '', h); } catch { location.hash = h; } }
+    apply(r);
+  }
+  let closeRan = false;
+  function apply(r) {
+    if (r.page === 'case' && r.try) { const c = caseByKey(TRY_KEY); r = { page: 'case', id: c.id, try: true }; ui.guided = true; if (!c.tasks.length && !c.closed) setMe('ava'); }
+    else if (r.page !== 'case' || r.id !== (ui.route && ui.route.id)) ui.guided = r.page === 'case' && ui.guided && r.id === caseByKey(TRY_KEY).id;
+    if (r.page === 'case' && !state.cases[r.id]) r = { page: 'mywork' };
+    if (r.page !== 'case' || r.id !== ui.route.id) { ui.form = null; ui.msg = ''; }
+    ui.route = r;
+    const view = r.page === 'other' ? MODULES[r.module].other.view : r.page === 'view' ? r.view : 'queue';
+    if (app.setView) app.setView(view);
+    // the close run fires once, on the page that shows it, not on whatever page is open
+    if (view === 'close' && !closeRan) { closeRan = true; const run = $('#run-close'); if (run && run.textContent.trim() === 'Run close controls') setTimeout(() => run.click(), 250); }
+    render();
+  }
+  window.addEventListener('popstate', () => apply(parse(location.hash)));
+  window.addEventListener('hashchange', () => { const r = parse(location.hash); apply(r); if (location.hash !== '#workbench') toWorkbench(); });
+  const toWorkbench = () => { const w = $('#workbench'); if (!w) return; const top = w.getBoundingClientRect().top; if (top > innerHeight * 0.6 || top < -$('#workbench').offsetHeight + 200) w.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth' }); };
+  const toSheet = () => { const s = $('#sheet'); if (!s) return; const top = s.getBoundingClientRect().top; if (top < 60 || top > innerHeight * 0.5) window.scrollTo({ top: top + window.scrollY - 76, behavior: reduced ? 'auto' : 'smooth' }); };
 
   // ---------- a step, its result, and a fresh render ----------
   function run(fn, okMsg) {
@@ -46,269 +104,427 @@
     ui.busy = true;
     try {
       const r = fn();
-      if (r && r.ok === false) { ui.msg = r.error + (r.suggest ? ` Authorised: ${r.suggest.map((p) => `${p.name} (${team(p.team)})`).join(', ')}.` : ''); }
+      if (r && r.ok === false) ui.msg = r.error + (r.suggest ? ` Authorised: ${r.suggest.map((p) => `${p.name} (${team(p.team)})`).join(', ')}.` : '');
       else { ui.msg = ''; ui.form = null; save(); if (okMsg) log(okMsg[0], okMsg[1]); }
     } finally {
       ui.busy = false; render();
-      // in the guided case, each finished step brings the next instruction back into view
-      const c = ui.open && state.cases[ui.open];
-      if (!ui.msg && c && c.key === TRY_KEY && $('.rq-guide')) window.scrollTo({ top: $('.rq-guide').getBoundingClientRect().top + window.scrollY - 84, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+      if (!ui.msg && ui.route.page === 'case') { const p = $('.cs-primary'); if (p) flash(p); }
     }
   }
+  function flash(el) { el.classList.remove('rq-spot'); void el.offsetWidth; el.classList.add('rq-spot'); }
 
-  // ---------- queue ----------
-  const VIEWS = [['all', 'All open'], ['mine', 'My cases'], ['assigned', 'Checks assigned to me'], ['team', 'My team to claim'], ['waiting', 'Waiting on other teams']];
-  function queueHtml() {
-    const base = { me, view: ui.view === 'all' ? null : ui.view, ...ui.f, status: ui.f.status || 'active' };
-    const rows = C.queue(state, D, base);
-    const all = state.order.map((id) => state.cases[id]);
-    const opt = (v, l, cur) => `<option value="${esc(v)}"${cur === v ? ' selected' : ''}>${esc(l)}</option>`;
+  // ---------- page head: where you are ----------
+  function headHtml(r) {
+    if (r.page === 'case') return '';
+    if (r.page === 'mywork') return `<header class="pg-h"><div><h3 class="pg-t">My Work</h3><p class="pg-s">${esc(name(me))} · ${esc(team(D.people[me].team))} · demo clock ${esc(at(state.now))}</p></div>
+      <div class="pg-a"><button type="button" class="link-btn sm" data-do="reset">Reset the demo</button></div></header>`;
+    if (r.page === 'view') return `<header class="pg-h"><div><h3 class="pg-t">${esc(r.label)}</h3>${r.demo ? '<p class="pg-s">Demo &amp; Validation · real public data or test harnesses, apart from the daily queues</p>' : ''}</div></header>`;
+    const m = MODULES[r.module];
+    const n = cases().filter((c) => c.module === r.module && !c.closed && c.exceptions.some((x) => x.status === 'open')).length;
+    const tabs = m.other ? `<nav class="pg-tabs" aria-label="${esc(m.label)} pages"><a href="#queue/${r.module}" data-route="queue/${r.module}"${r.page === 'queue' ? ' aria-current="page"' : ''}>Queue</a><a href="#${m.other.route}" data-route="${m.other.route}"${r.page === 'other' ? ' aria-current="page"' : ''}>${m.other.label}</a></nav>` : '';
+    return `<header class="pg-h"><div><h3 class="pg-t">${esc(m.label)}</h3><p class="pg-s">${n} open case${n === 1 ? '' : 's'} · ${esc(m.intro)}</p></div>
+      <div class="pg-a">${r.page === 'queue' ? `<button type="button" class="b-sec" data-do="scan" data-m="${r.module}">${esc(m.scan)}</button>` : ''}</div></header>${tabs}`;
+  }
+
+  // ---------- My Work ----------
+  function myWorkHtml() {
+    const w = C.myWork(state, D, A, me);
+    const row = (it, kind) => {
+      const c = state.cases[it.caseId], t = it.task && state.tasks[it.task];
+      const p = it.action || (t ? C.primaryAction(state, D, A, c.id, me) : null);
+      const due = t ? t.due : c.due;
+      const late = t && C.isOverdue(state, t);
+      return `<li><a class="mw-row" href="#case/${encodeURIComponent(c.id)}" data-route="case/${esc(c.id)}">
+        <span class="mw-main"><b>${esc(t && kind !== 'waiting' ? t.question : headline(c))}</b><span class="mw-meta">${c.id} · ${esc(MODULES[c.module].short)}${t && kind !== 'waiting' ? ` · ${esc(headline(c))}` : ''}</span></span>
+        <span class="mw-next">${p ? esc(p.label) : ''}</span>
+        <span class="mw-due${late ? ' late' : ''}">${late ? 'Overdue · ' : ''}${esc(at(due))}</span></a></li>`;
+    };
+    const sec = (title, items, kind, empty, note) => `<section class="mw-s"><h4>${title} <span class="count">${items.length}</span></h4><p class="mw-note">${note}</p>
+      ${items.length ? `<ul class="mw-list">${items.map((it) => row(it, kind)).join('')}</ul>` : `<p class="d-empty">${empty}</p>`}</section>`;
+    return `<div class="mw">
+      ${sec('Needs my action', w.needs, 'needs', 'Nothing waits on you.', 'Cases you own, or decisions only you can make, with a step to take now')}
+      ${sec('Assigned to me', w.assigned, 'assigned', 'No checks assigned to you.', 'Checks sent to you by name, or ones you claimed')}
+      ${sec('Team inbox', w.inbox, 'inbox', `Nothing for ${esc(team(D.people[me].team))} to claim.`, `Checks sent to ${esc(team(D.people[me].team))}; anyone in the team can claim one`)}
+      ${sec('Waiting on others', w.waiting, 'waiting', 'You are not waiting on anyone.', 'Your cases and checks that are with someone else')}
+    </div>
+    <p class="mw-tip">Switch <b>Acting as</b> above to see another person’s work. Try <a href="#try" data-try-case>the guided payout case</a> to follow one case across three people.</p>`;
+  }
+
+  // ---------- a business queue ----------
+  function colsFor(c) {
+    const r = c.records || {}, x = topX(c);
+    if (c.module === 'close') return [['Period', 'Oct 2026'], ['Blocks', r.blocks ? 'Close sign-off' : '—']];
+    if (c.module === 'payroll') return [['Pay period', '1–15 Oct'], ['Employee', (r.hr && r.hr.id) || (r.pay && r.pay[0] && r.pay[0].id) || '—'], ['Pay impact', x && (x.blocks || []).includes('release') ? 'Holds release' : '—']];
+    if (c.module === 'cash') { const b = r.bank, g = r.gl && r.gl[0]; return [['Account', 'Operating · GL 1010'], ['Difference', b ? money(g ? Math.abs(Math.abs(b[2]) - Math.abs(g[2])) || 0 : Math.abs(b[2])) : '—']]; }
+    if (c.module === 'mortgage') return [['Loan', (r.loans && r.loans[0] && r.loans[0].no) || '—'], ['Key date', r.closing && r.closing.latest ? `Closing ${day(r.closing.latest).slice(0, -5)}` : '—']];
+    if (c.module === 'payouts') {
+      const p = r.payout, deps = r.deposits || [];
+      const hit = p && deps.find((d) => Math.abs(d.amount - p.total) < 0.005);
+      const gap = !p ? null : hit ? 0 : deps[0] ? Math.abs(p.total - deps[0].amount) : p.total;
+      return [['Payout', p ? `${p.id} · ${day(p.date)}` : '—'], ['Bank gap', gap == null ? '—' : gap === 0 ? 'Ties' : money(gap) + (deps[0] ? '' : ' not received')]];
+    }
+    return [];
+  }
+  function workStatus(c) {
+    const rw = C.row(state, D, c);
+    if (c.closed) return ['ok', c.stage || 'Closed'];
+    if (rw.status === 'reply-in') return ['warn', 'Reply to review'];
+    if (rw.waitingOn.length) return [rw.overdue ? 'neg' : '', `Waiting on ${rw.waitingOn[0]}`];
+    const x = topX(c);
+    if (!x) return ['ok', 'Nothing open'];
+    if (x.missing && x.missing.length) return ['warn', 'Missing evidence'];
+    return ['', 'Needs a decision'];
+  }
+  function queueHtml(mod) {
+    const f = filters[mod] || (filters[mod] = { status: 'active' });
+    let list = cases().filter((c) => c.module === mod);
+    if (f.status === 'active') list = list.filter((c) => !c.closed);
+    else if (f.status === 'closed') list = list.filter((c) => c.closed);
+    if (f.priority) list = list.filter((c) => C.effectivePriority(c) === f.priority);
+    if (f.code) list = list.filter((c) => c.exceptions.some((x) => x.status === 'open' && x.code === f.code));
+    if (f.branch) list = list.filter((c) => c.branch === f.branch);
+    if (f.owner) list = list.filter((c) => c.owner === f.owner);
+    if (f.waiting) list = list.filter((c) => C.row(state, D, c).waitingTeams.includes(f.waiting));
+    if (f.q) { const q = f.q.toLowerCase(); list = list.filter((c) => [c.id, c.title, headline(c), JSON.stringify(colsFor(c))].join(' ').toLowerCase().includes(q)); }
+    const RANK = { P1: 0, P2: 1, P3: 2, P4: 3 };
+    list.sort((a, b) => (a.closed ? 1 : 0) - (b.closed ? 1 : 0) || RANK[C.effectivePriority(a)] - RANK[C.effectivePriority(b)] || String(a.due).localeCompare(String(b.due)));
+    const all = cases().filter((c) => c.module === mod);
     const codes = [...new Set(all.flatMap((c) => c.exceptions.filter((x) => x.status === 'open').map((x) => x.code)))].sort();
-    const counts = Object.fromEntries(VIEWS.map(([v]) => [v, C.queue(state, D, { me, view: v === 'all' ? null : v, status: 'active' }).length]));
-    return `<div class="rq-views" role="tablist" aria-label="Queue views">${VIEWS.map(([v, l]) => `<button type="button" role="tab" class="b-sec${ui.view === v ? ' sel' : ''}" aria-selected="${ui.view === v}" data-do="view" data-v="${v}">${l} <span class="count">${counts[v]}</span></button>`).join('')}</div>
-      <div class="rq-filters">
-        <label class="tol">Module <select data-f="module">${opt('', 'All', ui.f.module || '')}${Object.entries(MOD).map(([k, l]) => opt(k, l, ui.f.module)).join('')}</select></label>
-        <label class="tol">Type <select data-f="code">${opt('', 'All', ui.f.code || '')}${codes.map((k) => opt(k, k, ui.f.code)).join('')}</select></label>
-        <label class="tol">Priority <select data-f="priority">${opt('', 'All', ui.f.priority || '')}${['P1', 'P2', 'P3'].map((k) => opt(k, k, ui.f.priority)).join('')}</select></label>
-        <label class="tol">Status <select data-f="status">${opt('active', 'Not closed', ui.f.status || 'active')}${Object.entries(STATUS).map(([k, l]) => opt(k, l, ui.f.status)).join('')}</select></label>
-        <label class="tol">Case owner <select data-f="owner">${opt('', 'Anyone', ui.f.owner || '')}${[...new Set(all.map((c) => c.owner))].map((p) => opt(p, name(p), ui.f.owner)).join('')}</select></label>
-        <label class="tol">Waiting team <select data-f="team">${opt('', 'Any', ui.f.team || '')}${Object.keys(D.teams).map((t) => opt(t, team(t), ui.f.team)).join('')}</select></label>
-        <label class="tol">Check assigned to <select data-f="assignee">${opt('', 'Anyone', ui.f.assignee || '')}${Object.keys(D.people).map((p) => opt(p, name(p), ui.f.assignee)).join('')}</select></label>
+    const shortOf = (code) => { for (const c of all) { const x = c.exceptions.find((y) => y.code === code); if (x) return x.short || code; } return code; };
+    const opt = (v, l, cur) => `<option value="${esc(v)}"${(cur || '') === v ? ' selected' : ''}>${esc(l)}</option>`;
+    const more = !!(f.code || f.branch || f.owner || f.waiting);
+    const extraCols = all.length ? colsFor(all[0]).map(([k]) => k) : [];
+    return `<div class="q-bar">
+        <label class="q-search"><span class="sr">Search ${esc(MODULES[mod].label)}</span><input type="search" data-f="q" placeholder="Search cases, IDs, people" value="${esc(f.q || '')}"></label>
+        <label class="tol">Priority <select data-f="priority">${opt('', 'Any', f.priority)}${['P1', 'P2', 'P3'].map((k) => opt(k, k, f.priority)).join('')}</select></label>
+        <label class="tol">Status <select data-f="status">${opt('active', 'Open', f.status)}${opt('closed', 'Closed', f.status)}${opt('all', 'All', f.status)}</select></label>
+        <details class="q-more"${more ? ' open' : ''}><summary>More filters${more ? ' · on' : ''}</summary><div class="q-more-b">
+          <label class="tol">Exception <select data-f="code">${opt('', 'Any', f.code)}${codes.map((k) => opt(k, shortOf(k), f.code)).join('')}</select></label>
+          ${mod === 'mortgage' ? `<label class="tol">Transaction <select data-f="branch">${opt('', 'Any', f.branch)}${[...new Map(all.map((c) => [c.branch, c.branchLabel]))].map(([k, l]) => opt(k, l, f.branch)).join('')}</select></label>` : ''}
+          <label class="tol">Owner <select data-f="owner">${opt('', 'Anyone', f.owner)}${[...new Set(all.map((c) => c.owner))].map((p) => opt(p, name(p), f.owner)).join('')}</select></label>
+          <label class="tol">Waiting on <select data-f="waiting">${opt('', 'Any team', f.waiting)}${Object.keys(D.teams).map((t) => opt(t, team(t), f.waiting)).join('')}</select></label>
+          <button type="button" class="link-btn sm" data-do="clearf">Clear filters</button></div></details>
       </div>
-      <table class="tbl rq-t"><thead><tr><th scope="col">Case</th><th scope="col">What was found</th><th scope="col">Why it is first</th><th scope="col">Who has it</th></tr></thead><tbody>
-      ${rows.length ? rows.map((r) => `<tr>
-        <td><button type="button" class="rq-open" data-do="open" data-id="${r.id}"><span class="rq-id">${r.id}</span> <span class="pill">${MOD[r.module]}</span>${r.branch ? ` <span class="pill">${esc(r.branch)}</span>` : ''}<span class="rq-title">${esc(r.title)}</span></button></td>
-        <td>${r.found.length ? `${esc(r.found[0])}${r.found.length > 1 ? ` <span class="c-s">+${r.found.length - 1} more</span>` : ''}<p class="c-s">${esc([...new Set(r.by)].join(', '))}</p>` : `<span class="c-s">${esc(r.stage || 'Nothing open')}</span>`}</td>
-        <td><span class="pill ${PRI[r.priority]}">${r.priority}${r.auto ? '' : ' · set by a person'}</span><p class="c-s">${esc(r.reasons.slice(0, 2).join(' · '))}</p></td>
-        <td>${esc(r.ownerName)}<p class="c-s">${r.waitingOn.length ? `Waiting on ${esc(r.waitingOn.join(', '))}` : esc(STATUS[r.status])}${r.next ? ` · follow up ${esc(at(r.next))}` : ''}${r.overdue ? ' <span class="pill neg">Overdue</span>' : ''}</p></td></tr>`).join('') : '<tr><td colspan="4" class="d-empty">Nothing here for this view.</td></tr>'}
-      </tbody></table>`;
+      <div class="q-wrap"><table class="tbl q-t"><colgroup><col class="c-find"><col class="c-pri"><col class="c-st"><col class="c-next">${extraCols.map(() => '<col class="c-x">').join('')}<col class="c-due"></colgroup><thead><tr><th scope="col">Finding</th><th scope="col">Priority</th><th scope="col">Status</th><th scope="col">Next step</th>${extraCols.map((k) => `<th scope="col">${esc(k)}</th>`).join('')}<th scope="col">Due</th></tr></thead><tbody>
+      ${list.length ? list.map((c) => {
+        const [tone, st] = workStatus(c), x = topX(c), pri = C.effectivePriority(c);
+        const p = C.primaryAction(state, D, A, c.id, me);
+        const next = c.closed ? '—' : p.kind === 'none' || p.kind === 'waiting' ? (x ? x.next : '—') : p.label;
+        return `<tr${c.closed ? ' class="q-done"' : ''}>
+          <td><a class="q-open" href="#case/${encodeURIComponent(c.id)}" data-route="case/${esc(c.id)}"><b>${esc(headline(c))}</b><span>${c.id}${c.branchLabel ? ' · ' + esc(c.branchLabel) : ''}${x && x.short ? ' · ' + esc(x.short) : ''}</span></a></td>
+          <td>${c.closed ? '—' : `<span class="pill ${PRI[pri]}">${pri}</span>`}</td>
+          <td><span class="st ${tone}">${esc(st)}</span></td>
+          <td>${esc(next)}</td>
+          ${colsFor(c).map(([, v]) => `<td>${esc(v)}</td>`).join('')}
+          <td class="q-due">${c.closed ? '—' : esc(at(c.due).replace(' UTC', ''))}</td></tr>`;
+      }).join('') : `<tr><td colspan="${5 + extraCols.length}" class="d-empty">No cases match. <button type="button" class="link-btn sm" data-do="clearf">Clear filters</button></td></tr>`}
+      </tbody></table></div>`;
   }
 
   // ---------- the guided payout case: each step read from the case's own state ----------
   const TRY_KEY = 'ms:ML-40311';
-  const caseByKey = (k) => state.order.map((id) => state.cases[id]).find((c) => c.key === k);
   const WAIT = ['open', 'claimed', 'more-info'];
   function guideStep(c) {
     const tasks = c.tasks.map((id) => state.tasks[id]);
     const pay = tasks.find((t) => t.team === 'payments');
     const dan = tasks.find((t) => t.original === 'person:daniel' || t.assignee === 'daniel');
     const open = (code) => c.exceptions.some((x) => x.status === 'open' && x.code === code);
-    if (c.closed) return { n: 8, done: true, text: 'Done. The timeline below keeps every step, with before-and-after values, and the shortfall notice was never sent. The same handling runs on payroll and cash:' };
-    if (!pay) return { n: 1, who: 'ava', at: '[data-form="esc"]', text: 'Read the four answers below: the balance is a fact, its cause is not confirmed yet. Click “Ask a team or a person…”. The question to Payments is already drafted; send it.' };
-    if (WAIT.includes(pay.status)) return { n: 2, who: 'leo', at: pay.status === 'open' ? '[data-do="claim"]' : '[data-do="form-reply"]', text: pay.status === 'open' ? 'You are Leo Park in Payments. Under “Checks sent from this case”, click Claim, then Reply: tick the wire log and send.' : 'Click Reply on the Payments check, tick the wire log and send.' };
-    if (pay.status === 'replied') return { n: 3, who: 'ava', at: '[data-do="acceptT"]', text: 'Payments replied and the checks re-ran. The receipt time is now a confirmed fact; the settlement date is still open, so the shortfall notice stays locked. Click “Reply answers it”.' };
-    if (!dan) return { n: 4, who: 'ava', at: '[data-form="esc"]', text: 'Click “Ask a team or a person…” again. The draft now goes to Daniel Roy, the authorised reviewer. Pick Eliza Moreau first if you want to see a refusal.' };
-    if (WAIT.includes(dan.status)) return { n: 5, who: 'daniel', at: '[data-do="form-reply"]', text: 'As Daniel, click Reply on his check, tick the settlement decision and send.' };
-    if (dan.status === 'replied') return { n: 6, who: 'ava', at: '[data-do="acceptT"]', text: 'Daniel set the settlement date. Click “Reply answers it” to accept.' };
-    if (open('LATE_POSTING')) return { n: 7, who: 'daniel', at: '[data-a="apply-adjustment"]', text: 'Only Daniel holds settlement authority. Click “Reverse the interest charged during our hold”; the checks re-run.' };
-    return { n: 8, who: 'daniel', at: '[data-a="resume"]', text: 'Every condition now holds. Click “Resume discharge preparation”.' };
+    if (c.closed) return { n: 9, done: true };
+    if (!pay) return { n: 1, who: 'ava', goal: 'Find out when the money actually reached the bank.', next: 'Press “Request receipt confirmation”, check the drafted question to Payments, and send it.' };
+    if (WAIT.includes(pay.status)) return { n: 2, who: 'leo', goal: 'Answer the check for Payments.', next: pay.status === 'open' ? 'Press “Claim check”. Then reply with the wire log.' : 'Press “Reply with evidence”, tick the wire log and send.' };
+    if (pay.status === 'replied') return { n: 3, who: 'ava', goal: 'Decide whether the reply answers the question.', next: 'The receipt time is now on record. Read the reply, then press “Reply answers it”.' };
+    if (!dan) return { n: 4, who: 'ava', goal: 'Get the settlement date decided by someone authorised.', next: 'Press “Request settlement decision”. It goes to Daniel Roy.' };
+    if (WAIT.includes(dan.status)) return { n: 5, who: 'daniel', goal: 'Set the settlement date.', next: 'Press “Reply with evidence”, tick the settlement decision and send.' };
+    if (dan.status === 'replied') return { n: 6, who: 'ava', goal: 'Accept the authorised decision.', next: 'Press “Reply answers it”.' };
+    if (open('LATE_POSTING')) return { n: 7, who: 'daniel', goal: 'Correct the balance.', next: 'Press “Reverse the interest charged during our hold”. The checks re-run.' };
+    return { n: 8, who: 'daniel', goal: 'Restart the paused work.', next: 'Every condition holds. Press “Resume discharge preparation”.' };
   }
   function guideHtml(c) {
     const g = guideStep(c);
-    const others = ['payroll:E-1017:DUPLICATE_PAYMENT', 'cash:2026-10-22:-6850'].map((k) => caseByKey(k)).filter(Boolean);
-    return `<div class="card rq-guide" aria-live="polite"><div class="c-head"><p class="c-t">${g.done ? 'Walkthrough done' : `Walkthrough · step ${g.n} of 8`}</p><button type="button" class="link-btn sm" data-do="tryreset">Start over</button></div>
-      <ol class="rq-steps" aria-hidden="true">${Array.from({ length: 8 }, (_, i) => `<li class="${i + 1 < g.n || g.done ? 'done' : i + 1 === g.n ? 'now' : ''}"></li>`).join('')}</ol>
-      <p class="rq-gtext">${esc(g.text).replace(/“([^”]+)”/g, '<b>“$1”</b>')}</p>
-      ${g.done ? `<div class="rq-btns">${others.map((o) => `<button type="button" class="b-sec" data-do="open" data-id="${o.id}">${esc(o.title)} →</button>`).join('')}</div>`
-        : g.who && g.who !== me ? `<div class="rq-btns"><button type="button" class="b-pri" data-do="as" data-p="${g.who}">Act as ${esc(name(g.who))}</button><span class="c-s">Switching people simulates signing in as them.</span></div>`
-        : `<div class="rq-btns"><button type="button" class="b-pri" data-do="goto" data-at="${esc(g.at)}">Show me where</button><span class="c-s">Acting as ${esc(name(me))}.</span></div>`}</div>`;
+    const steps = `<ol class="gd-steps" aria-hidden="true">${Array.from({ length: 8 }, (_, i) => `<li class="${i + 1 < g.n ? 'done' : i + 1 === g.n ? 'now' : ''}"></li>`).join('')}</ol>`;
+    if (g.done) {
+      const facts = C.trace(c).filter((f) => f.status === 'agree' || f.status === 'single').slice(0, 4);
+      return `<section class="gd gd-done" aria-label="Guided demo"><div class="gd-top"><p class="gd-k">Guided demo · done</p><button type="button" class="link-btn sm" data-do="tryreset">Start over</button></div>${steps}
+        <div class="gd-sum"><div><p class="sl">Confirmed</p><ul>${facts.map((f) => `<li>${esc(f.label)}: <b>${esc(showVal(f.readings[0].value, c.module, f.key))}</b></li>`).join('')}</ul></div>
+          <div><p class="sl">Done</p><ul><li>Payments confirmed the receipt time</li><li>Daniel Roy set the settlement date</li><li>The hold interest was reversed</li><li>Discharge preparation resumed; no shortfall notice was sent</li></ul></div>
+          <div><p class="sl">Still to do, outside this demo</p><ul><li>Prepare and register the discharge in the registration system</li><li>Other open cases in the queue</li></ul></div></div>
+        <div class="rq-btns"><a class="b-sec btn-l" href="#workbench" data-route="mywork">My Work</a><a class="b-sec btn-l" href="#queue/mortgage" data-route="queue/mortgage">Mortgage Servicing queue</a></div></section>`;
+    }
+    const role = me === g.who;
+    return `<section class="gd" aria-label="Guided demo" aria-live="polite"><div class="gd-top"><p class="gd-k">Guided demo · step ${g.n} of 8</p><button type="button" class="link-btn sm" data-do="tryreset">Start over</button></div>${steps}
+      <p class="gd-who">You are <b>${esc(name(me))}</b>, ${esc(team(D.people[me].team))}. ${role ? `Goal: ${esc(g.goal)}` : ''}</p>
+      ${role ? `<p class="gd-next">${esc(g.next).replace(/“([^”]+)”/g, '<b>“$1”</b>')}</p>` : `<div class="rq-btns"><button type="button" class="b-pri" data-do="as" data-p="${g.who}">Switch to ${esc(name(g.who).split(' ')[0])} in ${esc(team(D.people[g.who].team))}</button><span class="c-s">Switching simulates signing in as them.</span></div>`}</section>`;
   }
 
   // ---------- case review ----------
+  function factLine(c, f) {
+    const r = f.readings[0];
+    const tag = f.status === 'agree' ? ['ok', 'Confirmed'] : f.status === 'conflict' ? ['neg', 'Sources disagree'] : ['', 'On record'];
+    return `<li><span class="fk">${esc(f.label)}</span><span class="fv">${esc(f.status === 'conflict' ? f.readings.map((x) => showVal(x.value, c.module, f.key)).join(' vs ') : showVal(r.value, c.module, f.key))}${f.key === 'balance' ? ' <span class="c-s">book balance</span>' : ''}</span><span class="fs"><span class="st ${tag[0]}">${tag[1]}</span> ${esc(r.label)}</span></li>`;
+  }
   function caseHtml(c) {
-    const facts = C.trace(c);
-    const open = c.exceptions.filter((x) => x.status === 'open');
-    const tasks = c.tasks.map((id) => state.tasks[id]);
+    const facts = C.trace(c), byKey = Object.fromEntries(facts.map((f) => [f.key, f]));
+    const x = topX(c);
+    const keys = x ? (x.facts || []) : facts.map((f) => f.key);
+    const known = keys.map((k) => byKey[k]).filter((f) => f && f.readings.length).slice(0, 3);
+    const pending = x ? (x.missing || []) : [];
     const acts = C.actionsFor(state, D, A, c.id, me);
+    const paused = acts.filter((a) => a.kind !== 'accept' && !a.ready);
+    const p = C.primaryAction(state, D, A, c.id, me);
     const pri = C.effectivePriority(c);
-    const conflicts = facts.filter((f) => f.status === 'conflict'), pending = facts.filter((f) => f.status === 'pending' && f.required);
-    const sources = c.evidence.filter((e) => !e.superseded);
-    const origins = new Set(sources.map((e) => e.origin));
-    const st = C.caseStatus(state, c);
-    const onCase = C.onCase(D, me, c);
-    const actBtn = (a) => {
-      const why = !a.allowed ? `${name(me)} is not authorised (${a.perm})` : a.prereqs.filter((p) => !p.ok).map((p) => p.label).join('; ');
-      return `<div class="rq-act"><button type="button" class="${a.kind === 'accept' ? 'b-sec' : 'b-pri'}" data-do="act" data-a="${esc(a.id)}"${a.allowed && a.ready ? '' : ' disabled'}>${esc(a.label)}</button>
-        ${a.needsReason && a.allowed && a.ready ? `<label class="sr" for="r-${esc(a.id)}">Reason</label><textarea id="r-${esc(a.id)}" placeholder="Reason, kept with the decision (12+ characters)"></textarea>` : ''}
-        <ul class="rq-pre">${a.prereqs.map((p) => `<li class="${p.ok ? 'ok' : 'no'}">${esc(p.label)}</li>`).join('')}${a.allowed ? '' : `<li class="no">${esc(why)}</li>`}</ul></div>`;
-    };
-    return `<button type="button" class="link-btn" data-do="back">← Review queue</button>
-      <div class="rq-head">
-        <div><p class="c-s">${c.id} · ${MOD[c.module]}${c.branchLabel ? ' · ' + esc(c.branchLabel) : ''} · owner ${esc(name(c.owner))}</p><h3 class="rq-h">${esc(c.title)}</h3>
-          <p class="c-s"><span class="pill">${esc(STATUS[st])}</span>${c.stage ? ` <span class="pill ok">${esc(c.stage)}</span>` : ''} · evidence version ${c.version} · last check ${esc(at(c.lastCheck))}</p></div>
-        <div class="rq-pri"><p class="sl">Business priority</p><p><span class="pill ${PRI[pri]}">${pri}</span> ${c.priorityOverride ? `<span class="c-s">set by ${esc(name(c.priorityOverride.by))}: “${esc(c.priorityOverride.reason)}”</span>` : ''}</p>
-          <p class="c-s">${esc((c.priority ? c.priority.reasons : []).join(' · '))}</p>
-          ${onCase ? `<button type="button" class="link-btn sm" data-do="form" data-form="priority">Change priority</button>` : ''}</div>
+    const tasks = c.tasks.map((id) => state.tasks[id]);
+    return `${ui.guided ? guideHtml(c) : ''}
+      <a class="link-btn sm cs-back" href="#queue/${c.module}" data-route="queue/${c.module}">← ${esc(MODULES[c.module].label)}</a>
+      <header class="cs-h"><h3 class="cs-t">${esc(headline(c))}</h3>
+        <p class="cs-m">${c.id} · ${esc(MODULES[c.module].label)}${c.branchLabel ? ' · ' + esc(c.branchLabel) : ''} · owner ${esc(name(c.owner))} · <span class="pill ${PRI[pri]}">${c.closed ? 'Closed' : pri}</span>${c.priority && !c.closed ? ` <span class="c-s">${esc(c.priority.reasons.slice(0, 2).join(' · '))}</span>` : ''}</p></header>
+      <div class="cs-grid">
+        <div class="cs-main">
+          ${x ? `<section class="cs-sum">
+            <div class="cs-blk cs-b-known"><p class="sl">What we know</p><ul class="cs-facts">${known.map((f) => factLine(c, f)).join('') || '<li class="c-s">No recorded facts yet.</li>'}</ul></div>
+            <div class="cs-blk cs-b-pend"><p class="sl">Not confirmed yet</p>${pending.length ? `<ul class="cs-pend">${pending.map((m) => `<li><b>Pending confirmation:</b> ${esc(m.what)}<span class="c-s"> · ${esc(m.who)} can supply it</span></li>`).join('')}</ul>` : '<p class="c-s">Nothing required is missing.</p>'}</div>
+            <div class="cs-blk cs-b-imp"><p class="sl">What it holds up</p><p class="cs-imp">${esc((c.affects || '—').replace(/^\w/, (s) => s.toUpperCase()))} <span class="c-s">· ${esc(c.dueLabel || 'Due')} ${esc(at(c.due))}</span></p>
+              ${paused.length ? `<ul class="cs-paused">${paused.map((a) => `<li><span class="st warn">Paused</span> ${esc(a.label)}<span class="c-s"> · needs: ${esc((a.prereqs.find((q) => !q.ok) || {}).label || a.permLabel || '')}</span></li>`).join('')}</ul>` : ''}</div>
+            ${x.cause ? `<div class="cs-blk cs-b-why"><p class="sl">${pending.length ? 'Possible explanation · not confirmed' : 'Explanation from the evidence'}</p><p class="cs-inf">${esc(x.cause)}</p>
+              <p class="c-s">${esc(CLS[x.cls] || x.cls)}${x.clsBy ? ` (set by ${esc(name(x.clsBy))})` : ''} · ${esc(x.by)}${x.confidence ? ` · confidence in the reading: ${esc(x.confidence)}` : ''}</p></div>` : ''}
+            ${c.exceptions.filter((y) => y.status === 'open').length > 1 ? `<p class="c-s">Also open on this case: ${esc(c.exceptions.filter((y) => y.status === 'open' && y !== x).map((y) => y.short || y.title).join('; '))}</p>` : ''}
+          </section>` : `<section class="cs-sum"><p class="cs-imp">${c.closed ? `Closed · ${esc(c.stage || '')}` : 'Nothing open on this case.'}</p><p class="c-s">${c.exceptions.length} exception${c.exceptions.length === 1 ? '' : 's'} recorded; the evidence and activity below stay.</p></section>`}
+        </div>
+        <aside class="cs-act" aria-label="Your next step">${actionHtml(c, p, acts, tasks)}</aside>
       </div>
-      ${c.key === TRY_KEY ? guideHtml(c) : ''}
-      ${ui.form === 'priority' ? `<div class="rq-form"><label class="tol">Priority <select id="pr-l">${['P1', 'P2', 'P3', 'auto'].map((l) => `<option value="${l}">${l === 'auto' ? 'Back to computed' : l}</option>`).join('')}</select></label><label class="sr" for="pr-r">Reason</label><textarea id="pr-r" placeholder="Why (8+ characters)"></textarea><button type="button" class="b-pri" data-do="priority">Save</button></div>` : ''}
+      ${evidenceHtml(c, facts, keys)}
+      ${checksHtml(c, tasks)}
+      ${activityHtml(c)}`;
+  }
 
-      <div class="rq-four">
-        <section class="card"><p class="c-t"><span class="rq-q">1</span>What differs</p>
-          ${open.length ? open.map((x) => `<div class="rq-x"><p class="rq-find"><b>${esc(x.title)}</b></p>
-            <dl class="rq-ev"><div><dt>Expected</dt><dd class="${String(x.expected).length > 14 ? 'rq-long' : ''}">${esc(x.expected)}</dd></div><div><dt>Found</dt><dd class="${x.expected !== x.actual ? 'rq-off' : ''}${String(x.actual).length > 14 ? ' rq-long' : ''}">${esc(x.actual)}</dd></div></dl>
-            <p class="c-s">${esc(x.by)} · <span class="pill">${esc(CLS[x.cls] || x.cls)}</span>${x.clsBy ? ` set by ${esc(name(x.clsBy))}` : ''}${x.confidence ? ` · confidence in the reading: ${esc(x.confidence)}` : ''}${x.seen > 1 ? ` · seen ${x.seen} times, one case` : ''}</p>
-            ${x.missing && x.missing.length ? `<p class="rq-pend"><b>Not confirmed yet:</b> ${esc(x.missing.map((m) => m.what).join('; '))}</p>` : ''}
-            ${x.cause ? `<p class="rq-inf"><span class="sl">${x.missing && x.missing.length ? 'Possible explanation · not confirmed' : 'Explanation from the evidence above'}</span>${esc(x.cause)}</p>` : ''}
-            ${onCase ? `<button type="button" class="link-btn sm" data-do="form" data-form="cls:${x.id}">Change classification</button>` : ''}
-            ${ui.form === 'cls:' + x.id ? `<div class="rq-form"><select id="cl-v">${Object.entries(CLS).map(([k, l]) => `<option value="${k}"${k === x.cls ? ' selected' : ''}>${l}</option>`).join('')}</select><textarea id="cl-r" placeholder="Why (8+ characters)"></textarea><button type="button" class="b-pri" data-do="cls" data-x="${x.id}">Save</button></div>` : ''}</div>`).join('') : `<p class="d-empty">Nothing open. ${c.exceptions.filter((x) => x.status !== 'open').length} exception${c.exceptions.length === 1 ? '' : 's'} closed or accepted; history below.</p>`}
-        </section>
-        <section class="card"><p class="c-t"><span class="rq-q">2</span>Where the evidence comes from</p>
-          <p>${sources.length} sources, ${origins.size} independent</p>
-          ${conflicts.length ? `<p class="rq-bad">Disagree: ${esc(conflicts.map((f) => f.label + (f.leading ? ` (most independent sources say ${/^\d+\.\d\d$/.test(f.leading) ? E.money(+f.leading) : f.leading})` : '')).join('; '))}</p>` : '<p class="c-s">No conflicting values.</p>'}
-          ${pending.length ? pending.map((f) => `<p class="rq-pend"><b>To confirm: ${esc(f.label)}.</b> Checked: ${esc(f.checked || [...new Set(sources.map((e) => e.system))].join(', '))}. Who can supply it: ${esc(team(f.who) || 'the owning team')}.</p>`).join('') : '<p class="c-s">Nothing required is missing.</p>'}
-        </section>
-        <section class="card"><p class="c-t"><span class="rq-q">3</span>What it holds up</p>
-          <p>${esc((c.affects || '—').replace(/^\w/, (m) => m.toUpperCase()))}</p><p class="c-s">${esc(c.dueLabel || 'Due')}: ${esc(at(c.due))}</p>
-          ${tasks.filter((t) => C.OPEN_TASK.includes(t.status)).map((t) => `<p class="c-s">${t.blocking ? 'Must wait for' : 'Question to'} ${esc(t.assignee ? name(t.assignee) : team(t.team))} · ${esc(TASK[t.status])}${C.isOverdue(state, t) ? ' <span class="pill neg">Overdue</span>' : ''}</p>`).join('')}
-        </section>
-        <section class="card"><p class="c-t"><span class="rq-q">4</span>What you can do now</p><p class="c-s">Acting as ${esc(name(me))}, ${esc(D.people[me].role)}</p>
-          ${onCase && !c.closed ? `<div class="rq-btns"><button type="button" class="${acts.some((a) => a.allowed && a.ready && a.kind !== 'accept') ? 'b-sec' : 'b-pri'}" data-do="form" data-form="esc">Ask a team or a person…</button><button type="button" class="b-sec" data-do="recheck">Re-run checks</button></div>` : ''}
-          ${acts.length ? acts.map(actBtn).join('') : `<p class="c-s">${c.closed ? 'Closed. History stays below.' : 'No action for this case.'}</p>`}
-        </section>
-      </div>
-      ${ui.form === 'esc' ? escalateForm(c) : ''}
-      ${c.inbox.length && onCase ? `<div class="card"><div class="c-head"><p class="c-t">New data for this case</p><p class="c-s">Adding it re-runs the checks</p></div>${c.inbox.map((i) => `<div class="rq-row"><span>${esc(i.label)}${i.note ? ` <span class="c-s">${esc(i.note)}</span>` : ''}</span><button type="button" class="b-sec b-sm" data-do="inbox" data-i="${i.id}">Add to case</button></div>`).join('')}</div>` : ''}
-      <div class="card"><div class="c-head"><p class="c-t">Evidence trace</p><p class="c-s">Each fact, every value found, where it sits and what it copies</p></div>
+  // the action panel: one primary step for this person, then anything paused, then less common actions
+  function actionHtml(c, p, acts, tasks) {
+    const t = p.task && state.tasks[p.task];
+    const area = (id, ph, rows = 3) => `<label class="sr" for="${id}">${ph}</label><textarea id="${id}" rows="${rows}" placeholder="${ph}"></textarea>`;
+    let main = '';
+    if (p.kind === 'request') main = ui.form === 'esc' ? escalateForm(c) : `<button type="button" class="b-pri cs-primary" data-do="form" data-form="esc">${esc(p.label)}</button><p class="c-s">${esc(p.why)}</p>`;
+    else if (p.kind === 'claim') main = `<button type="button" class="b-pri cs-primary" data-do="claim" data-t="${t.id}">Claim check</button><p class="cs-q">“${esc(t.question)}”</p><p class="c-s">Sent by ${esc(name(t.from))} to ${esc(team(t.team))} · due ${esc(at(t.due))}</p>`;
+    else if (p.kind === 'reply') {
+      const reach = c.available.filter((i) => !i.teams || i.teams.includes(D.people[me].team));
+      main = ui.form === 'reply' ? `<div class="cs-form"><p class="cs-q">“${esc(t.question)}”</p>${area('rp-a', 'Your answer')}
+          <label class="tol">Conclusion <select id="rp-c"><option value="confirmed">Confirmed</option><option value="corrected">Corrected</option><option value="cannot-confirm">Cannot confirm</option></select></label>
+          ${reach.length ? `<fieldset><legend class="sl">Attach evidence you can reach</legend>${reach.map((i) => `<label class="rq-chk"><input type="checkbox" value="${i.id}" data-attach> ${esc(i.label)}${i.correction ? ' <span class="pill warn">correction</span>' : ''}</label>`).join('')}</fieldset>` : '<p class="c-s">Nothing on file for your team to attach.</p>'}
+          <div class="rq-btns"><button type="button" class="b-pri cs-primary" data-do="reply" data-t="${t.id}">Send reply</button><button type="button" class="b-sec" data-do="form" data-form="">Cancel</button></div></div>`
+        : `<button type="button" class="b-pri cs-primary" data-do="form" data-form="reply">Reply with evidence</button><p class="cs-q">“${esc(t.question)}”</p><p class="c-s">From ${esc(name(t.from))} · due ${esc(at(t.due))}${t.requested.length ? ` · asks for ${esc(t.requested.join(', '))}` : ''}</p>`;
+    } else if (p.kind === 'review') main = `<p class="sl">Reply from ${esc(name(t.reply.by))}</p><p class="cs-q">${esc(t.reply.answer)}</p>${t.reply.evidence.length ? `<p class="c-s">Attached: ${esc(t.reply.evidence.map((id) => (c.evidence.find((e) => e.id === id) || {}).label).join(', '))}. The checks re-ran with it.</p>` : '<p class="c-s">No evidence attached.</p>'}
+        ${ui.form === 'more' ? `<div class="cs-form">${area('tx', 'What is still missing')}<button type="button" class="b-pri" data-do="more" data-t="${t.id}">Send back</button></div>` : `<div class="rq-btns"><button type="button" class="b-pri cs-primary" data-do="acceptT" data-t="${t.id}">Reply answers it</button><button type="button" class="b-sec" data-do="form" data-form="more">Not enough, ask again</button></div>`}`;
+    else if (p.kind === 'clarify') main = `<p class="sl">${esc(name(t.assignee))} asks</p><p class="cs-q">“${esc(t.clarify.q)}”</p><div class="cs-form">${area('tx', 'Your answer', 2)}<button type="button" class="b-pri cs-primary" data-do="answer" data-t="${t.id}">Answer the question</button></div>`;
+    else if (p.kind === 'returned') main = `<p class="sl">Returned by ${esc(team(t.team))}</p><p class="cs-q">“${esc(t.returnReason)}”</p>${reassignForm(t, true)}`;
+    else if (p.kind === 'inbox') main = `<button type="button" class="b-pri cs-primary" data-do="inbox" data-i="${esc(p.item)}">Add the new evidence</button><p class="c-s">${esc(p.why)}. Adding it re-runs the checks.</p>`;
+    else if (p.kind === 'act') {
+      const a = acts.find((y) => y.id === p.action);
+      main = `${a.needsReason ? area('r-' + a.id, 'Reason, kept with the decision (12+ characters)', 2) : ''}<button type="button" class="b-pri cs-primary" data-do="act" data-a="${esc(a.id)}">${esc(a.label)}</button><p class="c-s">Every condition for this step holds.</p>`;
+    } else if (p.kind === 'waiting') main = `<p class="cs-wait"><span class="st${p.overdue ? ' neg' : ''}">${p.overdue ? 'Overdue' : 'Waiting'}</span> ${esc(p.label)}</p><p class="cs-q">“${esc(p.why)}”</p><p class="c-s">Due ${esc(at(t.due))}${t.followUp ? ` · follow up ${esc(at(t.followUp))}` : ''}</p>
+        ${p.overdue && p.mine ? `<div class="rq-btns"><button type="button" class="b-pri cs-primary" data-do="remind" data-t="${t.id}">Send a reminder</button><button type="button" class="b-sec" data-do="lead" data-t="${t.id}">Pass to the team lead</button></div>` : ''}`;
+    else if (p.kind === 'authority') main = `<p class="cs-wait"><span class="st">Waiting</span> ${esc(p.label)}</p><p class="c-s">${esc(p.why)}</p>`;
+    else if (p.kind === 'done') main = `<p class="cs-wait"><span class="st ok">Done</span> ${esc(p.label)}</p><p class="c-s">History and evidence stay below.</p>`;
+    else main = `<p class="cs-wait">${esc(p.label)}</p><p class="c-s">${esc(p.why)}</p>`;
+    const onCase = C.onCase(D, me, c);
+    const extra = acts.filter((a) => a.allowed && a.ready && a.id !== p.action);
+    const secondary = onCase && !c.closed ? `<details class="cs-more"><summary>More actions</summary><div class="cs-more-b">
+        ${p.kind !== 'request' ? `<button type="button" class="b-sec" data-do="form" data-form="esc">Ask a team or a person</button>` : ''}
+        <button type="button" class="b-sec" data-do="recheck">Re-run checks</button>
+        <button type="button" class="b-sec" data-do="form" data-form="priority">Change priority</button>
+        ${topX(c) ? `<button type="button" class="b-sec" data-do="form" data-form="cls">Change classification</button>` : ''}
+        ${extra.map((a) => `<button type="button" class="b-sec" data-do="form" data-form="act:${esc(a.id)}">${esc(a.label)}…</button>`).join('')}
+      </div></details>` : '';
+    let form = '';
+    if (ui.form === 'esc' && p.kind !== 'request') form = escalateForm(c);
+    if (ui.form === 'priority') form = `<div class="cs-form"><label class="tol">Priority <select id="pr-l">${['P1', 'P2', 'P3', 'auto'].map((l) => `<option value="${l}">${l === 'auto' ? 'Back to computed' : l}</option>`).join('')}</select></label>${area('pr-r', 'Why (8+ characters)', 2)}<button type="button" class="b-pri" data-do="priority">Save priority</button></div>`;
+    if (ui.form === 'cls' && topX(c)) form = `<div class="cs-form"><label class="tol">Classification <select id="cl-v">${Object.entries(CLS).map(([k, l]) => `<option value="${k}"${k === topX(c).cls ? ' selected' : ''}>${l}</option>`).join('')}</select></label>${area('cl-r', 'Why (8+ characters)', 2)}<button type="button" class="b-pri" data-do="cls" data-x="${topX(c).id}">Save classification</button></div>`;
+    if (ui.form && ui.form.startsWith('act:')) { const a = acts.find((y) => y.id === ui.form.slice(4)); if (a) form = `<div class="cs-form"><p class="sl">${esc(a.label)}</p>${a.needsReason ? area('r-' + a.id, 'Reason, kept with the decision (12+ characters)', 2) : ''}<button type="button" class="b-pri" data-do="act" data-a="${esc(a.id)}">Confirm</button></div>`; }
+    return `<p class="sl">${p.kind === 'waiting' || p.kind === 'authority' || p.kind === 'done' || p.kind === 'none' ? 'Status' : 'Your next step'}</p>${main}${form}${secondary}
+      <p class="cs-who">Acting as ${esc(name(me))} · ${esc(D.people[me].role)}</p>`;
+  }
+  function reassignForm(t, primary) {
+    return `<div class="cs-form"><label class="tol">Send to <select id="ra-to"><option value="team">A team</option><option value="person">A person</option></select></label>
+      <select id="ra-t" aria-label="Team">${Object.entries(D.teams).map(([k, x]) => `<option value="${k}">${esc(x.name)}</option>`).join('')}</select>
+      <select id="ra-p" aria-label="Person">${Object.entries(D.people).map(([k, p]) => `<option value="${k}">${esc(p.name)} · ${esc(team(p.team))}</option>`).join('')}</select>
+      <label class="sr" for="ra-r">Why it moves</label><textarea id="ra-r" rows="2" placeholder="Why it moves (8+ characters)"></textarea>
+      <button type="button" class="${primary ? 'b-pri cs-primary' : 'b-pri'}" data-do="reassign" data-t="${t.id}">Reassign</button></div>`;
+  }
+  function escalateForm(c) {
+    const x = topX(c);
+    const draft = (x && c.drafts && c.drafts[x.code]) || {};
+    const to = ui.escTo || draft.to || 'team';
+    return `<div class="cs-form rq-esc"><p class="sl">${esc(draft.cta || 'Ask a team or a person')}</p>
+      <p class="c-s">${draft.question ? 'Drafted from this case’s evidence by a fixed template (a stand-in for an AI draft). Check the question and the recipient.' : 'Write one clear question.'}</p>
+      <div class="rq-seg" role="radiogroup" aria-label="Send to"><label><input type="radio" name="es-to" value="team"${to === 'team' ? ' checked' : ''}> A team</label><label><input type="radio" name="es-to" value="person"${to === 'person' ? ' checked' : ''}> A named person</label></div>
+      <label class="tol" id="es-team-l"${to === 'team' ? '' : ' hidden'}>Team <select id="es-team">${Object.entries(D.teams).map(([k, t]) => `<option value="${k}"${k === draft.team ? ' selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label>
+      <label class="tol" id="es-person-l"${to === 'person' ? '' : ' hidden'}>Person <select id="es-person">${Object.entries(D.people).map(([k, p]) => `<option value="${k}"${k === draft.person ? ' selected' : ''}>${esc(p.name)} · ${esc(team(p.team))}</option>`).join('')}</select></label>
+      ${draft.requires ? `<p class="c-s">Needs someone with ${esc(draft.requires)}.</p>` : ''}
+      <label class="sl" for="es-q">Question</label><textarea id="es-q" rows="4">${esc(draft.question || '')}</textarea>
+      <label class="sl" for="es-why">Why it matters</label><textarea id="es-why" rows="2">${esc(draft.why || '')}</textarea>
+      <div class="es-row"><label class="tol">Due in <select id="es-due"><option value="4">4 hours</option><option value="24" selected>1 day</option><option value="48">2 days</option></select></label>
+      <label class="rq-chk"><input type="checkbox" id="es-block"${draft.blocking === false ? '' : ' checked'}> The case waits for this</label></div>
+      <p class="c-s">Holds up: ${esc(c.affects)} · Shares this case’s evidence with the recipient</p>
+      <div class="rq-btns"><button type="button" class="b-pri cs-primary" data-do="send">Send check</button><button type="button" class="b-sec" data-do="form" data-form="">Cancel</button></div></div>`;
+  }
+
+  // evidence: the facts this decision rests on first, the full trace on request
+  function evidenceHtml(c, facts, keys) {
+    const rel = keys.map((k) => facts.find((f) => f.key === k)).filter(Boolean).slice(0, 4);
+    const tag = (f) => (f.status === 'agree' ? ['ok', 'Confirmed'] : f.status === 'single' ? ['', 'On record'] : f.status === 'conflict' ? ['neg', 'Sources disagree'] : ['warn', 'Pending confirmation']);
+    const valOf = (f) => (f.readings.length ? f.readings.map((r) => showVal(r.value, c.module, f.key)).filter((v, i, a) => a.indexOf(v) === i).join(' vs ') : '—');
+    const srcOf = (f) => (f.readings.length ? f.readings.map((r) => r.label).join('; ') : `${team(f.who) || 'The owning team'} can supply it`);
+    return `<section class="cs-sec" aria-labelledby="ev-h"><h4 id="ev-h">Evidence</h4>
+      <table class="tbl cs-ev"><thead><tr><th scope="col">Field</th><th scope="col">Value</th><th scope="col">Source</th><th scope="col">Status</th></tr></thead><tbody>
+      ${rel.map((f) => `<tr><td>${esc(f.label)}</td><td class="num">${esc(valOf(f))}</td><td>${esc(srcOf(f))}</td><td><span class="st ${tag(f)[0]}">${tag(f)[1]}</span></td></tr>`).join('')}
+      </tbody></table>
+      <details class="cs-det"><summary>Full evidence trace: every source, location, time, version and independence (${c.evidence.filter((e) => !e.superseded).length} sources)</summary>
         <table class="tbl rq-trace"><thead><tr><th scope="col">Fact</th><th scope="col">Value</th><th scope="col">Source</th><th scope="col">Independence</th></tr></thead><tbody>
         ${facts.map((f) => f.readings.length ? f.readings.map((r, i) => {
-          const e = c.evidence.find((x) => x.id === r.evidence);
+          const e = c.evidence.find((y) => y.id === r.evidence);
           const hidden = e && !C.seesEvidence(D, me, e);
-          return `<tr>${i === 0 ? `<td rowspan="${f.readings.length}"><b>${esc(f.label)}</b><p><span class="pill ${FACT[f.status][0]}">${FACT[f.status][1]}</span></p></td>` : ''}
-            <td>${hidden ? '<span class="c-s">Restricted</span>' : esc(typeof r.value === 'number' ? (Number.isInteger(r.value) && Math.abs(r.value) < 100 ? String(r.value) : E.money(r.value)) : r.value)}</td>
+          return `<tr>${i === 0 ? `<td rowspan="${f.readings.length}">${esc(f.label)}<p><span class="st ${tag(f)[0]}">${tag(f)[1]}</span></p></td>` : ''}
+            <td>${hidden ? '<span class="c-s">Restricted</span>' : esc(showVal(r.value, c.module, f.key))}</td>
             <td>${esc(r.label)}<p class="c-s">${esc(r.system)} · ${esc(r.loc || '')} · ${esc(at(r.recorded))} · v${r.version}</p></td>
-            <td>${r.inferred ? `<span class="pill">Extracted from text</span> <span class="c-s">“${esc(r.quote)}”</span>` : ''}${r.copied ? ' <span class="pill warn">Copied from another source</span>' : ''}${r.copies.length ? `<p class="c-s">Same upstream as ${esc(r.copies.join(', '))}</p>` : '<p class="c-s">Independent</p>'}</td></tr>`;
-        }).join('') : `<tr><td><b>${esc(f.label)}</b><p><span class="pill warn">To confirm</span></p></td><td colspan="3" class="c-s">No source has it yet${f.who ? `. ${esc(team(f.who))} can supply it.` : '.'}</td></tr>`).join('')}
+            <td>${r.inferred ? `<span class="st">Extracted from text</span> <span class="c-s">“${esc(r.quote)}”</span>` : ''}${r.copied ? ' <span class="st warn">Copied from another source</span>' : ''}<p class="c-s">${r.copies.length ? `Same upstream as ${esc(r.copies.join(', '))}` : 'Independent'}</p></td></tr>`;
+        }).join('') : `<tr><td>${esc(f.label)}<p><span class="st warn">Pending confirmation</span></p></td><td colspan="3" class="c-s">No source has it yet${f.who ? `. ${esc(team(f.who))} can supply it.` : '.'}</td></tr>`).join('')}
         </tbody></table>
         ${docsHtml(c)}
         ${c.evidence.some((e) => e.superseded) ? `<p class="sl">Earlier versions, kept</p><ul class="rq-old">${c.evidence.filter((e) => e.superseded).map((e) => `<li>${esc(e.label)} v${e.version} · replaced ${esc(at(e.superseded))}</li>`).join('')}</ul>` : ''}
-      </div>
-      <div class="card"><div class="c-head"><p class="c-t">Checks sent from this case</p><p class="c-s">The case stays with ${esc(name(c.owner))}; a check only answers its question</p></div>
-        ${tasks.length ? tasks.map((t) => taskHtml(c, t)).join('') : '<p class="d-empty">No checks yet.</p>'}</div>
-      <div class="two">
-        <div class="card"><p class="c-t">Decisions</p>${c.decisions.length ? c.decisions.map((d) => `<p>${d.stale && !d.rereviewed ? '<span class="pill warn">Needs re-review</span> ' : d.rereviewed ? '<span class="pill">Replaced</span> ' : '<span class="pill ok">Holds</span> '}<b>${esc(d.label)}</b><br><span class="c-s">${esc(name(d.by))} · ${esc(at(d.at))} · on evidence v${d.version}${d.reason ? ` · “${esc(d.reason)}”` : ''}</span></p>`).join('') : '<p class="d-empty">None yet.</p>'}</div>
-        <div class="card"><p class="c-t">Timeline</p><ol class="rq-tl">${c.history.slice().reverse().map((h) => `<li><span class="c-s">${esc(at(h.at))} · ${esc(D.people[h.by] ? name(h.by) : h.by)}</span><br>${esc(h.event)}${h.detail ? ` <span class="c-s">· ${esc(h.detail)}</span>` : ''}${h.changes && h.changes.length ? `<ul class="rq-chg">${h.changes.map((x) => `<li>${esc(x.label)}: <s>${esc(C.fmt(x.before))}</s> → ${esc(C.fmt(x.after))}</li>`).join('')}</ul>` : ''}</li>`).join('')}</ol></div>
-      </div>`;
+      </details></section>`;
   }
   // documents keep their text; the extracted spans are marked where they were read
   function docsHtml(c) {
     const docs = c.evidence.filter((e) => e.text && C.seesEvidence(D, me, e));
     if (!docs.length) return '';
-    return `<details class="rq-docs"><summary>Read the source documents (${docs.length})</summary>${docs.map((e) => {
+    return `${docs.map((e) => {
       const spans = Object.values(C.readingsOf(e)).filter((r) => r.span).sort((a, b) => a.span[0] - b.span[0]);
       let html = '', i = 0;
       for (const r of spans) { if (r.span[0] < i) continue; html += esc(e.text.slice(i, r.span[0])) + `<mark>${esc(e.text.slice(r.span[0], r.span[1]))}</mark>`; i = r.span[1]; }
       html += esc(e.text.slice(i));
       return `<p class="sl">${esc(e.label)} · ${esc(e.system)}</p><pre class="rq-doc">${html}</pre>`;
-    }).join('')}<p class="c-s">Marked text is what the extractor read. In this demo the extractor is deterministic and stands in for a model.</p></details>`;
+    }).join('')}<p class="c-s">Marked text is what the extractor read. In this demo the extractor is deterministic code that stands in for a model.</p>`;
   }
-  function escalateForm(c) {
-    const x = c.exceptions.find((e) => e.status === 'open');
-    const draft = (x && c.drafts && c.drafts[x.code]) || {};
-    const to = ui.escTo || draft.to || 'team';
-    return `<div class="card rq-esc"><div class="c-head"><p class="c-t">Ask a team or a person</p><p class="c-s">${draft.question ? 'Drafted by a fixed template from this case’s evidence. It stands in for an AI draft; check the question and the recipient before sending.' : 'Write one clear question.'}</p></div>
-      <div class="rq-seg" role="radiogroup" aria-label="Send to"><label><input type="radio" name="es-to" value="team"${to === 'team' ? ' checked' : ''}> A team (anyone in it can claim)</label><label><input type="radio" name="es-to" value="person"${to === 'person' ? ' checked' : ''}> A named person</label></div>
-      <div class="rq-grid">
-        <label class="tol" id="es-team-l"${to === 'team' ? '' : ' hidden'}>Team <select id="es-team">${Object.entries(D.teams).map(([k, t]) => `<option value="${k}"${k === draft.team ? ' selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label>
-        <label class="tol" id="es-person-l"${to === 'person' ? '' : ' hidden'}>Person <select id="es-person">${Object.entries(D.people).map(([k, p]) => `<option value="${k}"${k === draft.person ? ' selected' : ''}>${esc(p.name)} · ${esc(team(p.team))}</option>`).join('')}</select></label>
-        <label class="tol">Due in <select id="es-due"><option value="4">4 hours</option><option value="24" selected>1 day</option><option value="48">2 days</option></select></label>
-        <label class="tol"><input type="checkbox" id="es-block"${draft.blocking === false ? '' : ' checked'}> The case must wait for this</label>
-      </div>
-      ${draft.requires ? `<p class="c-s">Needs someone with ${esc(draft.requires)}.</p>` : ''}
-      <label class="sl" for="es-q">Question</label><textarea id="es-q" rows="3">${esc(draft.question || '')}</textarea>
-      <label class="sl" for="es-why">Why it matters</label><textarea id="es-why" rows="2">${esc(draft.why || '')}</textarea>
-      <p class="c-s">Affects: ${esc(c.affects)} · Asks for: ${esc((draft.requested || []).join(', ') || 'an answer')} · Shares the evidence on this case with the recipient</p>
-      <div class="rq-btns"><button type="button" class="b-pri" data-do="send">Send check</button><button type="button" class="b-sec" data-do="form" data-form="">Cancel</button></div></div>`;
+
+  // checks: the live ones first, finished ones folded
+  function checksHtml(c, tasks) {
+    const live = tasks.filter((t) => t.status !== 'closed'), done = tasks.filter((t) => t.status === 'closed');
+    return `<section class="cs-sec" aria-labelledby="ck-h"><h4 id="ck-h">Checks <span class="c-s">· the case stays with ${esc(name(c.owner))}; a check only answers its question</span></h4>
+      ${live.length ? live.map((t) => taskHtml(c, t)).join('') : '<p class="d-empty">No check is open.</p>'}
+      ${done.length ? `<details class="cs-det"><summary>Finished checks (${done.length})</summary>${done.map((t) => taskHtml(c, t)).join('')}</details>` : ''}</section>`;
   }
   function taskHtml(c, t) {
     const mine = t.assignee === me, lead = C.isLead(D, me, t.team), owner = C.onCase(D, me, c), member = D.people[me].team === t.team;
-    const reachable = c.available.filter((i) => !i.teams || i.teams.includes(D.people[me].team));
-    const b = (doing, label, cls = 'b-sec') => `<button type="button" class="${cls} b-sm" data-do="${doing}" data-t="${t.id}">${label}</button>`;
+    const b = (doing, label) => `<button type="button" class="b-sec b-sm" data-do="${doing}" data-t="${t.id}">${label}</button>`;
     const btns = [];
-    if (t.status === 'open' && member) btns.push(b('claim', 'Claim'));
-    if (['open', 'claimed'].includes(t.status) && lead) btns.push(b('form-assign', 'Assign within team'));
-    if (['claimed', 'more-info'].includes(t.status) && mine) btns.push(b('form-reply', 'Reply', 'b-pri'), b('form-clarify', 'Ask the owner'));
-    if ((mine || (t.status === 'open' && member)) && ['open', 'claimed', 'more-info'].includes(t.status)) btns.push(b('form-return', 'Return'));
-    if (t.status === 'clarify' && owner) btns.push(b('form-answer', 'Answer the question', 'b-pri'));
-    if (t.status === 'replied' && owner) btns.push(b('acceptT', 'Reply answers it', 'b-pri'), b('form-more', 'Not enough, ask again'));
-    if (t.status === 'closed' && owner) btns.push(b('form-more', 'Reopen'));
-    if (['open', 'claimed', 'returned', 'more-info', 'clarify'].includes(t.status) && (mine || lead || owner)) btns.push(b('form-reassign', 'Reassign'));
-    if (C.isOverdue(state, t)) btns.push(b('remind', 'Send a reminder'), b('lead', 'Pass to the team lead'));
-    if (t.status !== 'closed' && owner) btns.push(b('form-withdraw', 'Withdraw'));
+    if (['open', 'claimed'].includes(t.status) && lead) btns.push(b('tform-assign', 'Assign within team'));
+    if (['claimed', 'more-info'].includes(t.status) && mine) btns.push(b('tform-clarify', 'Ask the owner'));
+    if ((mine || (t.status === 'open' && member)) && ['open', 'claimed', 'more-info'].includes(t.status)) btns.push(b('tform-return', 'Return'));
+    if (t.status === 'closed' && owner) btns.push(b('tform-more', 'Reopen'));
+    if (['open', 'claimed', 'returned', 'more-info', 'clarify'].includes(t.status) && (mine || lead || owner)) btns.push(b('tform-reassign', 'Reassign'));
+    if (t.status !== 'closed' && owner) btns.push(b('tform-withdraw', 'Withdraw'));
     const f = ui.form && ui.form.startsWith(t.id + ':') ? ui.form.slice(t.id.length + 1) : null;
-    const area = (id, ph) => `<label class="sr" for="${id}">${ph}</label><textarea id="${id}" placeholder="${ph}"></textarea>`;
-    return `<div class="rq-task${C.isOverdue(state, t) ? ' late' : ''}">
-      <div class="rq-row"><p><b>${t.id}</b> · ${t.to === 'team' && !t.assignee ? esc(team(t.team)) : `${esc(name(t.assignee))} (${esc(team(t.team))})`} · <span class="pill">${esc(TASK[t.status])}</span>${t.blocking ? '' : ' <span class="pill">Question only</span>'}${C.isOverdue(state, t) ? ' <span class="pill neg">Overdue</span>' : ''}</p><p class="c-s">due ${esc(at(t.due))}${t.followUp ? ` · follow up ${esc(at(t.followUp))}` : ''}${t.original !== t.recipient ? ` · first sent to ${esc(t.original.startsWith('team:') ? team(t.original.slice(5)) : name(t.original.slice(7)))}` : ''}</p></div>
-      <p>${esc(t.question)}</p>${t.why ? `<p class="c-s">Why: ${esc(t.why)} · Affects: ${esc(t.affects)}${t.requested.length ? ` · Asked for: ${esc(t.requested.join(', '))}` : ''}</p>` : ''}
-      ${t.clarify ? `<p class="c-s">Question back: “${esc(t.clarify.q)}”${t.clarify.a ? ` · Answer: “${esc(t.clarify.a)}”` : ''}</p>` : ''}
+    const area = (id, ph) => `<label class="sr" for="${id}">${ph}</label><textarea id="${id}" rows="2" placeholder="${ph}"></textarea>`;
+    return `<article class="ck${C.isOverdue(state, t) ? ' late' : ''}">
+      <p class="ck-h"><b>${t.id}</b> · ${t.to === 'team' && !t.assignee ? esc(team(t.team)) : `${esc(name(t.assignee))} (${esc(team(t.team))})`} · <span class="st${t.status === 'replied' ? ' warn' : t.status === 'closed' ? ' ok' : ''}">${esc(TASK[t.status])}</span>${t.blocking ? '' : ' <span class="st">Question only</span>'}${C.isOverdue(state, t) ? ' <span class="st neg">Overdue</span>' : ''}<span class="c-s"> · due ${esc(at(t.due))}${t.original !== t.recipient ? ` · first sent to ${esc(t.original.startsWith('team:') ? team(t.original.slice(5)) : name(t.original.slice(7)))}` : ''}</span></p>
+      <p class="ck-q">${esc(t.question)}</p>${t.why ? `<p class="c-s">Why: ${esc(t.why)}${t.requested.length ? ` · asks for ${esc(t.requested.join(', '))}` : ''}</p>` : ''}
+      ${t.clarify ? `<p class="c-s">Question back: “${esc(t.clarify.q)}”${t.clarify.a ? ` · answer: “${esc(t.clarify.a)}”` : ''}</p>` : ''}
       ${t.returnReason ? `<p class="c-s">Returned: “${esc(t.returnReason)}”</p>` : ''}
       ${t.reply ? `<div class="rq-reply"><p class="sl">Reply from ${esc(name(t.reply.by))} · ${esc(at(t.reply.at))} · ${esc(t.reply.conclusion)}</p><p>${esc(t.reply.answer)}</p>${t.reply.evidence.length ? `<p class="c-s">Attached: ${esc(t.reply.evidence.map((id) => (c.evidence.find((e) => e.id === id) || {}).label).join(', '))}</p>` : ''}</div>` : ''}
-      <div class="rq-btns">${btns.join('')}</div>
-      ${f === 'reply' ? `<div class="rq-form">${area('rp-a', 'Your answer')}<label class="tol">Conclusion <select id="rp-c"><option value="confirmed">Confirmed</option><option value="corrected">Corrected</option><option value="cannot-confirm">Cannot confirm</option></select></label>
-        ${reachable.length ? `<fieldset><legend class="sl">Attach evidence you can reach</legend>${reachable.map((i) => `<label class="rq-chk"><input type="checkbox" value="${i.id}" data-attach> ${esc(i.label)}${i.correction ? ' <span class="pill warn">correction</span>' : ''}</label>`).join('')}</fieldset>` : '<p class="c-s">Nothing on file for your team to attach.</p>'}
-        <button type="button" class="b-pri" data-do="reply" data-t="${t.id}">Send reply</button></div>` : ''}
-      ${f === 'assign' ? `<div class="rq-form"><select id="as-p">${Object.entries(D.people).filter(([, p]) => p.team === t.team).map(([k, p]) => `<option value="${k}">${esc(p.name)}</option>`).join('')}</select><button type="button" class="b-pri" data-do="assign" data-t="${t.id}">Assign</button></div>` : ''}
-      ${f === 'reassign' ? `<div class="rq-form"><select id="ra-to"><option value="person">Person</option><option value="team">Team</option></select><select id="ra-p">${Object.entries(D.people).map(([k, p]) => `<option value="${k}">${esc(p.name)} · ${esc(team(p.team))}</option>`).join('')}</select><select id="ra-t">${Object.entries(D.teams).map(([k, x]) => `<option value="${k}">${esc(x.name)}</option>`).join('')}</select>${area('ra-r', 'Why it moves (8+ characters)')}<button type="button" class="b-pri" data-do="reassign" data-t="${t.id}">Reassign</button></div>` : ''}
-      ${['clarify', 'answer', 'return', 'more', 'withdraw'].includes(f) ? `<div class="rq-form">${area('tx', { clarify: 'Your question to the owner', answer: 'Your answer', return: 'Why you cannot handle it', more: 'What is still missing', withdraw: 'Why it is withdrawn' }[f])}<button type="button" class="b-pri" data-do="${f}" data-t="${t.id}">Send</button></div>` : ''}
-      <details><summary class="c-s">History (${t.history.length})</summary><ol class="rq-tl">${t.history.map((h) => `<li><span class="c-s">${esc(at(h.at))} · ${esc(name(h.by))}</span> ${esc(h.event)}${h.detail ? ` <span class="c-s">· ${esc(h.detail)}</span>` : ''}</li>`).join('')}</ol></details></div>`;
+      ${btns.length ? `<div class="rq-btns">${btns.join('')}</div>` : ''}
+      ${f === 'assign' ? `<div class="cs-form"><select id="as-p" aria-label="Person">${Object.entries(D.people).filter(([, p]) => p.team === t.team).map(([k, p]) => `<option value="${k}">${esc(p.name)}</option>`).join('')}</select><button type="button" class="b-pri" data-do="assign" data-t="${t.id}">Assign</button></div>` : ''}
+      ${f === 'reassign' ? reassignForm(t, false) : ''}
+      ${['clarify', 'return', 'more', 'withdraw'].includes(f) ? `<div class="cs-form">${area('tx', { clarify: 'Your question to the owner', return: 'Why you cannot handle it', more: 'What is still missing', withdraw: 'Why it is withdrawn' }[f])}<button type="button" class="b-pri" data-do="${f}" data-t="${t.id}">Send</button></div>` : ''}
+      <details class="ck-hist"><summary class="c-s">History (${t.history.length})</summary><ol class="rq-tl">${t.history.map((h) => `<li><span class="c-s">${esc(at(h.at))} · ${esc(name(h.by))}</span> ${esc(h.event)}${h.detail ? ` <span class="c-s">· ${esc(h.detail)}</span>` : ''}</li>`).join('')}</ol></details></article>`;
+  }
+  // activity: the latest few, the rest folded; decisions show whether they still hold
+  function activityHtml(c) {
+    const h = c.history.slice().reverse();
+    const li = (e) => `<li><span class="c-s">${esc(at(e.at))} · ${esc(D.people[e.by] ? name(e.by) : e.by)}</span><br>${esc(e.event)}${e.detail ? ` <span class="c-s">· ${esc(e.detail)}</span>` : ''}${e.changes && e.changes.length ? `<ul class="rq-chg">${e.changes.map((x) => `<li>${esc(x.label)}: <s>${esc(C.fmt(x.before))}</s> → ${esc(C.fmt(x.after))}</li>`).join('')}</ul>` : ''}</li>`;
+    return `<section class="cs-sec" aria-labelledby="ac-h"><h4 id="ac-h">Activity</h4>
+      ${c.decisions.length ? `<ul class="cs-dec">${c.decisions.map((d) => `<li>${d.stale && !d.rereviewed ? '<span class="st warn">Needs re-review</span>' : d.rereviewed ? '<span class="st">Replaced</span>' : '<span class="st ok">Holds</span>'} <b>${esc(d.label)}</b> <span class="c-s">· ${esc(name(d.by))} · ${esc(at(d.at))} · evidence v${d.version}${d.reason ? ` · “${esc(d.reason)}”` : ''}</span></li>`).join('')}</ul>` : ''}
+      <ol class="rq-tl">${h.slice(0, 5).map(li).join('')}</ol>
+      ${h.length > 5 ? `<details class="cs-det"><summary>Full history (${h.length} entries)</summary><ol class="rq-tl">${h.slice(5).map(li).join('')}</ol></details>` : ''}</section>`;
   }
 
   // ---------- render ----------
+  const WHERE = (r) => (r.page === 'mywork' ? 'My Work' : r.page === 'queue' ? `Work Queues · ${MODULES[r.module].label}` : r.page === 'other' ? `${MODULES[r.module].label} · ${MODULES[r.module].other.label}` : r.page === 'case' ? `${MODULES[state.cases[r.id].module].label} · ${r.id}` : r.label);
   function render() {
-    const body = $('#rq-body'); if (!body) return;
-    const c = ui.open && state.cases[ui.open];
-    $('#rq-clock').textContent = `Demo clock ${at(state.now)}`;
+    const r = ui.route;
+    const head = $('#wb-head'); if (head) head.innerHTML = headHtml(r);
+    const body = $('#rq-body');
+    if (body && ['mywork', 'queue', 'case'].includes(r.page)) {
+      const c = r.page === 'case' && state.cases[r.id];
+      body.innerHTML = r.page === 'mywork' ? myWorkHtml() : r.page === 'queue' ? queueHtml(r.module) : caseHtml(c);
+      body.className = r.page === 'case' ? 'is-case' : '';
+      if (c) body.dataset.version = c.version;
+    }
     $('#rq-msg').hidden = !ui.msg; $('#rq-msg').textContent = ui.msg;
-    body.innerHTML = c ? caseHtml(c) : queueHtml();
-    if (c) body.dataset.version = c.version;
-    const n = C.queue(state, D, { me, status: 'active' }).length;
-    const badge = $('#rq-count'); if (badge) badge.textContent = n;
+    $('#wb-where').textContent = WHERE(r);
+    // the rail: where you are, and counts that always mean the same thing
+    const cur = r.page === 'case' ? `queue/${state.cases[r.id].module}` : r.page === 'other' ? `queue/${r.module}` : r.page === 'queue' ? `queue/${r.module}` : r.page === 'view' ? hashOf(r).slice(1) : 'mywork';
+    $$('#wb-nav [data-route]').forEach((a) => { if (a.dataset.route === cur) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
+    const tryLink = $('#wb-nav [data-try-case]'); if (tryLink) { if (ui.guided && r.page === 'case') tryLink.setAttribute('aria-current', 'page'); else tryLink.removeAttribute('aria-current'); }
+    $('#wb-menu-l').textContent = WHERE(r);
+    for (const m of Object.keys(MODULES)) { const el = $(`#wb-nav [data-n="${m}"]`); if (el) { const n = cases().filter((c) => c.module === m && !c.closed && c.exceptions.some((x) => x.status === 'open')).length; el.textContent = n || ''; } }
+    const w = C.myWork(state, D, A, me), n = w.needs.length + w.assigned.length + w.inbox.length;
+    $('#n-mywork').textContent = n || '';
   }
 
   // ---------- events ----------
   const val = (s) => ($(s) ? $(s).value : '');
   const T = (id) => state.tasks[id];
+  function setMe(p) { me = D.people[p] ? p : 'ava'; try { localStorage.setItem(AS, me); } catch {} $('#rq-as').value = me; ui.form = null; ui.msg = ''; }
   $('#rq-as').innerHTML = Object.entries(D.people).map(([k, p]) => `<option value="${k}"${k === me ? ' selected' : ''}>${esc(p.name)} · ${esc(team(p.team))}</option>`).join('');
-  $('#rq-as').addEventListener('change', () => { me = $('#rq-as').value; try { localStorage.setItem(AS, me); } catch {} ui.form = null; ui.msg = ''; render(); });
-  $('#rq-run').addEventListener('click', () => run(() => {
-    const out = [
-      C.sync(state, D, A, 'cash', { bank: window.TM.bank, gl: window.TM.gl, window: +($('#cash-window') ? $('#cash-window').value : 3) }),
-      C.sync(state, D, A, 'payroll', { hris: window.TM.hris, payroll: window.TM.payroll, equity: window.TM.equity, period: PERIOD }),
-      C.sync(state, D, A, 'mortgage', {}),
-    ];
-    const made = out.reduce((a, r) => a + r.created.length, 0), upd = out.reduce((a, r) => a + r.updated.length, 0);
-    ui.msg = ''; return { ok: true, made, upd };
-  }, ['Ran checks across Payroll, Cash and Mortgage', 'Open cases updated in place; new findings open new cases']));
-  $('#rq-reset').addEventListener('click', () => { state = fresh(); ui.open = null; ui.form = null; ui.msg = ''; save(); log('Reset the review demo', 'Back to the starting cases'); render(); });
+  $('#rq-as').addEventListener('change', () => { setMe($('#rq-as').value); render(); });
+  const saveF = () => { try { sessionStorage.setItem(FKEY, JSON.stringify(filters)); } catch {} };
 
-  $('#rq-body').addEventListener('change', (e) => {
+  // links with data-route move inside the workbench without a page jump
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest('[data-route]');
+    if (a && !e.metaKey && !e.ctrlKey && !e.shiftKey) { e.preventDefault(); const r = parse('#' + a.dataset.route); if (r.page !== 'case') ui.guided = false; go(r); closeMenu(); if (r.page === 'case') toSheet(); return; }
+    const t = e.target.closest('[data-try-case]');
+    if (t) { e.preventDefault(); go({ page: 'case', try: true }); closeMenu(); requestAnimationFrame(toSheet); return; }
+    const c = e.target.closest('[data-case]');
+    if (c) { go({ page: 'case', id: c.dataset.case }); toSheet(); return; }
+    const o = e.target.closest('[data-open-view]');
+    if (o && o.dataset.openView === 'mine') { go({ page: 'view', view: 'mine', label: 'Data & Imports' }); }
+  });
+  // phones: the rail folds into a menu
+  const closeMenu = () => { $('#wb-menu').setAttribute('aria-expanded', 'false'); $('#wb-nav').classList.remove('open'); };
+  $('#wb-menu').addEventListener('click', () => { const open = $('#wb-menu').getAttribute('aria-expanded') !== 'true'; $('#wb-menu').setAttribute('aria-expanded', String(open)); $('#wb-nav').classList.toggle('open', open); });
+  $('#wb-q-t').addEventListener('click', () => { const b = $('#wb-q-t'), open = b.getAttribute('aria-expanded') !== 'true'; b.setAttribute('aria-expanded', String(open)); $('#wb-q').hidden = !open; });
+
+  $('#sheet').addEventListener('input', (e) => {
+    const f = e.target.dataset.f; if (f !== 'q') return;
+    const mod = ui.route.module; filters[mod].q = e.target.value; saveF();
+    clearTimeout(e.target._t); e.target._t = setTimeout(() => { const pos = e.target.selectionStart; render(); const i = $('[data-f="q"]'); if (i) { i.focus(); i.setSelectionRange(pos, pos); } }, 200);
+  });
+  $('#sheet').addEventListener('change', (e) => {
     const f = e.target.dataset.f;
-    if (f) { ui.f[f] = e.target.value || undefined; render(); }
+    if (f && f !== 'q') { filters[ui.route.module][f] = e.target.value || undefined; saveF(); render(); }
     if (e.target.name === 'es-to') { ui.escTo = e.target.value; $('#es-team-l').hidden = ui.escTo !== 'team'; $('#es-person-l').hidden = ui.escTo !== 'person'; }
   });
-  $('#rq-body').addEventListener('click', (e) => {
+  $('#sheet').addEventListener('click', (e) => {
     const b = e.target.closest('[data-do]'); if (!b || b.disabled) return;
-    const d = b.dataset.do, c = ui.open && state.cases[ui.open], t = b.dataset.t, version = c ? +$('#rq-body').dataset.version : undefined;
-    if (d === 'view') { ui.view = b.dataset.v; return render(); }
-    if (d === 'open') { ui.open = b.dataset.id; ui.form = null; ui.msg = ''; ui.escTo = null; render(); $('#rq-body').scrollIntoView({ block: 'start' }); return; }
-    if (d === 'back') { ui.open = null; ui.form = null; ui.msg = ''; return render(); }
-    if (d === 'as') { setMe(b.dataset.p); return render(); }
-    if (d === 'goto') return spot($('#rq-body ' + b.dataset.at));
-    if (d === 'tryreset') { state = fresh(); save(); log('Restarted the payout walkthrough', 'Demo back to its starting cases'); return tryPayout(); }
-    if (d === 'form') { ui.form = b.dataset.form || null; ui.escTo = null; render(); return ui.form === 'esc' && spot($('.rq-esc')); }
-    if (d.startsWith('form-')) { ui.form = `${t}:${d.slice(5)}`; render(); return spot($('.rq-task .rq-form')); }
+    const d = b.dataset.do, c = ui.route.page === 'case' && state.cases[ui.route.id], t = b.dataset.t, version = c ? +$('#rq-body').dataset.version : undefined;
+    if (d === 'as') { setMe(b.dataset.p); render(); const p = $('.cs-primary'); if (p) { flash(p); p.focus({ preventScroll: true }); } return; }
+    if (d === 'reset') { state = fresh(); save(); log('Reset the demo', 'Back to the starting cases'); return render(); }
+    if (d === 'tryreset') { state = fresh(); save(); setMe('ava'); log('Restarted the guided demo', 'Back to the starting cases'); return go({ page: 'case', try: true }, { replace: true }); }
+    if (d === 'clearf') { filters[ui.route.module] = { status: 'active' }; saveF(); return render(); }
+    if (d === 'scan') { const m = b.dataset.m; return run(() => { const r = C.sync(state, D, A, m, SOURCES[m]()); return { ok: true, ...r }; }, [`Ran ${MODULES[b.dataset.m].label} checks`, 'Open cases update in place; new findings open new cases']); }
+    if (d === 'form') {
+      ui.form = b.dataset.form || null; ui.escTo = null; render();
+      const fm = ui.form && $('.cs-form'); if (fm) { const fld = $('textarea, select, input', fm); if (fld) fld.focus({ preventScroll: true }); if (fm.getBoundingClientRect().bottom > innerHeight) fm.scrollIntoView({ block: 'nearest', behavior: reduced ? 'auto' : 'smooth' }); }
+      else if (!ui.form) { const p = $('.cs-primary'); if (p) p.focus({ preventScroll: true }); }
+      return;
+    }
+    if (d.startsWith('tform-')) { ui.form = `${t}:${d.slice(6)}`; render(); const fm = $('.ck .cs-form'); if (fm) { const fld = $('textarea, select', fm); if (fld) fld.focus({ preventScroll: true }); } return; }
     if (d === 'priority') return run(() => C.setPriority(state, D, c.id, val('#pr-l'), val('#pr-r'), me), ['Changed priority', `${c.id} → ${val('#pr-l')}`]);
     if (d === 'cls') return run(() => C.reclassify(state, D, c.id, b.dataset.x, val('#cl-v'), val('#cl-r'), me), ['Changed classification', `${b.dataset.x} → ${CLS[val('#cl-v')]}`]);
     if (d === 'recheck') return run(() => ({ ok: true, ...C.runCheck(state, A, c.id, me, 'Re-run by ' + name(me)) }), ['Re-ran checks', c.id]);
     if (d === 'inbox') return run(() => C.attachEvidence(state, D, A, c.id, b.dataset.i, me, { via: 'inbox' }), ['Added new evidence', c.id]);
-    if (d === 'act') {
-      const a = b.dataset.a;
-      return run(() => C.act(state, D, A, c.id, a, { by: me, reason: val('#r-' + CSS.escape(a)), version }), ['Decision recorded', `${c.id} · ${a}`]);
-    }
+    if (d === 'act') { const a = b.dataset.a; return run(() => C.act(state, D, A, c.id, a, { by: me, reason: val('#r-' + CSS.escape(a)), version }), ['Decision recorded', `${c.id} · ${a}`]); }
     if (d === 'send') {
       const to = ($('input[name="es-to"]:checked') || {}).value || 'team';
-      const x = c.exceptions.find((y) => y.status === 'open');
-      const draft = (x && c.drafts && c.drafts[x.code]) || {};
+      const x = topX(c), draft = (x && c.drafts && c.drafts[x.code]) || {};
       b.disabled = true;
       return run(() => C.escalate(state, D, c.id, { to, team: val('#es-team'), person: val('#es-person'), question: val('#es-q'), why: val('#es-why'), affects: c.affects, requested: draft.requested, requires: to === 'person' ? draft.requires : null, kind: draft.kind, blocking: $('#es-block').checked, exceptionIds: c.exceptions.filter((y) => y.status === 'open').map((y) => y.id), evidence: c.evidence.map((y) => y.id), due: new Date(new Date(state.now).getTime() + +val('#es-due') * 36e5).toISOString() }, me),
         ['Sent a check', `${c.id} → ${to === 'team' ? team(val('#es-team')) : name(val('#es-person'))}`]);
@@ -327,34 +543,18 @@
     if (d === 'lead') return run(() => C.escalateToLead(state, D, t, me), ['Passed an overdue check to the lead', t]);
   });
 
-  function spot(el) {
-    if (!el) return;
-    // focus first: moving focus during a smooth scroll cancels the scroll in Chrome
-    const f = el.matches('button') ? el : el.querySelector('textarea, button'); if (f) f.focus({ preventScroll: true });
-    // after the redraw settles, so the browser's own scroll adjustment does not undo it
-    requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - window.innerHeight / 3, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })));
-    el.classList.remove('rq-spot'); void el.offsetWidth; el.classList.add('rq-spot');
-  }
-
-  // ---------- links from the module views ----------
+  // ---------- links from the module checks and reports ----------
   window.tmCaseLink = (key) => {
-    const c = state.order.map((id) => state.cases[id]).find((x) => x.key === key);
+    const c = caseByKey(key);
     return c ? `<button type="button" class="link-btn sm" data-case="${c.id}">${c.id} →</button>` : '';
   };
-  window.tmOpenCase = (id) => { ui.open = id; ui.form = null; ui.msg = ''; app.setView && app.setView('queue'); render(); };
-  document.addEventListener('click', (e) => { const b = e.target.closest('[data-case]'); if (b) window.tmOpenCase(b.dataset.case); });
-  // "Try the payout exception": straight into the guided case, as its owner
-  function setMe(p) { me = p; try { localStorage.setItem(AS, me); } catch {} $('#rq-as').value = me; ui.form = null; ui.msg = ''; }
-  function tryPayout() {
-    const c = caseByKey(TRY_KEY); if (!c) return;
-    if (!c.tasks.length) setMe('ava');
-    window.tmOpenCase(c.id);
-    const target = $('#rq-body'); if (target) window.scrollTo({ top: target.getBoundingClientRect().top + window.scrollY - 84, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
-  }
-  document.addEventListener('click', (e) => { const t = e.target.closest('[data-try-case]'); if (!t) return; e.preventDefault(); try { history.replaceState(null, '', '#try'); } catch {} tryPayout(); });
-  if (location.hash === '#try') setTimeout(tryPayout, 400);
+  window.tmOpenCase = (id) => go({ page: 'case', id });
+  window.tmGo = (hash) => { go(parse(hash)); toWorkbench(); };
   window.tmSyncCash = (win) => { C.sync(state, D, A, 'cash', { bank: window.TM.bank, gl: window.TM.gl, window: win }); save(); render(); };
 
-  render();
+  // first paint: straight to the address in the URL, with no other panel shown first
+  const first = parse(location.hash);
+  apply(first);
+  if (location.hash === '#try' || first.page === 'case') requestAnimationFrame(() => requestAnimationFrame(() => { $('#workbench').scrollIntoView({ behavior: 'auto' }); toSheet(); }));
   app.refresh && app.refresh();
 })();
