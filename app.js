@@ -248,7 +248,8 @@
   function payrollTable(tbody, exceptions, decisions, onDecide) {
     tbody.innerHTML = exceptions.length ? exceptions.map((x) => {
       const key = x.id + ':' + x.rule, d = decisions[key];
-      return `<tr><td>${esc(x.id)}</td><td>${x.rule}</td><td>${esc(x.ev)}</td><td>${sevPill(x.sev)}</td><td>${d ? `<span class="pill ok">${esc(d.action)}</span>` : `<button type="button" class="b-sec" data-k="${esc(key)}" data-a="Held">Hold</button> <button type="button" class="b-sec" data-k="${esc(key)}" data-a="Cleared">Clear</button>`}</td></tr>`;
+      const link = window.tmCaseLink && !tbody.closest('#my-pay-q') ? window.tmCaseLink('payroll:' + key) : '';
+      return `<tr><td>${esc(x.id)}</td><td>${x.rule}</td><td>${esc(x.ev)}${link ? ` ${link}` : ''}</td><td>${sevPill(x.sev)}</td><td>${d ? `<span class="pill ok">${esc(d.action)}</span>` : `<button type="button" class="b-sec" data-k="${esc(key)}" data-a="Held">Hold</button> <button type="button" class="b-sec" data-k="${esc(key)}" data-a="Cleared">Clear</button>`}</td></tr>`;
     }).join('') : '<tr><td colspan="5" class="d-empty">No exceptions. Every row passed every rule.</td></tr>';
     $$('[data-k]', tbody).forEach((b) => b.addEventListener('click', () => onDecide(b.dataset.k, b.dataset.a)));
   }
@@ -286,7 +287,7 @@
 
   // cash view (sample data)
   const bankTable = (tbody, rec) => {
-    tbody.innerHTML = rec.rows.map((r) => `<tr><td class="num">${esc(r.date)}</td><td>${esc(r.desc)}</td><td class="num">${money(r.amt)}</td><td>${esc(r.gl)}</td><td class="${r.ok ? 'ok' : 'warn'}">${esc(r.res)}</td></tr>`).join('');
+    tbody.innerHTML = rec.rows.map((r) => { const link = !r.ok && tbody.closest('#cash-t') && window.tmCaseLink ? window.tmCaseLink(`cash:${r.date}:${r.amt}`) : ''; return `<tr><td class="num">${esc(r.date)}</td><td>${esc(r.desc)}</td><td class="num">${money(r.amt)}</td><td>${esc(r.gl)}</td><td class="${r.ok ? 'ok' : 'warn'}">${esc(r.res)}${link ? ` ${link}` : ''}</td></tr>`; }).join('');
   };
   const bankStats = (rec, win, label) =>
     stat('Statement lines', rec.rows.length, label) +
@@ -302,7 +303,7 @@
     $('#cash-stats').innerHTML = bankStats(cashRec, win, 'October to date');
     bankTable($('#cash-t tbody'), cashRec);
   }
-  $('#cash-window').addEventListener('change', () => { renderCash(); log('You', 'Changed match window', `±${$('#cash-window').value} days`); });
+  $('#cash-window').addEventListener('change', () => { window.tmSyncCash?.(+$('#cash-window').value); renderCash(); log('You', 'Changed match window', `±${$('#cash-window').value} days`); });
 
   // eval view
   function renderEval() {
@@ -634,7 +635,7 @@
   $$('[data-open-view]').forEach((b) => b.addEventListener('click', () => { setView(b.dataset.openView); $('#workbench').scrollIntoView({ behavior: reduced ? 'auto' : 'smooth' }); }));
 
   // on phones each table row becomes a card, so every cell carries its column name
-  const WIDE = /^(Exception|Evidence|Bank description|Memo|Detail|Task|Measured by|Company|Event)$/;
+  const WIDE = /^(Exception|Evidence|Bank description|Memo|Detail|Task|Measured by|Company|Event|Case|What was found|Why it is first|Who has it|Fact|Source|Independence|Planted)$/;
   function labelTables() {
     $$('#app table.tbl').forEach((t) => {
       const heads = $$('thead th', t).map((th) => th.textContent.trim());
@@ -648,6 +649,8 @@
   new MutationObserver(() => labelTables()).observe($('#app'), { childList: true, subtree: true });
 
   renderCloseStats(); renderCloseQueue(); renderJournals(); renderPayroll(); renderCash(); renderFx(); renderSec(); renderEval(); renderFinqa(); renderAudit();
+  // review.js reads these: the audit log, the tabs, and a redraw once cases exist to link to
+  window.tmApp = { log, setView, refresh: () => { renderPayroll(); renderCash(); } };
   labelTables();
   refreshMineChrome();
   if (mine.ranPay) runMyPayroll(true);

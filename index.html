@@ -87,6 +87,7 @@
       <p class="app-brand"><svg class="mk" viewBox="0 0 191 225" aria-hidden="true"><path class="m-cream" d="M0 80L191 0V60L48 165L0 140Z"/><path class="m-gold" d="M0 156L48 181L191 76V145L0 225Z"/></svg>Tickmark</p>
       <div class="app-nav" role="tablist" aria-label="Views">
         <button role="tab" class="nav-i" data-view="close" aria-selected="true">Close</button>
+        <button role="tab" class="nav-i" data-view="queue" aria-selected="false">Review queue <span class="count" id="rq-count"></span></button>
         <button role="tab" class="nav-i" data-view="payroll" aria-selected="false">Payroll</button>
         <button role="tab" class="nav-i" data-view="cash" aria-selected="false">Cash and FX</button>
         <button role="tab" class="nav-i" data-view="sec" aria-selected="false">Public filings</button>
@@ -142,6 +143,17 @@
         <div class="card"><div class="c-head"><p class="c-t">Review desk</p><div class="c-acts"><p class="c-s" id="pay-q-sub"></p><button type="button" class="b-sec b-sm" data-export="payroll">Export CSV</button></div></div>
           <table class="tbl" id="pay-q"><thead><tr><th scope="col">Employee</th><th scope="col">Rule</th><th scope="col">Evidence</th><th scope="col">Severity</th><th scope="col">Decision</th></tr></thead><tbody></tbody></table>
         </div>
+      </div>
+
+      <!-- REVIEW QUEUE: payroll, cash and mortgage exceptions on one queue, one case review -->
+      <div class="view" data-view="queue" role="tabpanel" hidden>
+        <div class="v-title">
+          <div><p class="v-h">Review queue</p><p class="v-sub">Payroll, cash and mortgage exceptions in one queue. Each case shows what differs, where the evidence comes from, what it holds up and what you can do now. All data is synthetic; sign-in, notices and sending are simulated.</p></div>
+          <div class="c-acts"><label class="tol">Acting as <select id="rq-as"></select></label><button type="button" class="b-pri" id="rq-run">Run checks</button></div>
+        </div>
+        <p class="rq-bar"><span id="rq-clock"></span> · switch people to see each queue · <button type="button" class="link-btn sm" id="rq-reset">Reset the demo</button></p>
+        <p class="st-err" id="rq-msg" role="alert" hidden></p>
+        <div id="rq-body"></div>
       </div>
 
       <!-- CASH -->
@@ -417,7 +429,11 @@
 <script src="engine.js"></script>
 <script src="data.js"></script>
 <script src="real-data.js"></script>
+<script src="case-data.js"></script>
+<script src="cases.js"></script>
+<script src="case-rules.js"></script>
 <script src="app.js"></script>
+<script src="review.js"></script>
 <script src="motion.js"></script>
 </body>
 </html>
