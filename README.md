@@ -2,11 +2,33 @@
 
 [![Tests](https://github.com/MarZss03/tickmark/actions/workflows/test.yml/badge.svg)](https://github.com/MarZss03/tickmark/actions/workflows/test.yml)
 
-Finance controls that show their work. A portfolio case study and working prototype for month-end close, payroll review and financial-model evaluation. It grew out of the earlier "Run Replay" prototype.
+Finance operations staff often see two records that should agree, and don't: the money is in the bank, but the loan still shows a balance. Tickmark helps them work out whether the gap is an entry error, a timing gap or a real business difference, trace it to the source evidence, ask the right team or person, and re-check when the answer comes back.
+
+It started on 27 Oct 2026 as a finance review experiment (controls that show their work, for close, payroll and cash). On 3 Nov 2026, industry research and my mortgage servicing work narrowed it to one problem: settling exceptions whose facts sit with other teams. The [Notes](https://tickmark-martinzhang.vercel.app/notes) tell that story in order. It grew out of the earlier "Run Replay" prototype. All operational data is synthetic.
 
 Live: https://tickmark-martinzhang.vercel.app · Notes: https://tickmark-martinzhang.vercel.app/notes
 
 A static site: open `index.html`, or run `node scripts/serve.mjs` and visit http://localhost:5173. It deploys to Vercel as-is, with no build step; every push to `main` redeploys.
+
+## Review Queue and Case Review
+
+Open the workbench and choose **Review queue**. Payroll, cash and mortgage exceptions sit in one queue, filterable by module, type, priority, status, case owner, waiting team and assignee, with views for *my cases*, *checks assigned to me*, *my team to claim* and *waiting on other teams*. The Payroll and Cash tabs link each exception to the same case page.
+
+A case answers four questions first: what differs (expected against found, a classification a person can change, and the reasoning marked as inference), where the evidence comes from (each fact, every value found, its system, location, time and version, which sources are independent and which copy another; text read from documents is highlighted where it was read), what it holds up, and what the person acting can do now. Business priority (impact, deadline, amount, waiting time) is shown apart from confidence in the reading, and a person can override it with a reason.
+
+From a case you can send a **check** to a team (anyone in it claims it; the lead can assign) or to a named person (refused, with suggestions, if they lack the authority the question needs). A check carries the question, why it matters, what it affects, the evidence shared, a due time and its own history. The handler can reply with a conclusion and attach evidence they can reach, ask the owner to clarify, or return it with a reason; the owner accepts the reply or sends it back; overdue checks can be chased or passed to the team lead. The case stays with its owner: closing a check only means the question was answered.
+
+When a reply or a new document changes the inputs, the module's checks re-run, before-and-after values go into the timeline, superseded evidence is kept, and approvals that relied on the changed facts are marked for re-review. Actions (confirm reconciled, release pay, reverse hold interest, send a shortfall notice, resume a payout, confirm a cancellation) open only when their conditions hold and the person has the permission, and a decision made from a page showing an older evidence version is refused. Re-scanning the same data updates the open case rather than opening a new one.
+
+| Module | Detection | Example walked end to end |
+| --- | --- | --- |
+| Cash | the existing bank matcher (`matchBank`) | A legal fee paid 6,850.00, ledger 6,580.00: the invoice and bank agree, the ledger copies one AP entry; AP corrects it; re-check clears it |
+| Payroll | the existing payroll rules (`runPayroll`) | E-1017 paid twice: two imports of the same timesheet file; Timekeeping reverses one; release opens |
+| Mortgage | servicing rules in `case-rules.js` | A wire on time, posted three days late after a hold: Payments confirms receipt, an authorised reviewer sets the settlement date, the interest is reversed, discharge preparation resumes. No shortfall notice, because a late posting alone does not trigger one |
+
+The eleven mortgage files also cover a late wire (estimated shortfall until confirmed, notice, top-up), a moved closing date (old approval goes to re-review), an approved waiver not on the statement, a statement for the wrong registration, a paid-off loan with no final registration receipt (overdue follow-up, a wrong receipt sent back), a cancellation with a wire in transit, an internal refinance, an assignment prepared as a discharge, a reverse mortgage with an estate, and a commercial partial release. Branches without a checked rule go to a person.
+
+**Simulated:** sign-in (switch people with *Acting as*), notices, sending and every bank system. **Deterministic stand-ins:** the document extractor and the drafted questions stand in for a model. **Not verified:** any lender's real rules for holds, per diem, waivers or cut-off times; the demo rules are labelled as such. **Not measured:** time saved, round trips or error rates with real users.
 
 ## Use it on your own data
 
@@ -57,12 +79,13 @@ The first run caught 11 of 19. The 8 misses were real gaps: a terminated person 
 node --test "tests/*.test.js"
 ```
 
-30 tests cover every payroll rule and its boundaries, the stress test (expected misses, no false alarms, same seed same plants, input untouched), bank matching, the SEC controls, the FinQA grader, journal checks, the FX revaluation, CSV parsing and validation, and a round trip of the sample through the CSV templates (same results either way). GitHub Actions runs them, plus a syntax check of the page scripts, on every push.
+42 tests. `tests/cases.test.js` (12) walks the cash, payroll and mortgage cases through detection, tracing, escalation, replies, re-checks and decisions, including permissions, duplicate submissions, stale pages, reassignment, overdue checks, clarification, returns and re-review. `tests/engine.test.js` (30) covers every payroll rule and its boundaries, the stress test (expected misses, no false alarms, same seed same plants, input untouched), bank matching, the SEC controls, the FinQA grader, journal checks, the FX revaluation, CSV parsing and validation, and a round trip of the sample through the CSV templates (same results either way). GitHub Actions runs them, plus a syntax check of the page scripts, on every push.
 
 ## What is real and what is synthetic
 
 | Part | Data | Source |
 | --- | --- | --- |
+| Mortgage files, people, emails, wires, registrations | Synthetic | `case-data.js`. Nothing is a real bank, lender, firm or person |
 | Close, payroll, bank lines | Synthetic | `data.js`. The rules in `engine.js` run on it in the browser |
 | Payroll engine evaluation (74 cases, recall 98.5%) | From the original Run Replay harness | carried over, not re-run here |
 | Controls on public filings | Real | SEC EDGAR XBRL `companyfacts`, 8 companies' latest 10-K |
@@ -93,6 +116,10 @@ The SEC asks for a contact address in the `User-Agent`; `fetch-real.mjs` sends M
 - `index.html`: the Work page (intro, hero, results, workbench, live control, contact).
 - `notes.html`: every explanation (principles, one exception end to end, scores, what broke, close calendar, data sources, history, letter, credits).
 - `engine.js`: every rule, the stress test, plus CSV parsing, validation and export. No page code.
+- `cases.js`: cases, evidence tracing, priority, checks sent to teams or people, decisions and re-review. No page code.
+- `case-rules.js`: what Cash, Payroll and Mortgage each check and allow, reusing `engine.js` for the first two.
+- `case-data.js`: synthetic people, teams, documents and mortgage files.
+- `review.js`: the Review Queue and Case Review.
 - `app.js`: renders the workbench, records decisions, saves the session, handles uploads and exports.
 - `motion.js`: intro, page wipe, reveals, progress bar, counters, magnetic buttons, jump palette, toasts, segmented indicators, spotlight and tilt.
 - `blender/mark3d.py`: the 3D mark in the hero (Blender 5.4). `blender -b -P blender/mark3d.py -- still <out>` and `-- anim <frames dir>/f_`. The frames are transparent; composite them onto #0a0a0a with ffmpeg before encoding.

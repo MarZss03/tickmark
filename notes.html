@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tickmark Notes · Martin Zhang</title>
-<meta name="description" content="How Tickmark works, how it was scored, what broke, and where its data comes from.">
+<meta name="description" content="The problem Tickmark works on, the research behind it, what was built, and the build log in order.">
 <link rel="icon" href="assets/mark.svg" type="image/svg+xml">
-<meta property="og:title" content="Tickmark Notes · How it works, and what broke">
+<meta property="og:title" content="Tickmark Notes · The problem, the research, the build log">
 <meta property="og:image" content="https://tickmark-martinzhang.vercel.app/assets/og.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -42,12 +42,72 @@
 
 <section class="notes-hero" aria-labelledby="nh">
   <h1 id="nh" class="display lines">
-    <span class="line"><span data-line style="--i:0">How it works,</span></span>
-    <span class="line"><span data-line style="--i:1">and what broke</span></span>
+    <span class="line"><span data-line style="--i:0">The money is in the bank.</span></span>
+    <span class="line"><span data-line style="--i:1">The loan still shows a balance.</span></span>
   </h1>
   <nav class="toc fade-in" aria-label="On this page">
-    <a href="#principles">Principles</a><a href="#path">One exception</a><a href="#scores">Scores</a><a href="#broke">What broke</a><a href="#calendar">Close calendar</a><a href="#data">Data</a><a href="#letter">Letter</a>
+    <a href="#problem">The problem</a><a href="#found">What I found</a><a href="#chose">What I chose to build</a><a href="#log">Build log</a><a href="#principles">Principles</a><a href="#path">One exception</a><a href="#scores">Scores</a><a href="#broke">What broke</a><a href="#data">Data</a><a href="#letter">Letter</a>
   </nav>
+</section>
+
+<section class="story" id="problem" aria-labelledby="pb-h">
+  <h2 id="pb-h" class="head lines"><span class="line"><span data-line>The problem</span></span></h2>
+  <div class="story-body">
+    <p class="story-lead" data-reveal>A payout wire reaches the bank on the closing date. The loan system applies it three days later, so the loan shows interest still owing. Is that the borrower's shortfall, or our delay?</p>
+    <p data-reveal>Finance operations staff meet this all day: two records that should agree, and don't. Before anything can move, someone has to work out which kind of gap it is.</p>
+    <ul class="kinds" data-reveal>
+      <li><b>An entry error.</b><span>Someone keyed 6,580.00 for 6,850.00, or imported the same timesheet twice.</span></li>
+      <li><b>A timing or sync gap.</b><span>The money arrived; a hold or a batch has not caught up.</span></li>
+      <li><b>A real business difference.</b><span>The wire really was late, or the closing date really moved.</span></li>
+    </ul>
+    <p data-reveal>The facts that decide it usually sit with other teams. One team knows when the money arrived; another system records when it reached the loan; a third person is allowed to say which date applies. The person moving the case has to find each piece, ask the right person, and keep the answers straight. If one input is wrong, anything reasoning from it, a person or a model, carries the error forward.</p>
+  </div>
+</section>
+
+<section class="story alt" id="found" aria-labelledby="fd-h">
+  <h2 id="fd-h" class="head lines"><span class="line"><span data-line>What I found</span></span></h2>
+  <div class="story-body">
+    <div class="found">
+      <div class="src" data-reveal><p class="src-k">From my own work</p><h3>Mortgage servicing and payouts</h3>
+        <p>I work in mortgage servicing and payouts at a Canadian bank, and before that I was a real-estate legal assistant. The same loan is kept by several teams. Confirming one fact, such as when a payout was received, can take a message to Payments, a look at the loan system, and a decision from someone with authority to set the settlement date. That is how cross-team checking happens in practice; it is my observation, not a measurement.</p></div>
+      <div class="src" data-reveal><p class="src-k">From public sources</p><h3>Upstream inputs cause downstream errors</h3>
+        <p>The Auditor General of Canada's <a href="https://www.oag-bvg.gc.ca/internet/English/parl_oag_201711_01_e_42666.html">2017 report on Phoenix pay problems</a> found departments processing a large share of pay requests retroactively, which fed the backlog of pay corrections. An <a href="https://www.hrdive.com/news/employers-make-15-corrections-per-pay-period-on-average-costing-thousands/640276/">EY payroll survey</a> (commissioned by a payroll vendor) reported errors in about one payroll in five, with missing or wrong time punches among the most frequent. Public lender guides, the Canadian Bar Association's <a href="https://cba.org/resources/practice-tools/mortgage-instructions-toolkit/reliance-on-mortgage-payout-statements/">note on relying on payout statements</a>, an <a href="https://www.obsi.ca/en/news/posts/bank-errors-when-arranging-a-mortgage-transfer-lead-to-costly-penalties-for-borrower/">OBSI case on a mishandled mortgage transfer</a> and the FCAC pages on <a href="https://www.canada.ca/en/financial-consumer-agency/services/mortgages/mortgage-discharge.html">discharge</a> and <a href="https://www.canada.ca/en/financial-consumer-agency/services/mortgages/reduce-prepayment-penalties.html">prepayment penalties</a> shaped the mortgage cases.</p></div>
+    </div>
+    <p class="story-note" data-reveal><b>What these sources do and do not show.</b> They helped me confirm the problem is real and common. They do not validate Tickmark. I have not measured time saved, fewer round trips or fewer errors with real users, and each bank's own rules for holds, per diem and waivers still need checking with that bank.</p>
+  </div>
+</section>
+
+<section class="story" id="chose" aria-labelledby="ch-h">
+  <h2 id="ch-h" class="head lines"><span class="line"><span data-line>What I chose to build</span></span></h2>
+  <div class="story-body">
+    <div class="found">
+      <div class="src" data-reveal><p class="src-k">What Tickmark already did · 27 Oct – 2 Nov</p><h3>Find the difference</h3>
+        <p>Upload an HRIS file and payroll register, or a bank statement and the ledger. Run the checks, flag what differs, record each review with a reason, and export it. A stress test plants known errors to show what the rules miss.</p></div>
+      <div class="src" data-reveal><p class="src-k">The next choice · 3 Nov</p><h3>Explain it, and get it answered</h3>
+        <p>Flagging was not the hard part; deciding was. So from each exception the reviewer can go back to the source evidence, see which sources are independent and which copy each other, send one clear question to a team or a named person, and re-run the checks when the answer arrives.</p></div>
+    </div>
+    <ul class="kinds" data-reveal>
+      <li><b>Extend reconciliation, don't replace it.</b><span>Payroll and cash keep their own matching and rules; the new layer starts where they flag something.</span></li>
+      <li><b>Trace to the source.</b><span>Two records that agree because one copied the other are one source, not two.</span></li>
+      <li><b>Keep urgency apart from confidence.</b><span>A closing tomorrow is urgent however sure the reading is; a confident reading is not a reason to rush.</span></li>
+      <li><b>A person confirms what the data can't.</b><span>A settlement date, a waiver, a release scope: the rule pauses only the step that depends on it and names who can decide.</span></li>
+    </ul>
+    <p class="story-note" data-reveal>Out of scope on purpose: sending payments, statement requests, portal tracking and land registration. Those stay in the systems that run them; the demo shows their states, marked as simulated.</p>
+  </div>
+</section>
+
+<section class="story alt" id="log" aria-labelledby="bl-h">
+  <h2 id="bl-h" class="head lines"><span class="line"><span data-line>Build log</span></span></h2>
+  <ol class="blog">
+    <li data-reveal><span class="bl-d">Before Tickmark</span><div><b>Eight hand-written exceptions.</b><p>The first version showed eight exceptions I typed in by hand. It looked finished; nothing ran on real input, so nothing could be measured.</p></div></li>
+    <li data-reveal><span class="bl-d">Before Tickmark</span><div><b>Run Replay, a rules engine with scored cases.</b><p>My own 66 cases scored 100%. Eight cases written to break it dropped recall to 92.3%; fixing them took version 2.1.0 to 73 of 74.</p></div></li>
+    <li class="turn" data-reveal><span class="bl-d">27 Oct 2026</span><div><p class="bl-k">Turning point one: an experiment</p><b>Tickmark goes live as a finance review experiment.</b><p>Close, payroll and cash checks that show their evidence, plus controls on real SEC filings, Bank of Canada rates and the FinQA benchmark.</p></div></li>
+    <li data-reveal><span class="bl-d">28 Oct 2026</span><div><b>Your own CSV, a tested engine, saved reviews.</b><p>Upload HRIS, payroll, bank and ledger files; 25 unit tests on every rule; decisions and the audit log kept in the browser; CSV export.</p></div></li>
+    <li data-reveal><span class="bl-d">2 Nov 2026</span><div><b>Stress test.</b><p>23 planted cases. The first run caught 11 of 19 errors; six real gaps were fixed, two limits stay listed. Now 17 of 19, no false alarms.</p></div></li>
+    <li class="turn" data-reveal><span class="bl-d">3 Nov 2026</span><div><p class="bl-k">Turning point two: a problem</p><b>Industry research and my mortgage servicing work set the direction.</b><p>The question changed from "can rules flag differences?" to "what does the person holding the case need to settle one?" The answer: the source evidence, the right person to ask, and a re-check when they reply.</p></div></li>
+    <li data-reveal><span class="bl-d">3 Nov 2026</span><div><b>Review Queue and Case Review, across Payroll, Cash and Mortgage.</b><p>One queue; each case traces facts to sources, keeps priority apart from confidence, sends checks to a team or a person, and re-runs when a reply carries a correction. Eleven synthetic mortgage files cover late posting, late funds, a moved closing, an unapplied waiver, a wrong registration, a missing receipt, a cancellation, an internal refinance, an assignment, a reverse mortgage and a partial release.</p>
+      <p><b>Verified:</b> 42 automated tests; three paths walked in the browser: a mistyped legal fee, a payroll line imported twice, and an on-time wire posted late after a hold. <b>Not yet:</b> any real user, real system connection or real model; sign-in and sending are simulated.</p></div></li>
+  </ol>
 </section>
 
 <section class="principles" id="principles" aria-labelledby="pr-h">
@@ -110,7 +170,6 @@
       <li><button type="button" data-prev="p4"><span class="n">Lower-case employee ID</span><span class="k">Fixed · case-sensitive match</span><span class="y">2.1.0</span></button></li>
       <li><button type="button" data-prev="p5"><span class="n">Status “Inactive”</span><span class="k">Fixed · one literal status</span><span class="y">2.1.0</span></button></li>
       <li><button type="button" data-prev="p6"><span class="n">Overlapping pay periods</span><span class="k">Open · needs an interval check</span><span class="y">open</span></button></li>
-      <li><button type="button" data-prev="p7"><span class="n">Eight hand-written exceptions</span><span class="k">Rebuilt · version one ran on nothing</span><span class="y">1.0</span></button></li>
     </ul>
   </div>
   <div class="lg-preview" aria-hidden="true">
@@ -120,7 +179,6 @@
     <div class="prev" data-ui id="p4"><p class="pv-l">Payroll row</p><p class="pv-q">e-1022</p><p class="pv-l">Before</p><p class="pv-bad">False “missing employee”</p><p class="pv-ok">Trim + upper-case on load</p></div>
     <div class="prev" data-ui id="p5"><p class="pv-l">HRIS status</p><p class="pv-q">Inactive</p><p class="pv-l">Before</p><p class="pv-bad">Only “terminated” checked</p><p class="pv-ok">terminated · inactive · left · separated</p></div>
     <div class="prev" data-ui id="p6"><p class="pv-l">Two payments</p><p class="pv-q">1–15 Oct and 10–24 Oct</p><p class="pv-l">Today</p><p class="pv-bad">Not caught: periods differ</p><p class="pv-ok">Next: overlap check + off-cycle policy</p></div>
-    <div class="prev" data-ui id="p7"><p class="pv-l">Version one</p><p class="pv-q">8 exceptions typed into the UI</p><p class="pv-bad">Looked finished, measured nothing</p><p class="pv-ok">Now two engines, 74 scored cases</p></div>
   </div>
 </section>
 
@@ -160,10 +218,10 @@
   <div class="sheet-paper" data-reveal>
     <h2 id="letter-h" class="sr">A letter from Martin</h2>
     <svg class="mk seal" viewBox="0 0 191 225" aria-hidden="true"><path class="m-cream" d="M0 80L191 0V60L48 165L0 140Z"/><path class="m-gold" d="M0 156L48 181L191 76V145L0 225Z"/></svg>
-    <p>The first version of this project showed eight exceptions I had typed in by hand. It looked finished. Nothing in it ran on real input, so nothing in it could be measured.</p>
-    <p>So I rebuilt it around one rule: <mark>amounts, dates and approvals stay in code and with people</mark>. A model may explain evidence in plain language, because that is reversible and it is what reviewers lose time on.</p>
-    <p>My own 66 cases scored 100%. Eight cases written to break it dropped recall to 92.3%. Fixing those taught me more than building the first engine did.</p>
-    <p>What is missing for production: real NetSuite, Ramp and HRIS connections, single sign-on, four-eyes release in the database, and results from real reviewers. The study is written; recruiting has started.</p>
+    <p>Tickmark started as an experiment: could finance checks show their work? The rules answered that part. What they could not answer was the question I meet at work, when the money is in the bank and the loan still shows a balance: who knows which date applies, and how fast can I find out?</p>
+    <p>So the project now rests on one rule: <mark>amounts, dates and approvals stay in code and with people</mark>. A model may read documents and draft the question, because that is reversible and it is where reviewers lose time. It does not decide.</p>
+    <p>Writing cases to break my own rules taught me more than building them did: 66 of my own cases scored 100%, and eight hostile ones dropped recall to 92.3%. The stress test did the same again, catching six real gaps on its first run.</p>
+    <p>What is missing for production: real servicing, payments, HRIS and ledger connections, single sign-on and real permissions, sending through the bank's own channels, and results from real reviewers. Whether this saves time or prevents errors is still a question I have to test.</p>
     <p class="sign">Martin Zhang</p>
     <p class="role">Finance systems and AI evaluation · Toronto</p>
     <div class="tear"><span>Hiring for finance systems?</span><a href="index.html#contact">Write to me</a></div>

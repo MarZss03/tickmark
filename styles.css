@@ -860,3 +860,34 @@ body[data-page="notes"] .bar-links a[href="notes.html"] { color: var(--ink); }
 }
 #rq-as { max-width: 230px; }
 @media (max-width: 900px) { #rq-as { max-width: 100%; min-width: 0; flex: 1; } [data-view="queue"] .v-title .tol { width: 100%; } }
+
+/* notes: the problem, what I found, what I chose, build log */
+.story { padding: var(--gap) var(--m) 0; display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); gap: 40px; }
+.story.alt { background: var(--bg-2); padding-bottom: var(--gap); margin-top: var(--gap); }
+.story-body { display: grid; gap: 22px; max-width: 900px; }
+.story-body > p { margin: 0; color: var(--muted); max-width: 64ch; }
+.story-lead { font-size: var(--step-lead); color: var(--ink) !important; letter-spacing: -0.01em; line-height: 1.4; }
+.story-note { border-left: 2px solid var(--gold); padding-left: 16px; }
+.story-note b { color: var(--ink); }
+.kinds { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+.kinds li { display: grid; gap: 4px; padding-left: 30px; position: relative; }
+.kinds li::before { content: ""; position: absolute; left: 0; top: 0.55em; width: 14px; height: 8px; background: var(--gold); transform: skewY(var(--slope)); }
+.kinds b { font-weight: 700; }
+.kinds span { color: var(--muted); }
+.found { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.story.alt .src { background: var(--bg); }
+.story:not(.alt) .src { background: var(--bg-2); }
+.src a { color: var(--gold); }
+.blog { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; max-width: 900px; }
+.blog li { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 20px; padding: 18px 0; border-top: 1px solid var(--line); }
+.blog li p { margin: 6px 0 0; color: var(--muted); }
+.blog b { font-weight: 700; }
+.bl-d { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 0.9375rem; }
+.blog .turn { border-top: 2px solid var(--gold); }
+.blog .turn .bl-d { color: var(--gold); font-weight: 700; }
+.bl-k { margin: 0 0 6px !important; color: var(--gold) !important; font-weight: 700; font-size: 0.875rem; letter-spacing: 0.02em; text-transform: uppercase; }
+@media (max-width: 900px) {
+  .story { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .found { grid-template-columns: minmax(0, 1fr); }
+  .blog li { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+}
