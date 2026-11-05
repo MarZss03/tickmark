@@ -14,6 +14,6 @@ jobs:
         with:
           node-version: 22
       - name: Syntax check the page scripts
-        run: for f in engine.js app.js motion.js data.js real-data.js cases.js case-rules.js case-data.js review.js; do node --check "$f"; done
+        run: for f in engine.js app.js motion.js data.js real-data.js cases.js case-rules.js case-data.js search.js review.js; do node --check "$f"; done
       - name: Engine tests
         run: node --test "tests/*.test.js"

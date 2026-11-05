@@ -3,7 +3,7 @@
 (() => {
   const E = window.TickmarkEngine, C = window.TickmarkCases, TMC = window.TMC;
   const A = window.TickmarkCaseRules(E, window.TM, TMC);
-  const D = TMC.dir;
+  const D = TMC.dir, S = window.TickmarkSearch;
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
   const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -67,6 +67,7 @@
     if (h === 'try') return { page: 'case', try: true };
     if (h === 'try/store') return { page: 'case', store: true };
     if (h === 'store') return { page: 'store' };
+    if (h === 'search' || h.startsWith('search/')) { let q = h.slice(7); try { q = decodeURIComponent(q); } catch {} return { page: 'search', q }; }
     const [a, b] = h.split('/');
     if (a === 'queue' && MODULES[b]) return { page: 'queue', module: b };
     if (a === 'case' && b) return { page: 'case', id: decodeURIComponent(b) };
@@ -76,7 +77,7 @@
     if (a === 'demo' && ['filings', 'eval', 'stress'].includes(b)) return { page: 'view', view: { filings: 'sec', eval: 'eval', stress: 'stress' }[b], label: { filings: 'Public filings', eval: 'Model evaluation', stress: 'Stress test' }[b], demo: true };
     return { page: 'mywork' };
   }
-  const hashOf = (r) => (r.page === 'store' ? '#store' : r.page === 'queue' ? `#queue/${r.module}` : r.page === 'case' ? (r.try ? '#try' : r.store ? '#try/store' : `#case/${encodeURIComponent(r.id)}`) : r.page === 'other' ? '#' + MODULES[r.module].other.route : r.page === 'view' ? { mine: '#imports', audit: '#audit', sec: '#demo/filings', eval: '#demo/eval', stress: '#demo/stress' }[r.view] : '#workbench');
+  const hashOf = (r) => (r.page === 'search' ? '#search' + (r.q ? '/' + encodeURIComponent(r.q) : '') : r.page === 'store' ? '#store' : r.page === 'queue' ? `#queue/${r.module}` : r.page === 'case' ? (r.try ? '#try' : r.store ? '#try/store' : `#case/${encodeURIComponent(r.id)}`) : r.page === 'other' ? '#' + MODULES[r.module].other.route : r.page === 'view' ? { mine: '#imports', audit: '#audit', sec: '#demo/filings', eval: '#demo/eval', stress: '#demo/stress' }[r.view] : '#workbench');
   function go(r, { replace = false } = {}) {
     const h = hashOf(r);
     if (location.hash !== h) { try { history[replace ? 'replaceState' : 'pushState'](null, '', h); } catch { location.hash = h; } }
@@ -119,6 +120,7 @@
   // ---------- page head: where you are ----------
   function headHtml(r) {
     if (r.page === 'case') return '';
+    if (r.page === 'search') return `<header class="pg-h"><div><h3 class="pg-t">Search</h3><p class="pg-s">Every case in the five queues, as ${esc(name(me))} sees them · demo clock ${esc(at(state.now))}</p></div></header>`;
     if (r.page === 'store') return `<header class="pg-h"><div><h3 class="pg-t">Why is my payout different?</h3><p class="pg-s">${esc(SV.store)} · owner view · demo clock ${esc(at(state.now))}</p></div><div class="pg-a"><button type="button" class="link-btn sm" data-do="svreset">Start over</button></div></header>`;
     if (r.page === 'mywork') return `<header class="pg-h"><div><h3 class="pg-t">My Work</h3><p class="pg-s">${esc(name(me))} · ${esc(team(D.people[me].team))} · demo clock ${esc(at(state.now))}</p></div>
       <div class="pg-a"><button type="button" class="link-btn sm" data-do="reset">Reset the demo</button></div></header>`;
@@ -154,6 +156,36 @@
     <p class="mw-tip">Switch <b>Acting as</b> above to see another person’s work. Try <a href="#try" data-try-case>the guided payout case</a> to follow one case across three people, or <a href="#try/store" data-try-store>a store’s payout as Sam Ortiz</a>.</p>`;
   }
 
+
+  // ---------- search: every case in every queue, from one box ----------
+  // The matcher lives in search.js. Documents are rebuilt per query, so status and checks are current and
+  // evidence this viewer cannot open is never searched or shown.
+  const searchDocs = () => S.caseDocs(state, D, C, { me, modules: MODULES, store: (TMC.storeView || {}).payouts || {}, money: (v) => money(v) });
+  const EXAMPLES = [['PO-1028', 'A payout ID'], ['$300', 'An amount'], ['owner:sam', 'Whose cases'], ['twice', 'A plain word'], ['is:overdue', 'Late checks'], ['in:mortgage birchwood', 'One queue']];
+  const FILTER_L = { owner: 'owner', in: 'queue', is: 'is' };
+  function searchHtml(q) {
+    const ex = `<p class="sr-ex"><span class="c-s">Try</span> ${EXAMPLES.map(([v, l]) => `<button type="button" class="sr-chip" data-do="sq" data-q="${esc(v)}" title="${esc(l)}">${esc(v)}</button>`).join('')}</p>`;
+    const how = '<p class="c-s sr-how">Every word has to match. IDs match in part (1028), amounts by value ($6,850 or 6850), longer words forgive one typo. Filters: <code>owner:</code> <code>in:</code> <code>is:open</code> <code>closed</code> <code>mine</code> <code>overdue</code> <code>p1</code></p>';
+    if (!String(q || '').trim()) return `<div class="sr-empty"><p>Search every case in all five queues by case or payout ID, loan or employee number, person, amount, or a plain word.</p>${ex}${how}</div>`;
+    const r = S.search(searchDocs(), q);
+    if (!r.results.length) return `<div class="sr-empty"><p>No case matches “${esc(q)}”.</p>${ex}${how}</div>`;
+    const rows = r.results.map(({ doc, hits }) => {
+      const c = state.cases[doc.id], [tone, st] = workStatus(c), pri = C.effectivePriority(c);
+      const th = hits.find((h) => h.label === 'Finding' && h.text === doc.title);
+      const oh = hits.find((h) => h.label === 'Owner');
+      const why = hits.filter((h) => h !== th && h !== oh).slice(0, 3).map((h) => { const sn = S.snippet(h.text, h.marks); return `<span><i>${esc(h.label)}</i> ${S.mark(sn.text, sn.marks, esc)}${h.syn ? ' <em>similar word</em>' : ''}</span>`; });
+      return `<li><a class="sr-row" href="#case/${encodeURIComponent(c.id)}" data-route="case/${esc(c.id)}">
+        <span class="sr-main"><b>${th ? S.mark(doc.title, th.marks, esc) : esc(doc.title)}</b><span class="sr-meta">${c.id} · ${esc(MODULES[c.module].short)} · ${oh ? S.mark(oh.text, oh.marks, esc) : esc(name(c.owner))}${c.closed ? '' : ` · <span class="pill ${PRI[pri]}">${pri}</span>`}</span>${why.length ? `<span class="sr-why">${why.join('')}</span>` : ''}</span>
+        <span class="st ${tone}">${esc(st)}</span></a></li>`;
+    }).join('');
+    const fl = r.filters.length ? ` · ${r.filters.map((f) => `${FILTER_L[f.key]}: ${esc(f.value)}`).join(', ')}` : '';
+    return `<p class="sr-n" aria-live="polite">${r.total} case${r.total === 1 ? '' : 's'} for “${esc(q)}”${fl} <span class="c-s">· open first · Enter opens the top one</span></p><ol class="sr-list">${rows}</ol>`;
+  }
+  // the palette (motion.js) shows the first few cases above its pages
+  window.tmSearchCases = (q, n = 5) => {
+    const r = S.search(searchDocs(), q, { limit: n });
+    return { total: r.total || 0, items: r.results.map(({ doc, hits }) => { const th = hits.find((h) => h.label === 'Finding' && h.text === doc.title); return { id: doc.id, html: th ? S.mark(doc.title, th.marks, esc) : esc(doc.title), sub: esc(`${doc.id} · ${MODULES[doc.module].short}${th || !hits[0] ? '' : ` · ${S.snippet(hits[0].text, [], 34).text}`}`) }; }) };
+  };
 
   // ---------- the store owner's view: one person, one screen, plain language ----------
   // Read-only over the same synthetic payouts. Facts come from the records; a possible reason stays
@@ -535,12 +567,14 @@
   }
 
   // ---------- render ----------
-  const WHERE = (r) => (r.page === 'store' ? 'Store owner view' : r.page === 'mywork' ? 'My Work' : r.page === 'queue' ? `Work Queues · ${MODULES[r.module].label}` : r.page === 'other' ? `${MODULES[r.module].label} · ${MODULES[r.module].other.label}` : r.page === 'case' ? `${MODULES[state.cases[r.id].module].label} · ${r.id}` : r.label);
+  const WHERE = (r) => (r.page === 'search' ? 'Search' : r.page === 'store' ? 'Store owner view' : r.page === 'mywork' ? 'My Work' : r.page === 'queue' ? `Work Queues · ${MODULES[r.module].label}` : r.page === 'other' ? `${MODULES[r.module].label} · ${MODULES[r.module].other.label}` : r.page === 'case' ? `${MODULES[state.cases[r.id].module].label} · ${r.id}` : r.label);
   function render() {
     const r = ui.route;
     const head = $('#wb-head'); if (head) head.innerHTML = headHtml(r);
     const body = $('#rq-body');
     if (body && r.page === 'store') { body.innerHTML = storeHtml(); body.className = 'is-store'; }
+    if (body && r.page === 'search') { body.innerHTML = searchHtml(r.q); body.className = 'is-search'; }
+    const sIn = $('#wb-s'); if (sIn && document.activeElement !== sIn) sIn.value = r.page === 'search' ? r.q || '' : '';
     if (body && ['mywork', 'queue', 'case'].includes(r.page)) {
       const c = r.page === 'case' && state.cases[r.id];
       body.innerHTML = r.page === 'mywork' ? myWorkHtml() : r.page === 'queue' ? queueHtml(r.module) : caseHtml(c);
@@ -548,10 +582,11 @@
       if (c) body.dataset.version = c.version;
     }
     const who = $('.app-top .who'); if (who) who.hidden = r.page === 'store';
+    const sf = $('#wb-sf'); if (sf) sf.hidden = r.page === 'store';
     $('#rq-msg').hidden = !ui.msg; $('#rq-msg').textContent = ui.msg;
     $('#wb-where').textContent = WHERE(r);
     // the rail: where you are, and counts that always mean the same thing
-    const cur = r.page === 'store' ? 'store' : r.page === 'case' ? `queue/${state.cases[r.id].module}` : r.page === 'other' ? `queue/${r.module}` : r.page === 'queue' ? `queue/${r.module}` : r.page === 'view' ? hashOf(r).slice(1) : 'mywork';
+    const cur = r.page === 'search' ? 'search' : r.page === 'store' ? 'store' : r.page === 'case' ? `queue/${state.cases[r.id].module}` : r.page === 'other' ? `queue/${r.module}` : r.page === 'queue' ? `queue/${r.module}` : r.page === 'view' ? hashOf(r).slice(1) : 'mywork';
     $$('#wb-nav [data-route]').forEach((a) => { if (a.dataset.route === cur) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
     const tryLink = $('#wb-nav [data-try-case]'); if (tryLink) { if (ui.guided && r.page === 'case') tryLink.setAttribute('aria-current', 'page'); else tryLink.removeAttribute('aria-current'); }
     const storeLink = $('#wb-nav [data-try-store]'); if (storeLink) { if (r.store) storeLink.setAttribute('aria-current', 'page'); else storeLink.removeAttribute('aria-current'); }
@@ -593,6 +628,36 @@
   $('#wb-menu').addEventListener('click', () => { const open = $('#wb-menu').getAttribute('aria-expanded') !== 'true'; $('#wb-menu').setAttribute('aria-expanded', String(open)); $('#wb-nav').classList.toggle('open', open); });
   $('#wb-q-t').addEventListener('click', () => { const b = $('#wb-q-t'), open = b.getAttribute('aria-expanded') !== 'true'; b.setAttribute('aria-expanded', String(open)); $('#wb-q').hidden = !open; });
 
+  // the search box above every workbench page: results follow the typing; Enter opens the first; / jumps here
+  const sBox = $('#wb-s');
+  if (sBox) {
+    sBox.addEventListener('input', () => {
+      clearTimeout(sBox._t);
+      sBox._t = setTimeout(() => go({ page: 'search', q: sBox.value }, { replace: ui.route.page === 'search' }), 140);
+    });
+    $('#wb-sf').addEventListener('submit', (e) => {
+      e.preventDefault(); clearTimeout(sBox._t);
+      if (ui.route.page !== 'search' || ui.route.q !== sBox.value) go({ page: 'search', q: sBox.value }, { replace: ui.route.page === 'search' });
+      const first = $('.sr-row'); if (first) { sBox.blur(); first.click(); }
+    });
+    sBox.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowDown') { const first = $('.sr-row'); if (first) { e.preventDefault(); first.focus(); } }
+      if (e.key === 'Escape' && sBox.value) { e.preventDefault(); sBox.value = ''; go({ page: 'search', q: '' }, { replace: ui.route.page === 'search' }); }
+    });
+    addEventListener('keydown', (e) => {
+      if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
+      const t = e.target; if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+      const pal = $('#palette'); if (pal && !pal.hidden) return;
+      e.preventDefault(); toWorkbench(); sBox.focus({ preventScroll: true }); sBox.select();
+    });
+    // arrows move through the results, and back up into the box
+    $('#sheet').addEventListener('keydown', (e) => {
+      const row = e.target.closest && e.target.closest('.sr-row'); if (!row || !['ArrowDown', 'ArrowUp'].includes(e.key)) return;
+      const all = $$('.sr-row'), i = all.indexOf(row) + (e.key === 'ArrowDown' ? 1 : -1);
+      e.preventDefault(); if (i < 0) sBox.focus(); else if (all[i]) all[i].focus();
+    });
+  }
+
   $('#sheet').addEventListener('input', (e) => {
     const f = e.target.dataset.f; if (f !== 'q') return;
     const mod = ui.route.module; filters[mod].q = e.target.value; saveF();
@@ -606,6 +671,7 @@
   $('#sheet').addEventListener('click', (e) => {
     const b = e.target.closest('[data-do]'); if (!b || b.disabled) return;
     const d = b.dataset.do, c = ui.route.page === 'case' && state.cases[ui.route.id], t = b.dataset.t, version = c ? +$('#rq-body').dataset.version : undefined;
+    if (d === 'sq') { const v = b.dataset.q; if (sBox) sBox.value = v; return go({ page: 'search', q: v }, { replace: ui.route.page === 'search' }); }
     if (d === 'sv') { sv.sel = b.dataset.p; saveSv(); render(); const h = $('#sv-h'); if (h && innerWidth < 900) h.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' }); return; }
     if (d === 'svcheck') { sv.seen[b.dataset.p] = true; saveSv(); log('Read a source in the store view', b.dataset.p); render(); return; }
     if (d === 'svreset') { sv = { sel: 'PO-1028', seen: {} }; saveSv(); render(); return; }
@@ -660,7 +726,7 @@
   // first paint: straight to the address in the URL, with no other panel shown first
   const first = parse(location.hash);
   apply(first);
-  if (location.hash === '#try' || first.page === 'case' || first.page === 'store') {
+  if (location.hash === '#try' || first.page === 'case' || first.page === 'store' || first.page === 'search') {
     // a link straight to a page lands on it; the page above keeps growing while media loads, so land again until the visitor scrolls
     let moved = false;
     const stop = () => { moved = true; };

@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=20261105d">
+<link rel="stylesheet" href="styles.css?v=20261105e">
 <script>document.documentElement.classList.add('js');try{if(sessionStorage.getItem('tm-wipe'))document.documentElement.classList.add('arriving')}catch(e){}</script>
 </head>
 <body data-page="work">
@@ -30,9 +30,9 @@
 <div class="progress" aria-hidden="true"><i id="progress"></i></div>
 <div class="toasts" id="toasts" aria-live="polite"></div>
 <div class="palette" id="palette" hidden>
-  <div class="pal-box" role="dialog" aria-modal="true" aria-label="Jump to">
-    <label class="sr" for="pal-in">Jump to a view or section</label>
-    <input id="pal-in" placeholder="Jump to…" autocomplete="off" role="combobox" aria-controls="pal-list" aria-expanded="true">
+  <div class="pal-box" role="dialog" aria-modal="true" aria-label="Search and jump">
+    <label class="sr" for="pal-in">Search cases, or jump to a view or section</label>
+    <input id="pal-in" placeholder="Search cases or jump to…" autocomplete="off" role="combobox" aria-controls="pal-list" aria-expanded="true">
     <ul id="pal-list" role="listbox"></ul>
   </div>
 </div>
@@ -44,7 +44,7 @@
     <a href="#control">Control</a>
     <a href="notes.html" data-wipe>Notes</a>
   </nav>
-  <button type="button" class="kbd" id="pal-open" aria-keyshortcuts="Control+K Meta+K"><span>Jump to section</span><kbd>⌘K</kbd></button>
+  <button type="button" class="kbd" id="pal-open" aria-keyshortcuts="Control+K Meta+K"><span>Search</span><kbd>⌘K</kbd></button>
   <a class="bar-action magnetic" href="#contact">Contact</a>
 </header>
 
@@ -74,7 +74,7 @@
   <h2 id="metrics-h" class="sr">Results</h2>
   <div class="metric" data-reveal><p class="m-v"><span data-count="5">5</span></p><p class="m-l">kinds of mismatch on one workbench: store payouts, mortgage servicing, cash, payroll, month-end close</p></div>
   <div class="metric" data-reveal><p class="m-v"><span data-count="32">32</span></p><p class="m-l">synthetic cases, each fact traced to the source it came from</p></div>
-  <div class="metric" data-reveal><p class="m-v"><span data-count="47">47</span></p><p class="m-l">tests on the rules and the casework, run on every push</p></div>
+  <div class="metric" data-reveal><p class="m-v"><span data-count="54">54</span></p><p class="m-l">tests on the rules and the casework, run on every push</p></div>
   <div class="metric" data-reveal><p class="m-v"><span data-count="6">6</span></p><p class="m-l">gaps in my own rules found by planting errors, then fixed</p></div>
 </section>
 
@@ -115,6 +115,7 @@
     </aside>
     <div class="app-top">
       <span class="period" id="wb-where">My Work</span>
+      <form class="wb-search" id="wb-sf" role="search" autocomplete="off"><label class="sr" for="wb-s">Search all cases</label><input id="wb-s" type="search" placeholder="Search all cases" enterkeyhint="go" spellcheck="false" aria-keyshortcuts="/"><kbd aria-hidden="true">/</kbd></form>
       <label class="who">Acting as <select id="rq-as"></select><span class="sim">simulated sign-in</span></label>
     </div>
     <div class="sheet" id="sheet">
@@ -436,15 +437,16 @@
   </div>
 </footer>
 
-<script src="charts.js?v=20261105d"></script>
-<script src="engine.js?v=20261105d"></script>
-<script src="data.js?v=20261105d"></script>
-<script src="real-data.js?v=20261105d"></script>
-<script src="case-data.js?v=20261105d"></script>
-<script src="cases.js?v=20261105d"></script>
-<script src="case-rules.js?v=20261105d"></script>
-<script src="app.js?v=20261105d"></script>
-<script src="review.js?v=20261105d"></script>
-<script src="motion.js?v=20261105d"></script>
+<script src="charts.js?v=20261105e"></script>
+<script src="engine.js?v=20261105e"></script>
+<script src="data.js?v=20261105e"></script>
+<script src="real-data.js?v=20261105e"></script>
+<script src="case-data.js?v=20261105e"></script>
+<script src="cases.js?v=20261105e"></script>
+<script src="case-rules.js?v=20261105e"></script>
+<script src="app.js?v=20261105e"></script>
+<script src="search.js?v=20261105e"></script>
+<script src="review.js?v=20261105e"></script>
+<script src="motion.js?v=20261105e"></script>
 </body>
 </html>

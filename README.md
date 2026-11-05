@@ -14,7 +14,7 @@ A static site: open `index.html`, or run `node scripts/serve.mjs` and visit http
 
 ## Workbench: My Work, business queues and Case Review
 
-The workbench opens on **My Work** (`#workbench`): what needs the person acting, checks assigned to them, their team's inbox, and what they are waiting on, across every business. **Work Queues** holds one queue per business, each with its own address and columns: Month-end Close (`#queue/close`), Payroll (`#queue/payroll`), Cash Reconciliation (`#queue/cash`), Mortgage Servicing (`#queue/mortgage`) and Merchant Payouts (`#queue/payouts`). Close, Payroll and Cash keep their existing checks and reports one tab over (`#checks/close`, `#checks/payroll`, `#reports/cash`). **Data & Imports** (`#imports`) is the CSV upload, **Audit Log** (`#audit`) the history, and **Demo & Validation** holds the guided demo (`#try`), public filings, model evaluation and the stress test. Each case has its own address (`#case/MS-0011`); filters are kept per queue while you move around. *Acting as* in the top bar switches the simulated person.
+The workbench opens on **My Work** (`#workbench`): what needs the person acting, checks assigned to them, their team's inbox, and what they are waiting on, across every business. **Work Queues** holds one queue per business, each with its own address and columns: Month-end Close (`#queue/close`), Payroll (`#queue/payroll`), Cash Reconciliation (`#queue/cash`), Mortgage Servicing (`#queue/mortgage`) and Merchant Payouts (`#queue/payouts`). Close, Payroll and Cash keep their existing checks and reports one tab over (`#checks/close`, `#checks/payroll`, `#reports/cash`). **Data & Imports** (`#imports`) is the CSV upload, **Audit Log** (`#audit`) the history, and **Demo & Validation** holds the guided demo (`#try`), public filings, model evaluation and the stress test. Each case has its own address (`#case/MS-0011`); filters are kept per queue while you move around. **Search** (the box above every page, `/` to focus, or ⌘K) covers every case in every queue and has its own address (`#search/PO-1028`): IDs match in part, amounts by value, longer words forgive one typo, every word must match, and `owner:`, `in:` and `is:open|closed|mine|overdue|p1` filter. Results say which field matched; evidence the person acting cannot open is not searched. *Acting as* in the top bar switches the simulated person.
 
 Every case uses one layout. The first screen is the finding in a sentence, the facts on record, what is still pending confirmation and who can supply it, what it holds up, and one primary action for the person acting, chosen from the same rules as every other button: request confirmation, claim a check, reply with evidence, review a reply, add new evidence, a decision they can make, or who the case is waiting on and why. Evidence, checks and activity follow, with the full trace and history folded.
 
@@ -86,7 +86,7 @@ The first run caught 11 of 19. The 8 misses were real gaps: a terminated person 
 node --test "tests/*.test.js"
 ```
 
-47 tests. `tests/cases.test.js` (17) walks the close, payouts, the cash, payroll and mortgage cases through detection, tracing, escalation, replies, re-checks and decisions, including permissions, duplicate submissions, stale pages, reassignment, overdue checks, clarification, returns and re-review. `tests/engine.test.js` (30) covers every payroll rule and its boundaries, the stress test (expected misses, no false alarms, same seed same plants, input untouched), bank matching, the SEC controls, the FinQA grader, journal checks, the FX revaluation, CSV parsing and validation, and a round trip of the sample through the CSV templates (same results either way). GitHub Actions runs them, plus a syntax check of the page scripts, on every push.
+54 tests. `tests/cases.test.js` (17) walks the close, payouts, the cash, payroll and mortgage cases through detection, tracing, escalation, replies, re-checks and decisions, including permissions, duplicate submissions, stale pages, reassignment, overdue checks, clarification, returns and re-review. `tests/engine.test.js` (30) covers every payroll rule and its boundaries, the stress test (expected misses, no false alarms, same seed same plants, input untouched), bank matching, the SEC controls, the FinQA grader, journal checks, the FX revaluation, CSV parsing and validation, and a round trip of the sample through the CSV templates (same results either way). `tests/search.test.js` (7) covers the matcher (IDs in pieces, amounts by value, typos, marks) and every demo case: references, people, plain words, filters, and that restricted evidence stays hidden. GitHub Actions runs them, plus a syntax check of the page scripts, on every push.
 
 ## What is real and what is synthetic
 
@@ -126,9 +126,10 @@ The SEC asks for a contact address in the `User-Agent`; `fetch-real.mjs` sends M
 - `cases.js`: cases, evidence tracing, priority, checks sent to teams or people, decisions and re-review. No page code.
 - `case-rules.js`: what Cash, Payroll and Mortgage each check and allow, reusing `engine.js` for the first two.
 - `case-data.js`: synthetic people, teams, documents and mortgage files.
-- `review.js`: routes, My Work, the business queues and Case Review.
+- `search.js`: the search matcher and the case documents it searches. No page code.
+- `review.js`: routes, My Work, the business queues, search results and Case Review.
 - `app.js`: renders the workbench, records decisions, saves the session, handles uploads and exports.
-- `motion.js`: intro, page wipe, reveals, progress bar, counters, magnetic buttons, jump palette, toasts, segmented indicators, spotlight and tilt.
+- `motion.js`: intro, page wipe, reveals, progress bar, counters, magnetic buttons, search and jump palette, toasts, segmented indicators, spotlight and tilt.
 - `blender/mark3d.py`: the 3D mark in the hero (Blender 5.4). `blender -b -P blender/mark3d.py -- still <out>` and `-- anim <frames dir>/f_`. The frames are transparent; composite them onto #0a0a0a with ffmpeg before encoding.
 
 ## Credits

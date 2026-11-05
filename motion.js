@@ -54,7 +54,7 @@
       setTimeout(startReveals, 280);
     } else startReveals();
   }
-  if (intro && !reduced && !arriving && !store.get('tm-intro') && !/^#(store|try|case|queue)/.test(location.hash)) {
+  if (intro && !reduced && !arriving && !store.get('tm-intro') && !/^#(store|try|case|queue|search)/.test(location.hash)) {
     store.set('tm-intro', '1');
     intro.querySelectorAll('.intro-word > span').forEach((s, i) => s.style.setProperty('--k', i));
     document.body.style.overflow = 'hidden';
@@ -131,6 +131,7 @@
   const wb = (route) => () => { if (work && window.tmGo) window.tmGo('#' + route); else location.href = 'index.html#' + route; };
   const notes = work ? 'notes.html' : '';
   const items = [
+    ['Search all cases', 'Workbench · IDs, people, amounts, words', wb('search')],
     ['Why is my payout short?', 'Store owner view', wb('store')],
     ['My Work', 'Workbench', wb('workbench')],
     ['Month-end Close', 'Work Queues', wb('queue/close')],
@@ -158,11 +159,20 @@
     ['Letter', 'Notes', go(notes + '#letter')],
   ];
   let shown = items, sel = 0, last = null;
+  const escH = (v) => String(v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
   const render = () => {
-    const q = input.value.trim().toLowerCase();
-    shown = items.filter(([n, g]) => (n + ' ' + g).toLowerCase().includes(q));
+    const raw = input.value.trim(), q = raw.toLowerCase();
+    const pages = items.filter(([n, g]) => (n + ' ' + g).toLowerCase().includes(q));
+    // cases first: the same search as the workbench box
+    let found = [];
+    if (raw && window.tmSearchCases) {
+      const r = window.tmSearchCases(raw, 5);
+      found = r.items.map((it) => [it.html, it.sub, () => window.tmGo('#case/' + encodeURIComponent(it.id))]);
+      if (r.total > r.items.length) found.push([`All ${r.total} matching cases`, 'Search', () => window.tmGo('#search/' + encodeURIComponent(raw))]);
+    } else if (raw && !work) found = [[`Search cases for “${escH(raw)}”`, 'Workbench', () => { location.href = 'index.html#search/' + encodeURIComponent(raw); }]];
+    shown = [...found, ...pages];
     sel = Math.min(sel, Math.max(0, shown.length - 1));
-    list.innerHTML = shown.map(([n, g], i) => `<li role="option" id="pal-${i}" aria-selected="${i === sel}" data-i="${i}"><span>${n}</span><small>${g}</small></li>`).join('') || '<li class="none">Nothing matches</li>';
+    list.innerHTML = shown.map(([n, g], i) => `<li role="option" id="pal-${i}" aria-selected="${i === sel}" data-i="${i}"><span>${n}</span><small>${g}</small></li>`).join('') || `<li class="none">Nothing matches “${escH(raw)}”</li>`;
     input.setAttribute('aria-activedescendant', shown.length ? 'pal-' + sel : '');
   };
   const open = () => { last = document.activeElement; pal.hidden = false; input.value = ''; sel = 0; render(); requestAnimationFrame(() => pal.classList.add('on')); input.focus(); };
