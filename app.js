@@ -312,7 +312,7 @@
     $('#eval-stats').innerHTML =
       stat('Run Replay cases', total, `${pass} pass on ${v.v}`) +
       stat('Run Replay recall', (v.r * 100).toFixed(1) + '%', 'prototype engine · not re-run here') +
-      stat('Tickmark unit tests', 25, 'rules engine · run on every push') +
+      stat('Tickmark tests', 59, 'rules, casework, search, file reader · run on every push') +
       stat('Model × prompt runs', '—', 'not run · needs an API budget');
     const suites = TM.suites;
     $('#suite-t tbody').innerHTML = suites.map((s, i) => `<tr class="click${i === 0 ? ' on' : ''}" data-i="${i}" tabindex="0"><td><b>${esc(s.name)}</b></td><td>${esc(s.task)}</td><td class="num">${s.cases}</td><td>${esc(s.metric)}<span class="sub">${esc(s.baseline)}</span></td><td><span class="pill ${s.status === 'Scored' ? 'ok' : s.status === 'Partly scored' ? 'warn' : ''}">${s.status}</span></td></tr>`).join('');
@@ -453,7 +453,7 @@
     const errors = [], data = {};
     for (const kind of kinds.concat(optional)) {
       const f = mine.files[kind];
-      if (!f) { if (!optional.includes(kind)) errors.push(`Add the ${E.TABLES[kind].label.toLowerCase()}.`); continue; }
+      if (!f) { if (!optional.includes(kind)) errors.push(`Add the ${E.TABLES[kind].label.replace(/^(?!HRIS)\w/, (s) => s.toLowerCase())}.`); continue; }
       const r = E.loadTable(kind, f.text);
       r.errors.forEach((e) => errors.push(`${E.TABLES[kind].label}: ${e}`));
       data[kind] = r.records;

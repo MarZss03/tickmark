@@ -112,7 +112,7 @@
       if (c.closed) return [];
       return [
         { id: 'confirm', label: 'Confirm reconciled', perm: 'cash.confirm', facts: ['amount'], prereqs: [nothingOpen(c, 'confirm'), noBlockingTasks(ctx)] },
-        { id: 'recheck-tomorrow', label: 'Re-check tomorrow', perm: 'cash.decide', facts: [], prereqs: [{ ok: c.exceptions.some((x) => x.status === 'open'), label: c.exceptions.some((x) => x.status === 'open') ? 'Something is still open' : 'Nothing is open to re-check' }] },
+        { id: 'recheck-tomorrow', label: 'Re-check tomorrow', perm: 'cash.decide', facts: [], defer: true, prereqs: [{ ok: c.exceptions.some((x) => x.status === 'open'), label: c.exceptions.some((x) => x.status === 'open') ? 'Something is still open' : 'Nothing is open to re-check' }] },
         ...rereview(c),
       ];
     },

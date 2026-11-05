@@ -277,7 +277,7 @@
     const left = v.deadline ? daysTo(v.deadline) : null;
     const caseId = (caseByKey('po:' + id) || {}).id;
     return `<article class="sv-card sv-plain" aria-labelledby="sv-h">
-      <h3 class="sv-h" id="sv-h">${esc(v.head)}</h3>
+      <h3 class="sv-h" id="sv-h">${esc(seen && v.headAfter ? v.headAfter : v.head)}</h3>
       <table class="tbl sv-wf"><caption class="sr">Payout ${id}</caption><tbody>
         ${row('Payout total', p.total, `sent ${day(p.date)}`, 'sv-tot')}
         ${row('Bank deposit', dep ? dep.amount : null, dep ? day(dep.date) : 'not yet', 'sv-bank')}
@@ -308,7 +308,7 @@
     const left = v.deadline ? daysTo(v.deadline) : null;
     const caseId = (caseByKey('po:' + id) || {}).id;
     return `<article class="sv-card" aria-labelledby="sv-h">
-      <h3 class="sv-h" id="sv-h">${esc(v.head)}</h3>
+      <h3 class="sv-h" id="sv-h">${esc(seen && v.headAfter ? v.headAfter : v.head)}</h3>
       <table class="tbl sv-wf"><caption class="sr">How payout ${id} adds up</caption><tbody>
         ${rows.map((x) => row(x[0], x[1], x[2])).join('')}
         ${off ? row('The lines above add up to', lines, '', 'sv-sub') : ''}
@@ -394,6 +394,8 @@
     const x = topX(c);
     if (!x) return C.actionsFor(state, D, A, c.id, c.owner).some((a) => a.kind !== 'accept' && a.ready) ? ['warn', 'Ready for the next step'] : ['ok', 'Nothing open'];
     if (x.missing && x.missing.length) return ['warn', 'Missing evidence'];
+    const po = C.primaryAction(state, D, A, c.id, c.owner);
+    if (po.kind === 'authority') return ['warn', po.label.replace(/^Waiting on/, 'Needs')];
     return ['', 'Needs a decision'];
   }
   function queueHtml(mod) {
@@ -506,7 +508,7 @@
     const tasks = c.tasks.map((id) => state.tasks[id]);
     const guided = ui.guided;
     // one line: the sentence that names a cause, not the one restating the problem
-    const first = (t) => { const ss = String(t || '').match(/[^.!?]+(?:[.!?](?=\s|$)|$)/g) || ['']; return (ss.find((x) => /\b(may|might|likely|looks?|probably|explains?)\b/i.test(x)) || ss[0]).trim(); };
+    const first = (t) => { const ss = String(t || '').split(/(?<=[.!?])\s+(?=[A-Z0-9$“"(])/); return (ss.find((x) => /\b(may|might|likely|looks?|probably|explains?)\b/i.test(x)) || ss[0]).trim(); };
     const others = c.exceptions.filter((y) => y.status === 'open' && y !== x);
     const due = `${c.dueLabel && c.dueLabel !== 'Due' ? esc(c.dueLabel) : 'Due'} ${esc(day(c.due).slice(0, -5))}`;
     const cause = x && x.cause ? `<div class="cs-cause"><p><span class="sl">${pending.length ? 'Possible cause' : 'Cause'}</span>${esc(guided ? x.cause : first(x.cause))}</p>
@@ -561,10 +563,15 @@
     else if (p.kind === 'inbox') main = `<button type="button" class="b-pri cs-primary" data-do="inbox" data-i="${esc(p.item)}">Add the new evidence</button><p class="c-s">${esc(p.why)}. Adding it re-runs the checks.</p>`;
     else if (p.kind === 'act') {
       const a = acts.find((y) => y.id === p.action);
-      main = `${a.needsReason ? area('r-' + a.id, 'Reason, kept with the decision (12+ characters)', 2) : ''}<button type="button" class="b-pri cs-primary" data-do="act" data-a="${esc(a.id)}">${esc(a.label)}</button><p class="c-s">Every condition for this step holds.</p>`;
+      main = `${a.needsReason ? area('r-' + a.id, 'Reason, kept with the decision (12+ characters)', 2) : ''}<button type="button" class="b-pri cs-primary" data-do="act" data-a="${esc(a.id)}">${esc(a.label)}</button><p class="c-s">${esc(p.why || 'Every condition for this step holds.')}</p>`;
     } else if (p.kind === 'waiting') main = `<p class="cs-wait"><span class="st${p.overdue ? ' neg' : ''}">${p.overdue ? 'Overdue' : 'Waiting'}</span> ${esc(p.label)}</p><p class="cs-q">“${esc(p.why)}”</p><p class="c-s">Due ${esc(at(t.due))}${t.followUp ? ` · follow up ${esc(at(t.followUp))}` : ''}</p>
-        ${p.overdue && p.mine ? `<div class="rq-btns"><button type="button" class="b-pri cs-primary" data-do="remind" data-t="${t.id}">Send a reminder</button><button type="button" class="b-sec" data-do="lead" data-t="${t.id}">Pass to the team lead</button></div>` : ''}`;
-    else if (p.kind === 'authority') main = `<p class="cs-wait"><span class="st">Waiting</span> ${esc(p.label)}</p><p class="c-s">${esc(p.why)}</p>`;
+        ${p.overdue && p.mine && !leadHas(t) ? (() => { const last = t.history[t.history.length - 1]; const sent = last && /^Reminder sent/.test(last.event); return `${sent ? `<p class="cs-done"><span class="st ok">Reminder sent</span> ${esc(at(last.at))}. If nothing comes back, pass it to the team lead.</p>` : ''}<div class="rq-btns">${sent ? '' : `<button type="button" class="b-pri cs-primary" data-do="remind" data-t="${t.id}">Send a reminder</button>`}<button type="button" class="${sent ? 'b-pri cs-primary' : 'b-sec'}" data-do="lead" data-t="${t.id}">Pass to the team lead</button></div>`; })() : ''}
+        ${waitHandoff(c, p, t)}`;
+    else if (p.kind === 'authority') {
+      // the decision belongs to someone else; in this demo, sign in as them to make it
+      const nm = p.label.replace(/^Waiting on /, ''), pid = Object.keys(D.people).find((k) => D.people[k].name === nm);
+      main = `<p class="cs-wait"><span class="st">Waiting</span> ${esc(p.label)}</p><p class="c-s">${esc(p.why)}</p>${pid ? `<button type="button" class="b-pri cs-primary" data-do="as" data-p="${pid}">Try as ${esc(nm)}</button><p class="c-s">Switching simulates signing in as them.</p>` : ''}`;
+    }
     else if (p.kind === 'done') main = `<p class="cs-wait"><span class="st ok">Done</span> ${esc(p.label)}</p><p class="c-s">History and evidence stay below.</p>`;
     else if (!C.onCase(D, me, c) && !c.closed && c.owner !== me) main = `<p class="cs-wait">${esc(p.label)}</p><p class="c-s">You are viewing as ${esc(name(me))}. ${esc(name(c.owner))} owns this case and can act on it.</p><button type="button" class="b-pri cs-primary" data-do="as" data-p="${esc(c.owner)}">Try as ${esc(name(c.owner))}</button><p class="c-s">Switching simulates signing in as them.</p>`;
     else main = `<p class="cs-wait">${esc(p.label)}</p><p class="c-s">${esc(p.why)}</p>`;
@@ -583,8 +590,19 @@
     if (ui.form === 'cls' && topX(c)) form = `<div class="cs-form"><label class="tol">Classification <select id="cl-v">${Object.entries(CLS).map(([k, l]) => `<option value="${k}"${k === topX(c).cls ? ' selected' : ''}>${l}</option>`).join('')}</select></label>${area('cl-r', 'Why (8+ characters)', 2)}<button type="button" class="b-pri" data-do="cls" data-x="${topX(c).id}">Save classification</button></div>`;
     if (ui.form && ui.form.startsWith('act:')) { const a = acts.find((y) => y.id === ui.form.slice(4)); if (a) form = `<div class="cs-form"><p class="sl">${esc(a.label)}</p>${a.needsReason ? area('r-' + a.id, 'Reason, kept with the decision (12+ characters)', 2) : ''}<button type="button" class="b-pri" data-do="act" data-a="${esc(a.id)}">Confirm</button></div>`; }
     if (ui.guided) main = main.replace(/class="b-pri cs-primary"/, 'class="b-pri cs-primary gd-hl"');
-    return `<p class="sl">${p.kind === 'waiting' || p.kind === 'authority' || p.kind === 'done' || (p.kind === 'none' && !main.includes('data-do="as"')) ? 'Status' : 'Next action'}</p>${main}${form}${secondary}
+    return `<p class="sl">${main.includes('cs-primary') ? 'Next action' : 'Status'}</p>${main}${form}${secondary}
       <p class="cs-who">Acting as ${esc(name(me))} · ${esc(D.people[me].role)}</p>`;
+  }
+  // an overdue check already passed to the team lead: chasing again is not the next step
+  const leadHas = (t) => t.history.some((h) => /passed to the team lead/i.test(h.event));
+  // while a case waits on someone else, say who moves next and let the visitor sign in as them
+  function waitHandoff(c, p, t) {
+    if (c.closed || ui.guided) return '';
+    if (/^Your reply is with/.test(p.label)) return `<p class="c-s">${esc(name(c.owner))} reviews your reply next.</p><button type="button" class="b-pri cs-primary" data-do="as" data-p="${esc(c.owner)}">Continue as ${esc(name(c.owner))}</button>`;
+    if (p.overdue && p.mine && !leadHas(t)) return '';
+    const pid = t.assignee || Object.keys(D.people).find((k) => D.people[k].team === t.team && C.isLead(D, k, t.team)) || Object.keys(D.people).find((k) => D.people[k].team === t.team);
+    if (!pid || pid === me) return '';
+    return `<p class="c-s cs-handoff">Nothing more to do here until they answer. In this demo you can answer it yourself:</p><button type="button" class="b-sec" data-do="as" data-p="${esc(pid)}">Answer as ${esc(name(pid))}, ${esc(team(D.people[pid].team))}</button>`;
   }
   function reassignForm(t, primary) {
     return `<div class="cs-form"><label class="tol">Send to <select id="ra-to"><option value="team">A team</option><option value="person">A person</option></select></label>
@@ -597,10 +615,13 @@
     const x = topX(c);
     const draft = (x && c.drafts && c.drafts[x.code]) || {};
     const to = ui.escTo || draft.to || 'team';
+    // with no draft, start from the team the missing evidence is said to come from
+    const holder = x && (x.missing || [])[0] && Object.keys(D.teams).find((k) => D.teams[k].name === x.missing[0].who);
+    const defTeam = draft.team || holder;
     return `<div class="cs-form rq-esc"><p class="sl">${esc(draft.cta || 'Ask a team or a person')}</p>
       <p class="c-s">${draft.question ? 'Drafted from this case’s evidence by a fixed template (a stand-in for an AI draft). Check the question and the recipient.' : 'Write one clear question.'}</p>
       <div class="rq-seg" role="radiogroup" aria-label="Send to"><label><input type="radio" name="es-to" value="team"${to === 'team' ? ' checked' : ''}> A team</label><label><input type="radio" name="es-to" value="person"${to === 'person' ? ' checked' : ''}> A named person</label></div>
-      <label class="tol" id="es-team-l"${to === 'team' ? '' : ' hidden'}>Team <select id="es-team">${Object.entries(D.teams).map(([k, t]) => `<option value="${k}"${k === draft.team ? ' selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label>
+      <label class="tol" id="es-team-l"${to === 'team' ? '' : ' hidden'}>Team <select id="es-team">${Object.entries(D.teams).map(([k, t]) => `<option value="${k}"${k === defTeam ? ' selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label>
       <label class="tol" id="es-person-l"${to === 'person' ? '' : ' hidden'}>Person <select id="es-person">${Object.entries(D.people).map(([k, p]) => `<option value="${k}"${k === draft.person ? ' selected' : ''}>${esc(p.name)} · ${esc(team(p.team))}</option>`).join('')}</select></label>
       ${draft.requires ? `<p class="c-s">Needs someone with ${esc(draft.requires)}.</p>` : ''}
       <label class="sl" for="es-q">Question</label><textarea id="es-q" rows="4">${esc(draft.question || '')}</textarea>
@@ -820,7 +841,13 @@
     if (d === 'reset') { state = fresh(); save(); sv = { sel: 'PO-1028', seen: {} }; saveSv(); log('Reset the demo', 'Back to the starting cases'); return render(); }
     if (d === 'tryreset') { state = fresh(); save(); setMe('ava'); log('Restarted the guided demo', 'Back to the starting cases'); return go({ page: 'case', try: true }, { replace: true }); }
     if (d === 'clearf') { filters[ui.route.module] = { status: 'active' }; saveF(); return render(); }
-    if (d === 'scan') { const m = b.dataset.m; return run(() => { const r = C.sync(state, D, A, m, SOURCES[m]()); return { ok: true, ...r }; }, [`Ran ${MODULES[b.dataset.m].label} checks`, 'Open cases update in place; new findings open new cases']); }
+    if (d === 'scan') {
+      // say what the run found, so a run that changes nothing still reads as done
+      const m = b.dataset.m; let r = { created: [], updated: [] };
+      run(() => { r = C.sync(state, D, A, m, SOURCES[m]()); return { ok: true }; });
+      const n = r.created.length, u = r.updated.length;
+      return log(`Ran ${MODULES[m].label} checks`, n ? `${n} new case${n === 1 ? '' : 's'}: ${r.created.join(', ')}` : `No new findings · ${u} existing case${u === 1 ? '' : 's'} re-checked`);
+    }
     if (d === 'form') {
       ui.form = b.dataset.form || null; ui.escTo = null; render();
       const fm = ui.form && $('.cs-form'); if (fm) { const fld = $('textarea, select, input', fm); if (fld) fld.focus({ preventScroll: true }); if (fm.getBoundingClientRect().bottom > innerHeight) fm.scrollIntoView({ block: 'nearest', behavior: reduced ? 'auto' : 'smooth' }); }

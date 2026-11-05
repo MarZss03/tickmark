@@ -473,6 +473,7 @@ window.TMC = (() => {
     store: 'Fernleaf Ceramics', owner: 'Jada Brooks',
     payouts: {
       'PO-1028': {
+        headAfter: "Payout PO-1028 was $300.00 lower because of a chargeback",
         cause: "A chargeback or another adjustment may explain the $300.00.", next: "Find the $300.00 line in the payout’s transactions.", nextAfter: "Review the dispute and decide whether to respond.",
         chip: '$300.00 short', chipAfter: 'Chargeback · respond by 9 Nov', tone: 'neg',
         head: 'Your bank got $300.00 less than payout PO-1028',
@@ -485,6 +486,7 @@ window.TMC = (() => {
         deadline: '2026-11-09', deadlineLabel: 'Dispute evidence due',
       },
       'PO-1030': {
+        headAfter: "Payout PO-1030 arrived on 4 Nov, a day late",
         cause: "The bank may be holding the deposit, or it went to an old bank account.", next: "Wait one business day, then check the payout bank account.", nextAfter: "Nothing to do. Record it as arrived 4 Nov.",
         chip: 'Not in your bank yet', chipAfter: 'Arrived 4 Nov, a day late', tone: 'warn',
         head: 'Payout PO-1030 ($2,311.40) is marked paid but has not reached your bank',
@@ -496,6 +498,7 @@ window.TMC = (() => {
         todoAfter: 'Nothing is missing. Record it with the 4 Nov arrival date.',
       },
       'PO-1101': {
+        headAfter: "$612.50 is held as a reserve until 1 Dec",
         cause: "A rolling reserve. The summary does not say when it comes back.", next: "Plan November cash on $5,310.57.", nextAfter: "Plan on $5,310.57. The $612.50 comes back 1 Dec.",
         chip: '$612.50 held back', chipAfter: 'Released 1 Dec', tone: 'warn',
         head: '$612.50 of your 1 Nov sales was held back as a reserve',
@@ -507,6 +510,7 @@ window.TMC = (() => {
         todoAfter: 'Plan November cash on $5,310.57. Expect the $612.50 back on 1 Dec.',
       },
       'PO-1102': {
+        headAfter: "The extra $26.10 on PO-1102 is a currency conversion fee",
         cause: "Probably a currency conversion fee on US dollar orders. It may also be an overcharge.", next: "Hold the extra $26.10 until you know what it is.", nextAfter: "Book $26.10 as currency conversion.",
         chip: 'Fees $26.10 above your plan', chipAfter: 'Currency conversion, not an error', tone: 'warn',
         head: 'Fees on payout PO-1102 are $26.10 more than your plan',
@@ -518,6 +522,7 @@ window.TMC = (() => {
         todoAfter: 'Book $26.10 as currency conversion. If US sales keep growing, compare the cost of pricing in USD.',
       },
       'PO-1103': {
+        headAfter: "Order #4471 was refunded twice, so PO-1103 is $245.00 lower",
         cause: "Order #4471 may have been refunded twice.", next: "Check order #4471 before recording the payout.", nextAfter: "Contact the customer to recover the second $245.00.",
         chip: 'Report off by $245.00', chipAfter: 'Order #4471 refunded twice', tone: 'neg',
         head: 'Payout PO-1103 is $245.00 less than its own lines add up to',

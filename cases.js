@@ -452,7 +452,8 @@
       if (arrived) return { kind: 'inbox', item: arrived.id, label: 'Add the new evidence', why: arrived.label };
     }
     const acts = actionsFor(state, dir, adapters, caseId, pid).filter((a) => a.kind !== 'accept');
-    const ready = acts.find((a) => a.allowed && a.ready);
+    // putting a case off is never the next step; it stays under More actions
+    const ready = acts.find((a) => a.allowed && a.ready && !a.defer);
     if (ready) return { kind: 'act', action: ready.id, label: ready.label, needsReason: !!ready.needsReason, why: '' };
     const waiting = tasks.filter((t) => WAITING.includes(t.status));
     if (waiting.length) {
@@ -466,7 +467,18 @@
         return { kind: 'authority', label: `Waiting on ${able[0] || 'an authorised person'}`, why: `Only ${able.join(' or ') || 'an authorised person'} can ${authority.label.toLowerCase()}.` };
       }
       const x = c.exceptions.find((e) => e.status === 'open');
-      if (x) { const d = c.drafts && c.drafts[x.code]; return { kind: 'request', exception: x.id, label: (d && d.cta) || 'Request confirmation', why: x.next || '' }; }
+      if (x) {
+        // once a check on it has been answered and accepted, asking the same question again is not the next step:
+        // decide whether it is explained, or ask someone else
+        const answered = tasks.filter((t) => t.status === 'closed' && t.reply && (t.exceptionIds || []).includes(x.id));
+        if (answered.length) {
+          const acc = actionsFor(state, dir, adapters, caseId, pid).find((a) => a.id === 'accept:' + x.id);
+          const helper = who(dir, answered[answered.length - 1].reply.by).name;
+          if (acc && acc.allowed && acc.ready) return { kind: 'act', action: acc.id, label: acc.label, needsReason: true, why: `${helper} answered, and the exception is still open. Decide whether it is explained.` };
+          return { kind: 'request', exception: x.id, label: 'Ask someone else', why: `${helper} answered, but ${(acc && (acc.prereqs.find((q) => !q.ok) || {}).label || 'something is still missing').replace(/^\w/, (s) => s.toLowerCase())}. The case stays open until that arrives; ask whoever holds it.`, again: true };
+        }
+        const d = c.drafts && c.drafts[x.code]; return { kind: 'request', exception: x.id, label: (d && d.cta) || 'Request confirmation', why: x.next || '' };
+      }
       return { kind: 'none', label: 'Nothing open', why: 'Every exception is closed or accepted.' };
     }
     return { kind: 'none', label: 'No action for you', why: `${who(dir, c.owner).name} owns this case.` };
