@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=20261104">
+<link rel="stylesheet" href="styles.css?v=20261105b">
 <script>document.documentElement.classList.add('js');try{if(sessionStorage.getItem('tm-wipe'))document.documentElement.classList.add('arriving')}catch(e){}</script>
 </head>
 <body data-page="notes">
@@ -92,8 +92,33 @@
       <li><b>Keep urgency apart from confidence.</b><span>A closing tomorrow is urgent however sure the reading is; a confident reading is not a reason to rush.</span></li>
       <li><b>A person confirms what the data can't.</b><span>A settlement date, a waiver, a release scope: the rule pauses only the step that depends on it and names who can decide.</span></li>
     </ul>
-    <p data-reveal><a class="btn" href="index.html#try">Try the payout exception</a></p>
+    <p data-reveal><a class="btn" href="index.html#store">See a store owner’s payouts</a> <a class="btn ghost" href="index.html#try">Try the bank case</a></p>
     <p class="story-note" data-reveal>Out of scope on purpose: sending payments, statement requests, portal tracking and land registration. Those stay in the systems that run them; the demo shows their states, marked as simulated.</p>
+  </div>
+</section>
+
+<section class="story alt" id="tradeoffs" aria-labelledby="to-h">
+  <h2 id="to-h" class="head lines"><span class="line"><span data-line>What I left out</span></span></h2>
+  <div class="story-body">
+    <ul class="kinds" data-reveal>
+      <li><b>Team workflow for a one-person store.</b><span>A store owner does not claim, assign or escalate. The owner view has none of it: five payouts, how each adds up, and what to do. The team version stays for stores with a bookkeeper.</span></li>
+      <li><b>A real model.</b><span>Drafts, extraction and the store wording come from fixed rules. With money involved, every sentence had to trace to a record before a model writes any of them.</span></li>
+      <li><b>Natural-language questions.</b><span>Not until the words are defined: an expired statement, funds received, a shortfall, overdue, high risk. A query tool without those definitions would answer confidently and wrongly.</span></li>
+      <li><b>Real connections.</b><span>No processor, bank or servicing system, and no real customer data. Disputes, payments and emails are shown as states, marked as simulated.</span></li>
+    </ul>
+  </div>
+</section>
+
+<section class="story" id="measure" aria-labelledby="ms-h">
+  <h2 id="ms-h" class="head lines"><span class="line"><span data-line>How I would know it works</span></span></h2>
+  <div class="story-body">
+    <p data-reveal>None of this is measured yet. This is the plan.</p>
+    <ul class="kinds" data-reveal>
+      <li><b>Time to a reason.</b><span>Give five people the five store payouts and time each one, from opening it to saying why it differs and what they would do.</span></li>
+      <li><b>Wrong reasons.</b><span>Count the conclusions that are wrong. A wrong reason given with confidence is worse than no answer, so this matters more than speed.</span></li>
+      <li><b>Possible taken as confirmed.</b><span>Afterwards, ask whether the possible reason was confirmed. If people say yes before reading the source, the page is failing at its main job.</span></li>
+      <li><b>With real data, later.</b><span>The share of payouts that tie with no manual step, and disputes answered before their deadline.</span></li>
+    </ul>
   </div>
 </section>
 
@@ -110,6 +135,8 @@
       <p><b>Verified:</b> 42 automated tests; three paths walked in the browser: a mistyped legal fee, a payroll line imported twice, and an on-time wire posted late after a hold. <b>Not yet:</b> any real user, real system connection or real model; sign-in and sending are simulated.</p></div></li>
     <li data-reveal><span class="bl-d">4 Nov 2026</span><div><b>One workbench: My Work, five business queues, one case layout.</b><p>The workbench opens on My Work, with what needs me, checks assigned to me, my team's inbox and what I am waiting on. Month-end Close, Payroll, Cash Reconciliation and Mortgage Servicing each get their own queue and address; their existing checks and reports sit one tab over. Every case leads with the finding, the facts on record, what is pending and what it holds up, and one primary action for the person acting. A fifth queue, Merchant Payouts, applies the same handling to a small online store: a deposit short by a chargeback, a payout that never arrived, a reserve, fees above the plan, a refund issued twice.</p>
       <p><b>Verified:</b> 47 automated tests; the guided case walked step by step from the home page; a team check claimed from the Payments inbox and a payout dispute decided by the store owner, in the daily queues; every page and case checked at phone width. <b>Not yet:</b> real users, systems or models.</p></div></li>
+    <li data-reveal><span class="bl-d">4 Nov 2026</span><div><b>A store owner's view.</b><p>Read from the merchant's side, the payout queue was a bank team's workflow put on a one-person store. The store owner now gets one page: each payout's sales, refunds, fees, reserve and chargebacks down to the total, what reached the bank, what the records say, a possible reason marked as not confirmed until its source is read, and what to do, with the dispute deadline counted down. The home page now starts from the problem, with the store first and the bank case after it. I also wrote down what I left out and how I would measure it.</p>
+      <p><b>Verified:</b> each of the five payouts adds up before and after its source is read; checked at desktop and phone width. <b>Not yet:</b> a store owner has not used it.</p></div></li>
   </ol>
 </section>
 
@@ -249,9 +276,9 @@
   </div>
 </footer>
 
-<script src="engine.js?v=20261104"></script>
-<script src="data.js?v=20261104"></script>
-<script src="app.js?v=20261104"></script>
-<script src="motion.js?v=20261104"></script>
+<script src="engine.js?v=20261105b"></script>
+<script src="data.js?v=20261105b"></script>
+<script src="app.js?v=20261105b"></script>
+<script src="motion.js?v=20261105b"></script>
 </body>
 </html>

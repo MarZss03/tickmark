@@ -454,7 +454,7 @@ window.TMC = (() => {
     {
       key: 'po:PO-1103', title: 'Payout PO-1103 · 3 Nov', owner: 'sam', branch: 'payout', branchLabel: 'Payout',
       openedBecause: 'The payout report does not add up', amount: 3120.0, amountLabel: 'Sales', due: '2026-11-06T22:00:00Z', dueLabel: 'October books close', affects: 'recording October sales in the books',
-      records: { payout: pay({ id: 'PO-1103', date: '2026-11-03', charges: 3120.0, refunds: -245.0, fees: -102.48, total: 2527.52, orders: 25 }), deposits: [{ date: '2026-11-05', desc: 'PROCESSOR PAYOUT PO-1103', amount: 2527.52 }], arrival: '2026-11-05' },
+      records: { payout: pay({ id: 'PO-1103', date: '2026-11-03', charges: 3120.0, refunds: -245.0, fees: -102.48, total: 2527.52, orders: 25 }), deposits: [{ date: '2026-11-04', desc: 'PROCESSOR PAYOUT PO-1103', amount: 2527.52 }], arrival: '2026-11-04' },
       evidence: [
         { id: 'rep', label: 'Payout report PO-1103', system: 'Processor dashboard · payout summary', origin: 'processor', kind: 'record', recorded: '2026-11-03T09:00:00Z', loc: 'Charges 3,120.00 · refunds −245.00 · fees −102.48 · total 2,527.52', facts: { payout_total: 2527.52, refunds: 245 } },
         { id: 'csv', label: 'Store refunds export (CSV)', system: 'Store admin · refunds', origin: 'store-admin', kind: 'record', recorded: '2026-11-03T18:00:00Z', loc: 'Two refunds of 245.00, order #4471, 2 Nov 09:14 and 09:15', facts: { refunds: 490 } },
@@ -467,5 +467,64 @@ window.TMC = (() => {
     },
   ];
 
-  return { dir: { teams, people }, close, cash, payroll, mortgage, payouts, rules };
+  // the store owner's view of the same payouts: one person, plain language.
+  // `found` is only what the records say; `maybe` is a possible reason, marked as not confirmed until `check` reads the source.
+  const storeView = {
+    store: 'Fernleaf Ceramics', owner: 'Jada Brooks',
+    payouts: {
+      'PO-1028': {
+        chip: '$300.00 short', chipAfter: 'Chargeback · respond by 9 Nov', tone: 'neg',
+        head: 'Your bank got $300.00 less than payout PO-1028',
+        found: 'The payout summary says $4,888.04. Your bank received $4,588.04 on 30 Oct.',
+        maybe: 'Something was taken out after the summary was made. That is usually a chargeback or an adjustment. The payout’s transaction list would show it.',
+        check: 'Read the payout’s transactions', reveal: 'available:txns',
+        after: 'The transaction list has a chargeback: CB-5521, −$300.00, on dispute DP-881. A customer asked their card issuer to reverse a payment.',
+        todo: 'Open the payout’s transaction list and look for a $300.00 line. Until you know what it is, the October books cannot be closed.',
+        todoAfter: 'Decide whether to fight the dispute. If you have proof of delivery, submit it before the deadline; if not, accept the loss. Then record the payout with the chargeback as its own line.',
+        deadline: '2026-11-09', deadlineLabel: 'Dispute evidence due',
+      },
+      'PO-1030': {
+        chip: 'Not in your bank yet', chipAfter: 'Arrived 4 Nov, a day late', tone: 'warn',
+        head: 'Payout PO-1030 ($2,311.40) is marked paid but has not reached your bank',
+        found: 'The payout was sent on 30 Oct and expected by 3 Nov. Your bank statement shows no deposit for it.',
+        maybe: 'Banks sometimes hold a deposit for a day. If it still does not arrive, the payout may have gone to an old bank account.',
+        check: 'Refresh the bank statement', reveal: 'inbox:stmt',
+        after: 'It arrived on 4 Nov for the full $2,311.40. The bank held it for one day.',
+        todo: 'Wait one more business day. If it is still missing, check that the bank account on file for payouts is the current one.',
+        todoAfter: 'Nothing is missing. Record it with the 4 Nov arrival date.',
+      },
+      'PO-1101': {
+        chip: '$612.50 held back', chipAfter: 'Released 1 Dec', tone: 'warn',
+        head: '$612.50 of your 1 Nov sales was held back as a reserve',
+        found: 'Your bank received $5,310.57, the full payout. The payout summary shows $612.50 held as a 10% rolling reserve.',
+        maybe: 'Processors hold a reserve when sales change quickly, to cover possible refunds and chargebacks. When it comes back is not on the summary.',
+        check: 'Read the reserve notice', reveal: 'available:rel',
+        after: 'The notice says the reserve was applied because October sales were three times the usual, and it is released on 1 Dec.',
+        todo: 'Plan November cash on $5,310.57, not the $5,923.07 you sold.',
+        todoAfter: 'Plan November cash on $5,310.57. Expect the $612.50 back on 1 Dec.',
+      },
+      'PO-1102': {
+        chip: 'Fees $26.10 above your plan', chipAfter: 'Currency conversion, not an error', tone: 'warn',
+        head: 'Fees on payout PO-1102 are $26.10 more than your plan',
+        found: 'Your plan is 2.9% + $0.30 per order, which comes to $61.02 for these 12 orders. The payout charged $87.12. Seven of the orders were paid in US dollars.',
+        maybe: 'The extra may be a currency conversion fee on the US dollar orders. It may also be an overcharge.',
+        check: 'Read the fee breakdown', reveal: 'available:fx', feeNote: 'includes $26.10 currency conversion',
+        after: 'The breakdown shows $61.02 processing plus $26.10 currency conversion (1.5% on $1,740.00 USD). No overcharge.',
+        todo: 'Do not book the extra as a processing fee until you know what it is.',
+        todoAfter: 'Book $26.10 as currency conversion. If US sales keep growing, compare the cost of pricing in USD.',
+      },
+      'PO-1103': {
+        chip: 'Report off by $245.00', chipAfter: 'Order #4471 refunded twice', tone: 'neg',
+        head: 'Payout PO-1103 is $245.00 less than its own lines add up to',
+        found: 'Sales $3,120.00, refunds −$245.00 and fees −$102.48 add up to $2,772.52, but the payout is $2,527.52. Your refunds export shows two refunds of $245.00 on order #4471, one minute apart.',
+        maybe: 'The customer may have been refunded twice.',
+        check: 'Read the refund history for #4471', reveal: 'available:dbl',
+        after: 'The order history shows the second refund was a duplicate click, one minute after the first.',
+        todo: 'Check order #4471 before recording the payout.',
+        todoAfter: 'Contact the customer to recover the second $245.00, then record the payout with both refunds.',
+      },
+    },
+  };
+
+  return { dir: { teams, people }, close, cash, payroll, mortgage, payouts, rules, storeView };
 })();

@@ -66,6 +66,7 @@
     const h = String(hash || '').replace(/^#/, '');
     if (h === 'try') return { page: 'case', try: true };
     if (h === 'try/store') return { page: 'case', store: true };
+    if (h === 'store') return { page: 'store' };
     const [a, b] = h.split('/');
     if (a === 'queue' && MODULES[b]) return { page: 'queue', module: b };
     if (a === 'case' && b) return { page: 'case', id: decodeURIComponent(b) };
@@ -75,7 +76,7 @@
     if (a === 'demo' && ['filings', 'eval', 'stress'].includes(b)) return { page: 'view', view: { filings: 'sec', eval: 'eval', stress: 'stress' }[b], label: { filings: 'Public filings', eval: 'Model evaluation', stress: 'Stress test' }[b], demo: true };
     return { page: 'mywork' };
   }
-  const hashOf = (r) => (r.page === 'queue' ? `#queue/${r.module}` : r.page === 'case' ? (r.try ? '#try' : r.store ? '#try/store' : `#case/${encodeURIComponent(r.id)}`) : r.page === 'other' ? '#' + MODULES[r.module].other.route : r.page === 'view' ? { mine: '#imports', audit: '#audit', sec: '#demo/filings', eval: '#demo/eval', stress: '#demo/stress' }[r.view] : '#workbench');
+  const hashOf = (r) => (r.page === 'store' ? '#store' : r.page === 'queue' ? `#queue/${r.module}` : r.page === 'case' ? (r.try ? '#try' : r.store ? '#try/store' : `#case/${encodeURIComponent(r.id)}`) : r.page === 'other' ? '#' + MODULES[r.module].other.route : r.page === 'view' ? { mine: '#imports', audit: '#audit', sec: '#demo/filings', eval: '#demo/eval', stress: '#demo/stress' }[r.view] : '#workbench');
   function go(r, { replace = false } = {}) {
     const h = hashOf(r);
     if (location.hash !== h) { try { history[replace ? 'replaceState' : 'pushState'](null, '', h); } catch { location.hash = h; } }
@@ -118,6 +119,7 @@
   // ---------- page head: where you are ----------
   function headHtml(r) {
     if (r.page === 'case') return '';
+    if (r.page === 'store') return `<header class="pg-h"><div><h3 class="pg-t">Why is my payout different?</h3><p class="pg-s">${esc(SV.store)} · owner view · demo clock ${esc(at(state.now))}</p></div><div class="pg-a"><button type="button" class="link-btn sm" data-do="svreset">Start over</button></div></header>`;
     if (r.page === 'mywork') return `<header class="pg-h"><div><h3 class="pg-t">My Work</h3><p class="pg-s">${esc(name(me))} · ${esc(team(D.people[me].team))} · demo clock ${esc(at(state.now))}</p></div>
       <div class="pg-a"><button type="button" class="link-btn sm" data-do="reset">Reset the demo</button></div></header>`;
     if (r.page === 'view') return `<header class="pg-h"><div><h3 class="pg-t">${esc(r.label)}</h3>${r.demo ? '<p class="pg-s">Demo &amp; Validation · real public data or test harnesses, apart from the daily queues</p>' : ''}</div></header>`;
@@ -150,6 +152,79 @@
       ${sec('Waiting on others', w.waiting, 'waiting', 'You are not waiting on anyone.', 'Your cases and checks that are with someone else')}
     </div>
     <p class="mw-tip">Switch <b>Acting as</b> above to see another person’s work. Try <a href="#try" data-try-case>the guided payout case</a> to follow one case across three people, or <a href="#try/store" data-try-store>a store’s payout as Sam Ortiz</a>.</p>`;
+  }
+
+
+  // ---------- the store owner's view: one person, one screen, plain language ----------
+  // Read-only over the same synthetic payouts. Facts come from the records; a possible reason stays
+  // marked as not confirmed until the owner reads the source that settles it.
+  const SV = TMC.storeView, SKEY = 'tickmark:store';
+  let sv = { sel: 'PO-1028', seen: {} };
+  try { sv = { ...sv, ...(JSON.parse(sessionStorage.getItem(SKEY) || '{}') || {}) }; } catch {}
+  const saveSv = () => { try { sessionStorage.setItem(SKEY, JSON.stringify(sv)); } catch {} };
+  const rawPayout = (id) => (TMC.payouts || []).find((m) => m.key === 'po:' + id);
+  // apply a source's corrections to a copy of the payout and bank lines
+  function storeRecords(id) {
+    const m = rawPayout(id), r = JSON.parse(JSON.stringify(m.records));
+    if (sv.seen[id]) {
+      const [kind, itemId] = SV.payouts[id].reveal.split(':');
+      const item = (m[kind === 'inbox' ? 'inbox' : 'available'] || []).find((i) => i.id === itemId);
+      for (const p of (item && item.patch) || []) {
+        const keys = p.path.split('.'); let o = r;
+        for (let i = 0; i < keys.length - 1; i++) { if (o[keys[i]] == null) o[keys[i]] = /^\d+$/.test(keys[i + 1]) ? [] : {}; o = o[keys[i]]; }
+        o[keys[keys.length - 1]] = p.value;
+      }
+    }
+    return r;
+  }
+  const daysTo = (d) => Math.round((Date.parse(d + 'T23:59:00Z') - Date.parse(state.now)) / 864e5);
+  function storeHtml() {
+    const ids = Object.keys(SV.payouts);
+    if (!SV.payouts[sv.sel]) sv.sel = ids[0];
+    const open = ids.filter((id) => !sv.seen[id]).length;
+    const due = ids.filter((id) => sv.seen[id] && SV.payouts[id].deadline);
+    const list = ids.map((id) => {
+      const v = SV.payouts[id], r = storeRecords(id), p = r.payout, seen = !!sv.seen[id];
+      return `<li><button type="button" class="sv-p${id === sv.sel ? ' on' : ''}" data-do="sv" data-p="${id}" aria-pressed="${id === sv.sel}">
+        <span class="sv-pid">${id} · ${esc(day(p.date))}</span><span class="sv-amt">${money(p.total)}</span>
+        <span class="st ${seen ? (v.deadline ? 'warn' : 'ok') : v.tone}">${esc(seen ? v.chipAfter : v.chip)}</span></button></li>`;
+    }).join('');
+    return `<div class="sv">
+      <p class="sv-lead">${ids.length} payouts since 28 Oct. <b>${open ? `${open} need${open === 1 ? 's' : ''} a look` : 'All explained'}</b>${due.length ? ` · ${due.map((id) => `${SV.payouts[id].deadlineLabel.toLowerCase()} ${day(SV.payouts[id].deadline)}`).join(', ')}` : ''}. Each one compares what the payment processor says it sent with what reached your bank.</p>
+      <div class="sv-grid"><ul class="sv-list" aria-label="Payouts">${list}</ul>${storeCard(sv.sel)}</div>
+      <p class="sv-foot c-s">Simulated: ${esc(SV.store)} is a fictional store, and the payout report and bank statement are synthetic. The wording is written by fixed rules, not a model.</p>
+    </div>`;
+  }
+  function storeCard(id) {
+    const v = SV.payouts[id], m = rawPayout(id), r = storeRecords(id), p = r.payout, seen = !!sv.seen[id];
+    const dep = (r.deposits || [])[0];
+    const rows = [['Sales', p.charges, `${p.orders} orders`]];
+    if (p.refunds) rows.push(['Refunds', p.refunds, r.doubleRefund ? `includes a duplicate on ${r.doubleRefund}` : '']);
+    for (const a of p.adjustments || []) rows.push([a.type === 'chargeback' ? `Chargeback ${a.ref}` : 'Adjustment', a.amount, a.dispute ? `dispute ${a.dispute}` : '']);
+    if (p.reserve) rows.push(['Held as reserve', p.reserve, r.reserveRelease ? `back ${day(r.reserveRelease)}` : 'release date unknown']);
+    rows.push(['Fees', p.fees, seen && v.feeNote ? v.feeNote : '']);
+    const lines = rows.reduce((s, x) => s + x[1], 0);
+    const off = Math.abs(lines - p.total) > 0.005;
+    const gap = dep ? p.total - dep.amount : p.total;
+    const row = (l, val, note, cls = '') => `<tr class="${cls}"><td>${esc(l)}${note ? ` <span class="c-s">· ${esc(note)}</span>` : ''}</td><td class="num">${val == null ? '—' : (val < 0 ? '−' : '') + money(val)}</td></tr>`;
+    const left = v.deadline ? daysTo(v.deadline) : null;
+    const caseId = (caseByKey('po:' + id) || {}).id;
+    return `<article class="sv-card" aria-labelledby="sv-h">
+      <h3 class="sv-h" id="sv-h">${esc(v.head)}</h3>
+      <table class="tbl sv-wf"><caption class="sr">How payout ${id} adds up</caption><tbody>
+        ${rows.map((x) => row(x[0], x[1], x[2])).join('')}
+        ${off ? row('The lines above add up to', lines, '', 'sv-sub') : ''}
+        ${row(`Payout ${id}`, p.total, `sent ${day(p.date)}`, 'sv-tot')}
+        ${row('Reached your bank', dep ? dep.amount : null, dep ? day(dep.date) : 'not yet', 'sv-bank')}
+        ${row(off ? 'Missing from the payout’s own lines' : 'Difference', off ? lines - p.total : gap, '', Math.abs(off ? lines - p.total : gap) > 0.005 ? 'sv-gap' : 'sv-ok')}
+      </tbody></table>
+      <div class="sv-blk"><p class="sl">What the records say</p><p>${esc(v.found)}</p></div>
+      ${seen ? `<div class="sv-blk sv-conf"><p class="sl">Confirmed</p><p>${esc(v.after)}</p></div>`
+        : `<div class="sv-blk sv-maybe"><p class="sl">Possible reason · not confirmed</p><p>${esc(v.maybe)}</p><button type="button" class="b-sec" data-do="svcheck" data-p="${id}">${esc(v.check)}</button></div>`}
+      <div class="sv-blk sv-do"><p class="sl">What to do</p><p>${esc(seen ? v.todoAfter : v.todo)}</p>
+        ${v.deadline && seen ? `<p class="sv-dl"><span class="st ${left <= 2 ? 'neg' : 'warn'}">${left} day${left === 1 ? '' : 's'} left</span> ${esc(v.deadlineLabel)} ${esc(day(v.deadline))}</p>` : ''}</div>
+      <p class="sv-more c-s">Keep books with someone else? ${caseId ? `<button type="button" class="link-btn sm" data-do="svteam" data-c="${caseId}">Open ${id} in the team workbench</button>, where your bookkeeper can ask, track and record it.` : ''}</p>
+    </article>`;
   }
 
   // ---------- a business queue ----------
@@ -450,21 +525,23 @@
   }
 
   // ---------- render ----------
-  const WHERE = (r) => (r.page === 'mywork' ? 'My Work' : r.page === 'queue' ? `Work Queues · ${MODULES[r.module].label}` : r.page === 'other' ? `${MODULES[r.module].label} · ${MODULES[r.module].other.label}` : r.page === 'case' ? `${MODULES[state.cases[r.id].module].label} · ${r.id}` : r.label);
+  const WHERE = (r) => (r.page === 'store' ? 'Store owner view' : r.page === 'mywork' ? 'My Work' : r.page === 'queue' ? `Work Queues · ${MODULES[r.module].label}` : r.page === 'other' ? `${MODULES[r.module].label} · ${MODULES[r.module].other.label}` : r.page === 'case' ? `${MODULES[state.cases[r.id].module].label} · ${r.id}` : r.label);
   function render() {
     const r = ui.route;
     const head = $('#wb-head'); if (head) head.innerHTML = headHtml(r);
     const body = $('#rq-body');
+    if (body && r.page === 'store') { body.innerHTML = storeHtml(); body.className = 'is-store'; }
     if (body && ['mywork', 'queue', 'case'].includes(r.page)) {
       const c = r.page === 'case' && state.cases[r.id];
       body.innerHTML = r.page === 'mywork' ? myWorkHtml() : r.page === 'queue' ? queueHtml(r.module) : caseHtml(c);
       body.className = r.page === 'case' ? 'is-case' : '';
       if (c) body.dataset.version = c.version;
     }
+    const who = $('.app-top .who'); if (who) who.hidden = r.page === 'store';
     $('#rq-msg').hidden = !ui.msg; $('#rq-msg').textContent = ui.msg;
     $('#wb-where').textContent = WHERE(r);
     // the rail: where you are, and counts that always mean the same thing
-    const cur = r.page === 'case' ? `queue/${state.cases[r.id].module}` : r.page === 'other' ? `queue/${r.module}` : r.page === 'queue' ? `queue/${r.module}` : r.page === 'view' ? hashOf(r).slice(1) : 'mywork';
+    const cur = r.page === 'store' ? 'store' : r.page === 'case' ? `queue/${state.cases[r.id].module}` : r.page === 'other' ? `queue/${r.module}` : r.page === 'queue' ? `queue/${r.module}` : r.page === 'view' ? hashOf(r).slice(1) : 'mywork';
     $$('#wb-nav [data-route]').forEach((a) => { if (a.dataset.route === cur) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
     const tryLink = $('#wb-nav [data-try-case]'); if (tryLink) { if (ui.guided && r.page === 'case') tryLink.setAttribute('aria-current', 'page'); else tryLink.removeAttribute('aria-current'); }
     const storeLink = $('#wb-nav [data-try-store]'); if (storeLink) { if (r.store) storeLink.setAttribute('aria-current', 'page'); else storeLink.removeAttribute('aria-current'); }
@@ -486,7 +563,7 @@
   // links with data-route move inside the workbench without a page jump
   document.addEventListener('click', (e) => {
     const a = e.target.closest('[data-route]');
-    if (a && !e.metaKey && !e.ctrlKey && !e.shiftKey) { e.preventDefault(); const r = parse('#' + a.dataset.route); if (r.page !== 'case') ui.guided = false; go(r); closeMenu(); if (r.page === 'case') toSheet(); return; }
+    if (a && !e.metaKey && !e.ctrlKey && !e.shiftKey) { e.preventDefault(); const r = parse('#' + a.dataset.route); if (r.page !== 'case') ui.guided = false; go(r); closeMenu(); if (r.page === 'case' || r.page === 'store') requestAnimationFrame(toSheet); return; }
     const st = e.target.closest('[data-try-store]');
     if (st) { e.preventDefault(); go({ page: 'case', store: true }); closeMenu(); requestAnimationFrame(toSheet); return; }
     const t = e.target.closest('[data-try-case]');
@@ -514,8 +591,12 @@
   $('#sheet').addEventListener('click', (e) => {
     const b = e.target.closest('[data-do]'); if (!b || b.disabled) return;
     const d = b.dataset.do, c = ui.route.page === 'case' && state.cases[ui.route.id], t = b.dataset.t, version = c ? +$('#rq-body').dataset.version : undefined;
+    if (d === 'sv') { sv.sel = b.dataset.p; saveSv(); render(); const h = $('#sv-h'); if (h && innerWidth < 900) h.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' }); return; }
+    if (d === 'svcheck') { sv.seen[b.dataset.p] = true; saveSv(); log('Read a source in the store view', b.dataset.p); render(); return; }
+    if (d === 'svreset') { sv = { sel: 'PO-1028', seen: {} }; saveSv(); render(); return; }
+    if (d === 'svteam') { setMe('sam'); go({ page: 'case', id: b.dataset.c }); toSheet(); return; }
     if (d === 'as') { setMe(b.dataset.p); render(); const p = $('.cs-primary'); if (p) { flash(p); p.focus({ preventScroll: true }); } return; }
-    if (d === 'reset') { state = fresh(); save(); log('Reset the demo', 'Back to the starting cases'); return render(); }
+    if (d === 'reset') { state = fresh(); save(); sv = { sel: 'PO-1028', seen: {} }; saveSv(); log('Reset the demo', 'Back to the starting cases'); return render(); }
     if (d === 'tryreset') { state = fresh(); save(); setMe('ava'); log('Restarted the guided demo', 'Back to the starting cases'); return go({ page: 'case', try: true }, { replace: true }); }
     if (d === 'clearf') { filters[ui.route.module] = { status: 'active' }; saveF(); return render(); }
     if (d === 'scan') { const m = b.dataset.m; return run(() => { const r = C.sync(state, D, A, m, SOURCES[m]()); return { ok: true, ...r }; }, [`Ran ${MODULES[b.dataset.m].label} checks`, 'Open cases update in place; new findings open new cases']); }
@@ -564,6 +645,6 @@
   // first paint: straight to the address in the URL, with no other panel shown first
   const first = parse(location.hash);
   apply(first);
-  if (location.hash === '#try' || first.page === 'case') requestAnimationFrame(() => requestAnimationFrame(() => { $('#workbench').scrollIntoView({ behavior: 'auto' }); toSheet(); }));
+  if (location.hash === '#try' || first.page === 'case' || first.page === 'store') requestAnimationFrame(() => requestAnimationFrame(() => { $('#workbench').scrollIntoView({ behavior: 'auto' }); toSheet(); }));
   app.refresh && app.refresh();
 })();
