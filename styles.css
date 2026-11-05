@@ -1384,3 +1384,44 @@ p.sv-cause .st { margin-right: 8px; }
 html[data-mode="try"] .cs-back { display: none; }
 .sheet .control .control-copy > .head { display: none; }
 .demo-bar .demo-acts .link-btn { width: auto; display: inline-flex; align-items: center; min-height: 32px; padding: 0; }
+
+/* ---------- v3.6 polish: motion that explains a change of place or state; browser surfaces from the palette ----------
+   Focal moment: moving between the home screen, the workbench and the guided demo is a change of place, so it
+   crossfades with a short rise (View Transitions). Inside the workbench, a new page settles in quickly; folds open
+   at the speed of a routine state change; the guided demo's progress fills when a step is done. */
+html { scrollbar-color: #3a372f var(--bg); caret-color: var(--gold); }
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-old(root) { animation: vt-out 200ms cubic-bezier(0.4, 0, 1, 1) both; }
+  ::view-transition-new(root) { animation: vt-in 420ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+  @keyframes vt-out { to { opacity: 0; filter: blur(4px); } }
+  @keyframes vt-in { from { opacity: 0; transform: translateY(14px); } }
+  #rq-body.rq-enter { animation: rq-enter 260ms cubic-bezier(0.16, 1, 0.3, 1); }
+  @keyframes rq-enter { from { opacity: 0; transform: translateY(6px); } }
+  .gd-steps li.now.gd-adv { transform-origin: left; animation: gd-fill 560ms cubic-bezier(0.16, 1, 0.3, 1); }
+  @keyframes gd-fill { from { transform: scaleX(0); } }
+  .gd-hl { animation: gd-hl 1.6s cubic-bezier(0.16, 1, 0.3, 1); }
+  @keyframes gd-hl { from { box-shadow: 0 0 0 10px rgba(241, 207, 127, 0); } 30% { box-shadow: 0 0 0 5px rgba(241, 207, 127, 0.55); } }
+  .cs-fold, .sv-why, .cs-why { interpolate-size: allow-keywords; }
+  .cs-fold::details-content, .sv-why::details-content, .cs-why::details-content { height: 0; overflow: clip; transition: height 240ms cubic-bezier(0.16, 1, 0.3, 1), content-visibility 240ms allow-discrete; }
+  .cs-fold[open]::details-content, .sv-why[open]::details-content, .cs-why[open]::details-content { height: auto; }
+  .cs-fold > summary::before { display: inline-block; transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1); }
+  .cs-fold[open] > summary::before { transform: rotate(180deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root), ::view-transition-new(root) { animation-duration: 120ms; }
+}
+.cs-fold > summary { transition: background-color 150ms; }
+.cs-fold > summary:hover { background: #1b1a18; }
+.cs-fold > summary:focus-visible { outline-offset: -2px; }
+
+/* no thick coloured rules down the side of list items: a status dot, like every other status */
+.cs-pend li { border-left: 0; padding-left: 16px; position: relative; }
+.cs-pend li::before { content: ""; position: absolute; left: 2px; top: 0.55em; width: 7px; height: 7px; border-radius: 50%; background: var(--warn); }
+.cs-why > p { border-left-width: 1px; }
+
+/* phones: the home screen's three ways in sit above the fold */
+@media (max-width: 760px) {
+  html[data-mode="home"] .hero { gap: 8px; padding-top: 84px; }
+  html[data-mode="home"] .hero-media { width: min(100%, 300px); justify-self: center; }
+}
+.mail-form ::placeholder, .app ::placeholder { color: #9a9183; }

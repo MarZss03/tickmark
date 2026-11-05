@@ -93,6 +93,11 @@
   }
   let closeRan = false;
   function apply(r) {
+    const root = document.documentElement, next = modeOf(r.page === 'case' && r.try ? { page: 'case', try: true } : r);
+    if (root.dataset.mode && root.dataset.mode !== next && document.startViewTransition && !document.hidden) { document.startViewTransition(() => applyNow(r)); return; }
+    applyNow(r);
+  }
+  function applyNow(r) {
     if (r.page === 'case' && r.try) { const c = caseByKey(TRY_KEY); r = { page: 'case', id: c.id, try: true }; if (!c.tasks.length && !c.closed) setMe('ava'); }
     ui.guided = !!(r.page === 'case' && r.try);
     if (r.page === 'case' && !state.cases[r.id]) r = { page: 'mywork' };
@@ -138,7 +143,7 @@
     if (r.page === 'store') return `<header class="pg-h"><div><h3 class="pg-t">Payouts</h3><p class="pg-s">${esc(SV.store)} · since 28 Oct</p></div><div class="pg-a"><button type="button" class="link-btn sm" data-do="svreset">Reset demo</button></div></header>`;
     if (r.page === 'mywork') return `<header class="pg-h"><div><h3 class="pg-t">My Work</h3><p class="pg-s">${esc(name(me))} · ${esc(team(D.people[me].team))}</p></div>
       <div class="pg-a"><button type="button" class="link-btn sm" data-do="reset">Reset demo</button></div></header>`;
-    if (r.page === 'view') return `<header class="pg-h"><div>${r.demo ? '<p class="pg-k">Demo Lab</p>' : ''}<h3 class="pg-t">${esc(r.label)}</h3>${r.demo ? `<p class="pg-s">${{ sec: 'Real public filings from SEC EDGAR, checked by the same kind of rules', eval: 'Scores carried over from Run Replay, and a grader on public FinQA questions', stress: 'Plant known errors into the sample payroll and count what the rules catch', control: 'One journal entry, four checks; change an amount and see what blocks it' }[r.view] || ''}</p>` : ''}</div></header>`;
+    if (r.page === 'view') return `<header class="pg-h"><div><h3 class="pg-t">${esc(r.label)}</h3>${r.demo ? `<p class="pg-s">Demo Lab · ${{ sec: 'Real public filings from SEC EDGAR, checked by the same kind of rules', eval: 'Scores carried over from Run Replay, and a grader on public FinQA questions', stress: 'Plant known errors into the sample payroll and count what the rules catch', control: 'One journal entry, four checks; change an amount and see what blocks it' }[r.view] || ''}</p>` : ''}</div></header>`;
     const m = MODULES[r.module];
     const n = cases().filter((c) => c.module === r.module && !c.closed && c.exceptions.some((x) => x.status === 'open')).length;
     const tabs = m.other ? `<nav class="pg-tabs" aria-label="${esc(m.label)} pages"><a href="#queue/${r.module}" data-route="queue/${r.module}"${r.page === 'queue' ? ' aria-current="page"' : ''}>Queue</a><a href="#${m.other.route}" data-route="${m.other.route}"${r.page === 'other' ? ' aria-current="page"' : ''}>${m.other.label}</a></nav>` : '';
@@ -457,7 +462,8 @@
   }
   function guideHtml(c) {
     const g = guideStep(c);
-    const steps = `<ol class="gd-steps" aria-hidden="true">${Array.from({ length: 8 }, (_, i) => `<li class="${i + 1 < g.n ? 'done' : i + 1 === g.n ? 'now' : ''}"></li>`).join('')}</ol>`;
+    const adv = ui.lastStep != null && g.n > ui.lastStep; ui.lastStep = g.n;
+    const steps = `<ol class="gd-steps" aria-hidden="true">${Array.from({ length: 8 }, (_, i) => `<li class="${i + 1 < g.n ? 'done' : i + 1 === g.n ? 'now' + (adv ? ' gd-adv' : '') : ''}"></li>`).join('')}</ol>`;
     const bar = demoBar('Mortgage payoff', g.n, 8, g.done);
     if (g.done) {
       const facts = C.trace(c).filter((f) => f.status === 'agree' || f.status === 'single').slice(0, 4);
@@ -698,6 +704,8 @@
       body.dataset.case = c ? c.id : '';
       body.innerHTML = r.page === 'mywork' ? myWorkHtml() : r.page === 'queue' ? queueHtml(r.module) : caseHtml(c);
       body.className = r.page === 'case' ? 'is-case' : '';
+      const key = r.page + '|' + (r.id || r.module || '');
+      if (key !== ui.shown) { ui.shown = key; void body.offsetWidth; body.classList.add('rq-enter'); }
       if (c) body.dataset.version = c.version;
       if (kept) $$('.cs-fold', body).forEach((d, i) => { if (kept[i]) d.open = true; });
     }
