@@ -177,6 +177,14 @@
     }
     return r;
   }
+  // which records the page read, the settling source once it has been read
+  function storeSources(id) {
+    const m = rawPayout(id), list = m.evidence.map((e) => e.label);
+    if (!(m.records.deposits || []).length && !sv.seen[id]) list.push('bank statement to 4 Nov (no deposit)');
+    else if (!m.evidence.some((e) => e.origin === 'bank') && !sv.seen[id]) list.push('bank statement');
+    if (sv.seen[id]) { const [kind, itemId] = SV.payouts[id].reveal.split(':'); const it = (m[kind === 'inbox' ? 'inbox' : 'available'] || []).find((i) => i.id === itemId); if (it) list.push(it.evidence.label); }
+    return list;
+  }
   const daysTo = (d) => Math.round((Date.parse(d + 'T23:59:00Z') - Date.parse(state.now)) / 864e5);
   function storeHtml() {
     const ids = Object.keys(SV.payouts);
@@ -218,6 +226,7 @@
         ${row('Reached your bank', dep ? dep.amount : null, dep ? day(dep.date) : 'not yet', 'sv-bank')}
         ${row(off ? 'Missing from the payout’s own lines' : 'Difference', off ? lines - p.total : gap, '', Math.abs(off ? lines - p.total : gap) > 0.005 ? 'sv-gap' : 'sv-ok')}
       </tbody></table>
+      <p class="sv-src c-s">From: ${esc(storeSources(id).join(' · '))}</p>
       <div class="sv-blk"><p class="sl">What the records say</p><p>${esc(v.found)}</p></div>
       ${seen ? `<div class="sv-blk sv-conf"><p class="sl">Confirmed</p><p>${esc(v.after)}</p></div>`
         : `<div class="sv-blk sv-maybe"><p class="sl">Possible reason · not confirmed</p><p>${esc(v.maybe)}</p><button type="button" class="b-sec" data-do="svcheck" data-p="${id}">${esc(v.check)}</button></div>`}
@@ -556,7 +565,10 @@
   const val = (s) => ($(s) ? $(s).value : '');
   const T = (id) => state.tasks[id];
   function setMe(p) { me = D.people[p] ? p : 'ava'; try { localStorage.setItem(AS, me); } catch {} $('#rq-as').value = me; ui.form = null; ui.msg = ''; }
-  $('#rq-as').innerHTML = Object.entries(D.people).map(([k, p]) => `<option value="${k}"${k === me ? ' selected' : ''}>${esc(p.name)} · ${esc(team(p.team))}</option>`).join('');
+  const SETTINGS = [['An online store', ['books', 'store', 'support']], ['A mortgage lender', ['servicing', 'payments', 'approvals', 'statements', 'adjustments', 'registration']], ['A finance team', ['treasury', 'ap', 'ar', 'gl', 'payroll', 'time']]];
+  const optP = ([k, p]) => `<option value="${k}"${k === me ? ' selected' : ''}>${esc(p.name)} · ${esc(team(p.team))}</option>`;
+  const grouped = SETTINGS.flatMap(([, ts]) => ts);
+  $('#rq-as').innerHTML = SETTINGS.map(([l, ts]) => `<optgroup label="${esc(l)}">${Object.entries(D.people).filter(([, p]) => ts.includes(p.team)).map(optP).join('')}</optgroup>`).join('') + Object.entries(D.people).filter(([, p]) => !grouped.includes(p.team)).map(optP).join('');
   $('#rq-as').addEventListener('change', () => { setMe($('#rq-as').value); render(); });
   const saveF = () => { try { sessionStorage.setItem(FKEY, JSON.stringify(filters)); } catch {} };
 
@@ -645,6 +657,15 @@
   // first paint: straight to the address in the URL, with no other panel shown first
   const first = parse(location.hash);
   apply(first);
-  if (location.hash === '#try' || first.page === 'case' || first.page === 'store') requestAnimationFrame(() => requestAnimationFrame(() => { $('#workbench').scrollIntoView({ behavior: 'auto' }); toSheet(); }));
+  if (location.hash === '#try' || first.page === 'case' || first.page === 'store') {
+    // a link straight to a page lands on it; the page above keeps growing while media loads, so land again until the visitor scrolls
+    let moved = false;
+    const stop = () => { moved = true; };
+    ['wheel', 'touchstart', 'keydown'].forEach((ev) => addEventListener(ev, stop, { once: true, passive: true }));
+    const land = () => { if (moved) return; const s = $('#sheet'); if (s) window.scrollTo({ top: s.getBoundingClientRect().top + window.scrollY - 76, behavior: 'instant' }); };
+    requestAnimationFrame(() => requestAnimationFrame(land));
+    addEventListener('load', () => { land(); setTimeout(land, 400); }, { once: true });
+    setTimeout(land, 1200);
+  }
   app.refresh && app.refresh();
 })();

@@ -54,7 +54,7 @@
       setTimeout(startReveals, 280);
     } else startReveals();
   }
-  if (intro && !reduced && !arriving && !store.get('tm-intro')) {
+  if (intro && !reduced && !arriving && !store.get('tm-intro') && !/^#(store|try|case|queue)/.test(location.hash)) {
     store.set('tm-intro', '1');
     intro.querySelectorAll('.intro-word > span').forEach((s, i) => s.style.setProperty('--k', i));
     document.body.style.overflow = 'hidden';
@@ -131,13 +131,14 @@
   const wb = (route) => () => { if (work && window.tmGo) window.tmGo('#' + route); else location.href = 'index.html#' + route; };
   const notes = work ? 'notes.html' : '';
   const items = [
+    ['Why is my payout short?', 'Store owner view', wb('store')],
     ['My Work', 'Workbench', wb('workbench')],
     ['Month-end Close', 'Work Queues', wb('queue/close')],
     ['Payroll', 'Work Queues', wb('queue/payroll')],
     ['Cash Reconciliation', 'Work Queues', wb('queue/cash')],
     ['Mortgage Servicing', 'Work Queues', wb('queue/mortgage')],
     ['Merchant Payouts', 'Work Queues', wb('queue/payouts')],
-    ['Guided demo', 'Try the payout exception', wb('try')],
+    ['Guided demo', 'Try the bank case', wb('try')],
     ['Data & Imports', 'Workbench · run your own CSV', wb('imports')],
     ['Audit Log', 'Workbench', wb('audit')],
     ['Public filings', 'Demo & Validation', wb('demo/filings')],
