@@ -200,6 +200,7 @@
     return `<div class="sv">
       <p class="sv-lead">${ids.length} payouts since 28 Oct. <b>${open ? `${open} need${open === 1 ? 's' : ''} a look` : 'All explained'}</b>${due.length ? ` · ${due.map((id) => `${SV.payouts[id].deadlineLabel.toLowerCase()} ${day(SV.payouts[id].deadline)}`).join(', ')}` : ''}. Each one compares what the payment processor says it sent with what reached your bank.</p>
       <div class="sv-grid"><ul class="sv-list" aria-label="Payouts">${list}</ul>${storeCard(sv.sel)}</div>
+      <p class="sv-ask">Run a store, or keep books for one? <a href="#contact" data-feedback>Tell me which payout was unclear</a>. It goes to Martin, and changes land in the build log.</p>
       <p class="sv-foot c-s">Simulated: ${esc(SV.store)} is a fictional store, and the payout report and bank statement are synthetic. The wording is written by fixed rules, not a model.</p>
     </div>`;
   }
@@ -576,6 +577,8 @@
   document.addEventListener('click', (e) => {
     const a = e.target.closest('[data-route]');
     if (a && !e.metaKey && !e.ctrlKey && !e.shiftKey) { e.preventDefault(); const r = parse('#' + a.dataset.route); if (r.page !== 'case') ui.guided = false; go(r); closeMenu(); if (r.page === 'case' || r.page === 'store') requestAnimationFrame(toSheet); return; }
+    const fb = e.target.closest('[data-feedback]');
+    if (fb) { e.preventDefault(); const m = $('#ct-msg'); if (m && !m.value) m.value = `About the store owner view (${sv.sel}): `; if (m) m.focus({ preventScroll: true }); requestAnimationFrame(() => requestAnimationFrame(() => { const c = $('#contact'); window.scrollTo({ top: c.getBoundingClientRect().top + window.scrollY - 60, behavior: reduced ? 'auto' : 'smooth' }); })); return; }
     const st = e.target.closest('[data-try-store]');
     if (st) { e.preventDefault(); go({ page: 'case', store: true }); closeMenu(); requestAnimationFrame(toSheet); return; }
     const t = e.target.closest('[data-try-case]');

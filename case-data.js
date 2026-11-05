@@ -476,7 +476,7 @@ window.TMC = (() => {
         chip: '$300.00 short', chipAfter: 'Chargeback · respond by 9 Nov', tone: 'neg',
         head: 'Your bank got $300.00 less than payout PO-1028',
         found: 'The payout summary says $4,888.04. Your bank received $4,588.04 on 30 Oct.',
-        maybe: 'Something was taken out after the summary was made. That is usually a chargeback or an adjustment. The payout’s transaction list would show it.',
+        maybe: 'The bank amount implies a deduction the summary row does not show. That is usually a chargeback on an earlier order, which comes out of a later payout, or another adjustment. The payout’s transaction list would show it.',
         check: 'Read the payout’s transactions', reveal: 'available:txns',
         after: 'The transaction list has a chargeback: CB-5521, −$300.00, on dispute DP-881. A customer asked their card issuer to reverse a payment.',
         todo: 'Open the payout’s transaction list and look for a $300.00 line. Until you know what it is, the October books cannot be closed.',

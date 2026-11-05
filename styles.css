@@ -1241,3 +1241,6 @@ button.wb-g[aria-expanded="false"]::after { transform: rotate(-90deg); }
   .sv-amt { font-size: 15px; }
   .sv-lead { font-size: 15px; margin-bottom: 12px; }
 }
+
+.sv-ask { margin: 18px 0 0; font-size: 15px; color: #d9dbe0; }
+.sv-ask a { color: var(--gold, #d2a965); }

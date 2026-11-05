@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=20261105c">
+<link rel="stylesheet" href="styles.css?v=20261105d">
 <script>document.documentElement.classList.add('js');try{if(sessionStorage.getItem('tm-wipe'))document.documentElement.classList.add('arriving')}catch(e){}</script>
 </head>
 <body data-page="notes">
@@ -97,7 +97,15 @@
   </div>
 </section>
 
-<section class="story alt" id="tradeoffs" aria-labelledby="to-h">
+<section class="story alt" id="exists" aria-labelledby="ex-h">
+  <h2 id="ex-h" class="head lines"><span class="line"><span data-line>What already exists</span></span></h2>
+  <div class="story-body">
+    <p data-reveal>Checked 4 Nov 2026, from public pages. A payment platform's own payouts page already breaks each payout into charges, refunds, adjustments and reserves, and exports the transactions behind it (<a href="https://help.shopify.com/en/manual/payments/shopify-payments/getting-paid-with-shopify-payments/view-payouts/view-details">Shopify Help: payout details</a>, <a href="https://help.shopify.com/en/manual/payments/shopify-payments/reserves">reserves</a>). Accounting apps such as <a href="https://apps.shopify.com/a2x">A2X</a> post each payout to the books so it matches the bank deposit.</p>
+    <p data-reveal>So the numbers are not the gap. What I want to test is the step after them: a plain answer to why a payout differs, which item needs a decision and by when, and a possible reason kept apart from a confirmed one. Some of my demo cases, such as a summary that misses a deduction, are less likely where adjustments are already itemised; a reserve's release date, fees against the plan, and a duplicate refund are the ones worth putting in front of store owners first.</p>
+  </div>
+</section>
+
+<section class="story" id="tradeoffs" aria-labelledby="to-h">
   <h2 id="to-h" class="head lines"><span class="line"><span data-line>What I left out</span></span></h2>
   <div class="story-body">
     <ul class="kinds" data-reveal>
@@ -109,7 +117,7 @@
   </div>
 </section>
 
-<section class="story" id="measure" aria-labelledby="ms-h">
+<section class="story alt" id="measure" aria-labelledby="ms-h">
   <h2 id="ms-h" class="head lines"><span class="line"><span data-line>How I would know it works</span></span></h2>
   <div class="story-body">
     <p data-reveal>None of this is measured yet. This is the plan.</p>
@@ -122,7 +130,7 @@
   </div>
 </section>
 
-<section class="story alt" id="log" aria-labelledby="bl-h">
+<section class="story" id="log" aria-labelledby="bl-h">
   <h2 id="bl-h" class="head lines"><span class="line"><span data-line>Build log</span></span></h2>
   <ol class="blog">
     <li data-reveal><span class="bl-d">Before Tickmark</span><div><b>Eight hand-written exceptions.</b><p>The first version showed eight exceptions I typed in by hand. It looked finished; nothing ran on real input, so nothing could be measured.</p></div></li>
@@ -276,9 +284,9 @@
   </div>
 </footer>
 
-<script src="engine.js?v=20261105c"></script>
-<script src="data.js?v=20261105c"></script>
-<script src="app.js?v=20261105c"></script>
-<script src="motion.js?v=20261105c"></script>
+<script src="engine.js?v=20261105d"></script>
+<script src="data.js?v=20261105d"></script>
+<script src="app.js?v=20261105d"></script>
+<script src="motion.js?v=20261105d"></script>
 </body>
 </html>
