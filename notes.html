@@ -3,16 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Tickmark Notes · Martin Zhang</title>
+<title>Tickmark Case Study · Martin Zhang</title>
 <meta name="description" content="The problem Tickmark works on, the research behind it, what was built, and the build log in order.">
 <link rel="icon" href="assets/mark.svg" type="image/svg+xml">
-<meta property="og:title" content="Tickmark Notes · The problem, the research, the build log">
+<meta property="og:title" content="Tickmark Case Study · The problem, the research, the build log">
 <meta property="og:image" content="https://tickmark-martinzhang.vercel.app/assets/og.png">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=20261105f">
+<link rel="stylesheet" href="styles.css?v=20261105g">
 <script>document.documentElement.classList.add('js');try{if(sessionStorage.getItem('tm-wipe'))document.documentElement.classList.add('arriving')}catch(e){}</script>
 </head>
 <body data-page="notes">
@@ -31,8 +31,8 @@
   <a class="logo" href="index.html" data-wipe aria-label="Tickmark, home"><svg class="mk" viewBox="0 0 191 225" aria-hidden="true"><path class="m-cream" d="M0 80L191 0V60L48 165L0 140Z"/><path class="m-gold" d="M0 156L48 181L191 76V145L0 225Z"/></svg><span class="wm">T<span class="wm-i">ı</span>ckmark</span></a>
   <nav class="bar-links" aria-label="Sections">
     <a href="index.html#workbench">Workbench</a>
-    <a href="index.html#control">Control</a>
-    <a href="notes.html" data-wipe>Notes</a>
+    <a href="index.html#try">Guided demo</a>
+    <a href="notes.html" data-wipe aria-current="page">Case study</a>
   </nav>
   <button type="button" class="kbd" id="pal-open" aria-keyshortcuts="Control+K Meta+K"><span>Jump to section</span><kbd>⌘K</kbd></button>
   <a class="bar-action magnetic" href="index.html#contact">Contact</a>
@@ -149,6 +149,8 @@
       <p><b>Verified:</b> 54 automated tests, seven of them on search; checked at desktop and phone width. <b>Not yet:</b> anyone searching for something real; the synonyms are my guesses until then.</p></div></li>
     <li data-reveal><span class="bl-d">5 Nov 2026</span><div><b>A store owner's own payout file.</b><p>Five fictional payouts show the idea; a store owner wants their own. The owner view now reads a Shopify Payments "Export payout transactions" CSV, in the columns Shopify's help page lists, and explains it the same way: sales, refunds, chargebacks, adjustments, reserve and fees down to the payout, against the amount that reached the bank if the owner types it in. What the file cannot say, it says it cannot: no chargeback deadline, no reason for an adjustment, no currency column. A short deposit gets a possible reason marked as not confirmed. The file is read in the browser and never uploaded.</p>
       <p><b>Verified:</b> 59 automated tests, five on the file reader, including several payouts in one file, pending lines, unreadable lines and a file that is not a payout export; checked with a sample in Shopify's column layout at desktop and phone width. <b>Not yet:</b> a real store's export. The column names come from Shopify's help page, not from a file I have seen.</p></div></li>
+    <li data-reveal><span class="bl-d">5 Nov 2026</span><div><b>The product stops explaining itself.</b><p>The product, the portfolio, the manual and the demo were all on one page, so it read like a submission, not a tool someone opens every morning. Now there are four places. The home screen is one screen with three ways in. The workbench only helps people work: no intro cards, and the validation pages moved to a Demo Lab. A case page leads with the issue, the missing evidence, what it holds up and the next action; the possible cause is one line, with the reasoning, evidence, checks and activity folded below. The guided demo keeps every explanation, behind a bar with Start over, Normal workbench and Exit demo. The store owner view shows the totals, the cause and the next step, with the teaching kept for its guided version. These notes became the case study.</p>
+      <p><b>Verified:</b> 59 automated tests; the whole eight-step guided demo run in the browser; home, workbench, case, store and lab checked at desktop and phone width. <b>Not yet:</b> anyone who works a queue trying the plainer case page.</p></div></li>
   </ol>
 </section>
 
@@ -283,14 +285,14 @@
   <p class="foot-word" aria-hidden="true"><svg class="mk" viewBox="0 0 191 225" aria-hidden="true"><path class="m-cream" d="M0 80L191 0V60L48 165L0 140Z"/><path class="m-gold" d="M0 156L48 181L191 76V145L0 225Z"/></svg><span>T<span class="wm-i">ı</span>ckmark</span></p>
   <div class="foot-line">
     <span class="soft">Martin Zhang · Finance systems and AI evaluation · Toronto</span>
-    <span class="foot-links"><a href="index.html#workbench">Workbench</a><a href="notes.html" data-wipe>Notes</a><a href="https://martinzhang.vercel.app/">Portfolio</a><a href="https://github.com/MarZss03/tickmark">Source</a></span>
+    <span class="foot-links"><a href="index.html#workbench">Workbench</a><a href="index.html#try">Guided demo</a><a href="notes.html" data-wipe>Case study</a><a href="https://martinzhang.vercel.app/">Portfolio</a><a href="https://github.com/MarZss03/tickmark">Source</a></span>
     <span class="soft">2026</span>
   </div>
 </footer>
 
-<script src="engine.js?v=20261105f"></script>
-<script src="data.js?v=20261105f"></script>
-<script src="app.js?v=20261105f"></script>
-<script src="motion.js?v=20261105f"></script>
+<script src="engine.js?v=20261105g"></script>
+<script src="data.js?v=20261105g"></script>
+<script src="app.js?v=20261105g"></script>
+<script src="motion.js?v=20261105g"></script>
 </body>
 </html>

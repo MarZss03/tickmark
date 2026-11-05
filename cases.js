@@ -225,7 +225,11 @@
     const result = runCheck(state, adapters, caseId, by, `${item.label} arrived`);
     return { ok: true, evidence: ev.id, changes, moved: [...touched], ...result };
   }
-  const fmt = (v) => (v == null || v === '' ? 'blank' : typeof v === 'number' ? v.toLocaleString('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : typeof v === 'object' ? JSON.stringify(v) : String(v));
+  // values in words for the activity log: a list or a record reads as its parts, never as raw JSON
+  const fmt = (v) => (v == null || v === '' ? 'blank' : typeof v === 'number' ? v.toLocaleString('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : Array.isArray(v) ? (v.length ? v.map(fmt).join('; ') : 'none')
+      : typeof v === 'object' ? Object.values(v).filter((x) => x != null && x !== '' && typeof x !== 'object').map(fmt).join(' ') || 'details'
+        : String(v));
 
   // ---------- tasks: escalation to a team or a person ----------
   const OPEN_TASK = ['open', 'claimed', 'clarify', 'more-info', 'returned', 'replied'];

@@ -54,7 +54,7 @@
       setTimeout(startReveals, 280);
     } else startReveals();
   }
-  if (intro && !reduced && !arriving && !store.get('tm-intro') && !/^#(store|try|case|queue|search)/.test(location.hash)) {
+  if (intro && !reduced && !arriving && !store.get('tm-intro') && !/^#(?!home$|top$|contact$)./.test(location.hash)) {
     store.set('tm-intro', '1');
     intro.querySelectorAll('.intro-word > span').forEach((s, i) => s.style.setProperty('--k', i));
     document.body.style.overflow = 'hidden';
@@ -132,31 +132,33 @@
   const notes = work ? 'notes.html' : '';
   const items = [
     ['Search all cases', 'Workbench · IDs, people, amounts, words', wb('search')],
-    ['Why is my payout short?', 'Store owner view', wb('store')],
+    ['Store owner view', 'Payouts for one store', wb('store')],
+    ['Why is my payout short?', 'Guided demo · a store owner', wb('try/store')],
     ['My Work', 'Workbench', wb('workbench')],
     ['Month-end Close', 'Work Queues', wb('queue/close')],
     ['Payroll', 'Work Queues', wb('queue/payroll')],
     ['Cash Reconciliation', 'Work Queues', wb('queue/cash')],
     ['Mortgage Servicing', 'Work Queues', wb('queue/mortgage')],
     ['Merchant Payouts', 'Work Queues', wb('queue/payouts')],
-    ['Guided demo', 'Try the bank case', wb('try')],
+    ['Guided demo', 'A mortgage payoff, step by step', wb('try')],
     ['Data & Imports', 'Workbench · run your own CSV', wb('imports')],
     ['Audit Log', 'Workbench', wb('audit')],
-    ['Public filings', 'Demo & Validation', wb('demo/filings')],
-    ['Model evaluation', 'Demo & Validation', wb('demo/eval')],
-    ['Stress test', 'Demo & Validation · plant errors, count what is caught', wb('demo/stress')],
-    ['Try a control', 'Work', go(home + '#control')],
-    ['Contact', 'Work', go(home + '#contact')],
-    ['The problem', 'Notes', go(notes + '#problem')],
-    ['What I found', 'Notes', go(notes + '#found')],
-    ['What I chose to build', 'Notes', go(notes + '#chose')],
-    ['Build log', 'Notes', go(notes + '#log')],
-    ['Principles', 'Notes', go(notes + '#principles')],
-    ['Scores', 'Notes', go(notes + '#scores')],
-    ['What broke', 'Notes', go(notes + '#broke')],
-    ['Close calendar', 'Notes', go(notes + '#calendar')],
-    ['Data sources', 'Notes', go(notes + '#data')],
-    ['Letter', 'Notes', go(notes + '#letter')],
+    ['Public filings', 'Demo Lab', wb('demo/filings')],
+    ['Model evaluation', 'Demo Lab', wb('demo/eval')],
+    ['Stress test', 'Demo Lab · plant errors, count what is caught', wb('demo/stress')],
+    ['Journal entry control', 'Demo Lab', wb('demo/control')],
+    ['Home', 'Tickmark', wb('home')],
+    ['Contact', 'Tickmark', wb('contact')],
+    ['The problem', 'Case study', go(notes + '#problem')],
+    ['What I found', 'Case study', go(notes + '#found')],
+    ['What I chose to build', 'Case study', go(notes + '#chose')],
+    ['Build log', 'Case study', go(notes + '#log')],
+    ['Principles', 'Case study', go(notes + '#principles')],
+    ['Scores', 'Case study', go(notes + '#scores')],
+    ['What broke', 'Case study', go(notes + '#broke')],
+    ['Close calendar', 'Case study', go(notes + '#calendar')],
+    ['Data sources', 'Case study', go(notes + '#data')],
+    ['Letter', 'Case study', go(notes + '#letter')],
   ];
   let shown = items, sel = 0, last = null;
   const escH = (v) => String(v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);

@@ -14,8 +14,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=20261105f">
-<script>document.documentElement.classList.add('js');try{if(sessionStorage.getItem('tm-wipe'))document.documentElement.classList.add('arriving')}catch(e){}</script>
+<link rel="stylesheet" href="styles.css?v=20261105g">
+<script>document.documentElement.classList.add('js');var h=location.hash.slice(1);document.documentElement.dataset.mode=(!h||h==='home'||h==='top'||h==='contact')?'home':/^try/.test(h)?'try':h==='store'?'store':(h.indexOf('demo/')===0||h==='validation'||h==='lab'||h==='control')?'lab':'app';try{if(sessionStorage.getItem('tm-wipe'))document.documentElement.classList.add('arriving')}catch(e){}</script>
 </head>
 <body data-page="work">
 
@@ -40,9 +40,9 @@
 <header class="bar">
   <a class="logo" href="index.html" data-wipe aria-label="Tickmark, home"><svg class="mk" viewBox="0 0 191 225" aria-hidden="true"><path class="m-cream" d="M0 80L191 0V60L48 165L0 140Z"/><path class="m-gold" d="M0 156L48 181L191 76V145L0 225Z"/></svg><span class="wm">T<span class="wm-i">ı</span>ckmark</span></a>
   <nav class="bar-links" aria-label="Sections">
-    <a href="#workbench">Workbench</a>
-    <a href="#control">Control</a>
-    <a href="notes.html" data-wipe>Notes</a>
+    <a href="#workbench" data-route="mywork">Workbench</a>
+    <a href="#try" data-try-case>Guided demo</a>
+    <a href="notes.html" data-wipe>Case study</a>
   </nav>
   <button type="button" class="kbd" id="pal-open" aria-keyshortcuts="Control+K Meta+K"><span>Search</span><kbd>⌘K</kbd></button>
   <a class="bar-action magnetic" href="#contact">Contact</a>
@@ -56,12 +56,14 @@
       <span class="line"><span data-line style="--i:0">When the money</span></span>
       <span class="line"><span data-line style="--i:1">doesn’t match</span></span>
     </h1>
-    <p class="hero-lede fade-in">A payout lands $300 short. A paid-off loan still shows a balance. Tickmark says what the records show, keeps the possible reason apart from the facts, and points to the one source or person that can settle it.</p>
+    <p class="hero-lede fade-in">Tickmark finds the discrepancy, traces the evidence, and routes the next decision to the right person.</p>
     <div class="actions fade-in">
-      <a class="btn magnetic" href="#store" data-route="store">Why is my payout short?</a>
-      <a class="btn ghost magnetic" href="#try" data-try-case>Try the bank case</a>
-      <a class="btn ghost magnetic" href="notes.html" data-wipe>Read the notes</a>
+      <a class="btn magnetic" href="#workbench" data-route="mywork">Open workbench</a>
+      <a class="btn ghost magnetic" href="#try" data-try-case>Try guided demo</a>
+      <a class="btn ghost magnetic" href="notes.html" data-wipe>View case study</a>
     </div>
+    <ul class="hero-tags fade-in" aria-label="Principles"><li>Evidence-linked</li><li>Human-approved</li><li>Audit-ready</li></ul>
+    <p class="hero-alt fade-in">Run a store? <a href="#store" data-route="store">See why a payout is short →</a></p>
   </div>
   <figure class="hero-media">
     <video autoplay muted loop playsinline preload="auto" poster="assets/mark-3d.jpg" width="900" height="900" aria-label="The Tickmark mark in cream and gold, turning slowly">
@@ -70,28 +72,15 @@
   </figure>
 </section>
 
-<section class="metrics" aria-labelledby="metrics-h">
-  <h2 id="metrics-h" class="sr">Results</h2>
-  <div class="metric" data-reveal><p class="m-v"><span data-count="5">5</span></p><p class="m-l">kinds of mismatch on one workbench: store payouts, mortgage servicing, cash, payroll, month-end close</p></div>
-  <div class="metric" data-reveal><p class="m-v"><span data-count="32">32</span></p><p class="m-l">synthetic cases, each fact traced to the source it came from</p></div>
-  <div class="metric" data-reveal><p class="m-v"><span data-count="59">59</span></p><p class="m-l">tests on the rules and the casework, run on every push</p></div>
-  <div class="metric" data-reveal><p class="m-v"><span data-count="6">6</span></p><p class="m-l">gaps in my own rules found by planting errors, then fixed</p></div>
-</section>
-
 <section class="workbench" id="workbench" aria-labelledby="wb-h">
-  <div class="sec-head">
-    <h2 id="wb-h" class="head lines"><span class="line"><span data-line>Workbench</span></span></h2>
-    <div class="sec-note" data-reveal><p>Run it on the sample, or on your own CSV files. Every decision lands in the audit log.</p><button type="button" class="link-btn" data-open-view="mine">Use your own CSV →</button></div>
-    <div class="try-row"><a class="try-cta" href="#store" data-route="store"><span class="try-k">Start here · 1 minute · a store owner</span><b>Why is my payout short?</b><span>Five payouts from a small online store. Each one shows how it adds up, what reached the bank, the possible reason kept apart from the facts, and what to do next.</span></a>
-    <a class="try-cta alt" href="#try" data-try-case><span class="try-k">Then · 2 minutes · a team at a bank</span><b>Try the bank case</b><span>The money reached the bank; the loan still shows a balance. Trace it, ask Payments and an authorised reviewer, and re-check, switching roles as you go. This is where Tickmark started.</span></a></div>
-  </div>
+  <h2 id="wb-h" class="sr">Workbench</h2>
   <div class="app-wrap" data-reveal="wipe">
 <div class="app" data-ui id="app">
     <aside class="app-side" aria-label="Workbench navigation">
       <p class="app-brand"><svg class="mk" viewBox="0 0 191 225" aria-hidden="true"><path class="m-cream" d="M0 80L191 0V60L48 165L0 140Z"/><path class="m-gold" d="M0 156L48 181L191 76V145L0 225Z"/></svg>Tickmark</p>
       <button type="button" class="wb-menu" id="wb-menu" aria-expanded="false" aria-controls="wb-nav"><span id="wb-menu-l">My Work</span><span aria-hidden="true">▾</span></button>
       <nav class="wb-nav" id="wb-nav" aria-label="Workbench">
-        <a class="wb-i" href="#store" data-route="store"><span>Store owner view</span></a>
+        <div class="wb-biz">
         <a class="wb-i" href="#workbench" data-route="mywork"><span>My Work</span><span class="count" id="n-mywork" title="Cases and checks waiting on you"></span></a>
         <button type="button" class="wb-g" id="wb-q-t" aria-expanded="true" aria-controls="wb-q">Work Queues</button>
         <div class="wb-sub" id="wb-q">
@@ -103,15 +92,17 @@
         </div>
         <a class="wb-i" href="#imports" data-route="imports"><span>Data &amp; Imports</span><span class="count" id="mine-count" hidden></span></a>
         <a class="wb-i" href="#audit" data-route="audit"><span>Audit Log</span><span class="count" id="audit-count" title="Entries">0</span></a>
-        <p class="wb-g wb-demo-h">Demo &amp; Validation</p>
-        <div class="wb-sub wb-demo">
-          <a class="wb-i" href="#try" data-try-case><span>Guided demo</span></a>
-          <a class="wb-i" href="#demo/filings" data-route="demo/filings"><span>Public filings</span></a>
-          <a class="wb-i" href="#demo/eval" data-route="demo/eval"><span>Model evaluation</span></a>
-          <a class="wb-i" href="#demo/stress" data-route="demo/stress"><span>Stress test</span></a>
+        </div>
+        <div class="wb-lab">
+        <p class="wb-g">Demo Lab</p>
+        <a class="wb-i" href="#demo/filings" data-route="demo/filings"><span>Public filings</span></a>
+        <a class="wb-i" href="#demo/eval" data-route="demo/eval"><span>Model evaluation</span></a>
+        <a class="wb-i" href="#demo/stress" data-route="demo/stress"><span>Stress test</span></a>
+        <a class="wb-i" href="#demo/control" data-route="demo/control"><span>Journal entry control</span></a>
+        <a class="wb-i wb-back" href="#workbench" data-route="mywork"><span>← Back to the workbench</span></a>
         </div>
       </nav>
-      <p class="app-env">Close, payroll, cash, mortgage and payout records are synthetic, and sign-in and sending are simulated. Filings, exchange rates and FinQA are real public data.</p>
+      <p class="app-env"><span class="wb-biz">Demo data · simulated sign-in · <a href="#demo/stress" data-route="demo/stress">Demo Lab</a></span><span class="wb-lab">Filings, exchange rates and FinQA are real public data.</span></p>
     </aside>
     <div class="app-top">
       <span class="period" id="wb-where">My Work</span>
@@ -120,6 +111,69 @@
     </div>
     <div class="sheet" id="sheet">
       <div id="wb-head"></div>
+
+      <div class="view" data-view="control" hidden>
+<section class="control" id="control" aria-labelledby="ct-try">
+  <div class="control-copy">
+    <h2 id="ct-try" class="head lines"><span class="line"><span data-line>Try a control</span></span></h2>
+    <p class="sec-note" data-reveal>Change an amount. It releases only when every check holds.</p>
+    <figure class="scale" id="je-scale" data-reveal aria-label="Debits and credits balance">
+      <svg viewBox="0 0 520 250" aria-hidden="true">
+        <path class="sc-post" d="M260 78 L260 214 M200 214 L320 214"/>
+        <g class="sc-beam">
+          <line x1="60" y1="70" x2="460" y2="70"/>
+          <circle cx="260" cy="70" r="9"/>
+          <g class="sc-pan sc-pan-l"><path class="sc-str" d="M60 70 L28 150 M60 70 L92 150"/><path class="sc-dish" d="M14 150 H106 Q100 178 60 178 Q20 178 14 150 Z"/><text x="60" y="200">Dr</text></g>
+          <g class="sc-pan sc-pan-r"><path class="sc-str" d="M460 70 L428 150 M460 70 L492 150"/><path class="sc-dish" d="M414 150 H506 Q500 178 460 178 Q420 178 414 150 Z"/><text x="460" y="200">Cr</text></g>
+        </g>
+        <path class="sc-tick" d="M246 40 L256 50 L276 26"/>
+      </svg>
+      <figcaption class="sc-totals">
+        <span><small>Debits</small><b id="sc-dr">51,941.13</b></span>
+        <span class="sc-diff" id="sc-diff">balanced</span>
+        <span><small>Credits</small><b id="sc-cr">51,941.13</b></span>
+      </figcaption>
+    </figure>
+    <div class="try" data-reveal>
+      <span class="try-l">Try</span>
+      <button type="button" class="try-b" data-try="unbalance">Unbalance it</button>
+      <button type="button" class="try-b" data-try="self">Approve my own entry</button>
+      <button type="button" class="try-b" data-try="reset">Reset</button>
+    </div>
+  </div>
+  <div class="control-stage" data-reveal="wipe">
+<form class="je" data-ui id="je" aria-label="Journal entry control, try changing an amount" onsubmit="return false">
+      <div class="je-head">
+        <div>
+          <p class="je-id">JE-1031 · draft</p>
+          <p class="je-memo">Accrue October contractor payroll</p>
+        </div>
+        <span class="pill" id="je-state">Checking</span>
+      </div>
+      <table class="je-lines">
+        <thead><tr><th scope="col">Account</th><th scope="col" class="num">Debit</th><th scope="col" class="num">Credit</th></tr></thead>
+        <tbody>
+          <tr><td><span class="acct">6100</span> Contractor expense</td><td class="num"><input id="je-d1" inputmode="decimal" value="48,250.00" aria-label="Debit, contractor expense"></td><td class="num muted">—</td></tr>
+          <tr><td><span class="acct">6110</span> Employer payroll tax</td><td class="num"><input id="je-d2" inputmode="decimal" value="3,691.13" aria-label="Debit, employer payroll tax"></td><td class="num muted">—</td></tr>
+          <tr><td><span class="acct">2150</span> Accrued payroll</td><td class="num muted">—</td><td class="num"><input id="je-c1" inputmode="decimal" value="51,941.13" aria-label="Credit, accrued payroll"></td></tr>
+        </tbody>
+        <tfoot><tr><th scope="row">Totals</th><td class="num" id="je-dr">51,941.13</td><td class="num" id="je-cr">51,941.13</td></tr></tfoot>
+      </table>
+      <ul class="checks" id="je-checks" aria-live="polite">
+        <li data-check="balance"><svg viewBox="2 1 20 20" aria-hidden="true"><path d="M5 14L9 18L19 2.5"/></svg><span>Debits equal credits</span><b></b></li>
+        <li data-check="period"><svg viewBox="2 1 20 20" aria-hidden="true"><path d="M5 14L9 18L19 2.5"/></svg><span>Period Oct 2026 is open</span><b>open</b></li>
+        <li data-check="evidence"><svg viewBox="2 1 20 20" aria-hidden="true"><path d="M5 14L9 18L19 2.5"/></svg><span>Ties to the payroll register</span><b></b></li>
+        <li data-check="four"><svg viewBox="2 1 20 20" aria-hidden="true"><path d="M5 14L9 18L19 2.5"/></svg><span>Approver is not the preparer</span><b></b></li>
+      </ul>
+      <div class="je-foot">
+        <label class="switch"><input type="checkbox" id="je-self"><span class="track" aria-hidden="true"></span>I prepared this entry too</label>
+        <button type="button" class="je-release" id="je-release">Release entry</button>
+      </div>
+      <p class="je-log" id="je-log">Change any amount. The entry only releases when every check holds.</p>
+    </form>
+  </div>
+</section>
+      </div>
 
       <!-- CLOSE -->
       <div class="view" data-view="close" role="tabpanel" hidden>
@@ -335,67 +389,6 @@
   </div>
 </section>
 
-<section class="control" id="control" aria-labelledby="ct-try">
-  <div class="control-copy">
-    <h2 id="ct-try" class="head lines"><span class="line"><span data-line>Try a control</span></span></h2>
-    <p class="sec-note" data-reveal>Change an amount. It releases only when every check holds.</p>
-    <figure class="scale" id="je-scale" data-reveal aria-label="Debits and credits balance">
-      <svg viewBox="0 0 520 250" aria-hidden="true">
-        <path class="sc-post" d="M260 78 L260 214 M200 214 L320 214"/>
-        <g class="sc-beam">
-          <line x1="60" y1="70" x2="460" y2="70"/>
-          <circle cx="260" cy="70" r="9"/>
-          <g class="sc-pan sc-pan-l"><path class="sc-str" d="M60 70 L28 150 M60 70 L92 150"/><path class="sc-dish" d="M14 150 H106 Q100 178 60 178 Q20 178 14 150 Z"/><text x="60" y="200">Dr</text></g>
-          <g class="sc-pan sc-pan-r"><path class="sc-str" d="M460 70 L428 150 M460 70 L492 150"/><path class="sc-dish" d="M414 150 H506 Q500 178 460 178 Q420 178 414 150 Z"/><text x="460" y="200">Cr</text></g>
-        </g>
-        <path class="sc-tick" d="M246 40 L256 50 L276 26"/>
-      </svg>
-      <figcaption class="sc-totals">
-        <span><small>Debits</small><b id="sc-dr">51,941.13</b></span>
-        <span class="sc-diff" id="sc-diff">balanced</span>
-        <span><small>Credits</small><b id="sc-cr">51,941.13</b></span>
-      </figcaption>
-    </figure>
-    <div class="try" data-reveal>
-      <span class="try-l">Try</span>
-      <button type="button" class="try-b" data-try="unbalance">Unbalance it</button>
-      <button type="button" class="try-b" data-try="self">Approve my own entry</button>
-      <button type="button" class="try-b" data-try="reset">Reset</button>
-    </div>
-  </div>
-  <div class="control-stage" data-reveal="wipe">
-<form class="je" data-ui id="je" aria-label="Journal entry control, try changing an amount" onsubmit="return false">
-      <div class="je-head">
-        <div>
-          <p class="je-id">JE-1031 · draft</p>
-          <p class="je-memo">Accrue October contractor payroll</p>
-        </div>
-        <span class="pill" id="je-state">Checking</span>
-      </div>
-      <table class="je-lines">
-        <thead><tr><th scope="col">Account</th><th scope="col" class="num">Debit</th><th scope="col" class="num">Credit</th></tr></thead>
-        <tbody>
-          <tr><td><span class="acct">6100</span> Contractor expense</td><td class="num"><input id="je-d1" inputmode="decimal" value="48,250.00" aria-label="Debit, contractor expense"></td><td class="num muted">—</td></tr>
-          <tr><td><span class="acct">6110</span> Employer payroll tax</td><td class="num"><input id="je-d2" inputmode="decimal" value="3,691.13" aria-label="Debit, employer payroll tax"></td><td class="num muted">—</td></tr>
-          <tr><td><span class="acct">2150</span> Accrued payroll</td><td class="num muted">—</td><td class="num"><input id="je-c1" inputmode="decimal" value="51,941.13" aria-label="Credit, accrued payroll"></td></tr>
-        </tbody>
-        <tfoot><tr><th scope="row">Totals</th><td class="num" id="je-dr">51,941.13</td><td class="num" id="je-cr">51,941.13</td></tr></tfoot>
-      </table>
-      <ul class="checks" id="je-checks" aria-live="polite">
-        <li data-check="balance"><svg viewBox="2 1 20 20" aria-hidden="true"><path d="M5 14L9 18L19 2.5"/></svg><span>Debits equal credits</span><b></b></li>
-        <li data-check="period"><svg viewBox="2 1 20 20" aria-hidden="true"><path d="M5 14L9 18L19 2.5"/></svg><span>Period Oct 2026 is open</span><b>open</b></li>
-        <li data-check="evidence"><svg viewBox="2 1 20 20" aria-hidden="true"><path d="M5 14L9 18L19 2.5"/></svg><span>Ties to the payroll register</span><b></b></li>
-        <li data-check="four"><svg viewBox="2 1 20 20" aria-hidden="true"><path d="M5 14L9 18L19 2.5"/></svg><span>Approver is not the preparer</span><b></b></li>
-      </ul>
-      <div class="je-foot">
-        <label class="switch"><input type="checkbox" id="je-self"><span class="track" aria-hidden="true"></span>I prepared this entry too</label>
-        <button type="button" class="je-release" id="je-release">Release entry</button>
-      </div>
-      <p class="je-log" id="je-log">Change any amount. The entry only releases when every check holds.</p>
-    </form>
-  </div>
-</section>
-
 <section class="contact" id="contact" aria-labelledby="ct-h">
   <svg class="ct-mark" viewBox="0 0 191 225" aria-hidden="true"><path d="M0 80L191 0V60L48 165L0 140Z"/><path d="M0 156L48 181L191 76V145L0 225Z"/></svg>
   <div class="ct-left">
@@ -432,22 +425,22 @@
   <p class="foot-word" aria-hidden="true"><svg class="mk" viewBox="0 0 191 225" aria-hidden="true"><path class="m-cream" d="M0 80L191 0V60L48 165L0 140Z"/><path class="m-gold" d="M0 156L48 181L191 76V145L0 225Z"/></svg><span>T<span class="wm-i">ı</span>ckmark</span></p>
   <div class="foot-line">
     <span class="soft">Martin Zhang · Finance systems and AI evaluation · Toronto</span>
-    <span class="foot-links"><a href="#workbench">Workbench</a><a href="notes.html" data-wipe>Notes</a><a href="https://martinzhang.vercel.app/">Portfolio</a><a href="https://github.com/MarZss03/tickmark">Source</a></span>
+    <span class="foot-links"><a href="#workbench" data-route="mywork">Workbench</a><a href="#try" data-try-case>Guided demo</a><a href="notes.html" data-wipe>Case study</a><a href="https://martinzhang.vercel.app/">Portfolio</a><a href="https://github.com/MarZss03/tickmark">Source</a></span>
     <span class="soft">2026</span>
   </div>
 </footer>
 
-<script src="charts.js?v=20261105f"></script>
-<script src="engine.js?v=20261105f"></script>
-<script src="data.js?v=20261105f"></script>
-<script src="real-data.js?v=20261105f"></script>
-<script src="case-data.js?v=20261105f"></script>
-<script src="cases.js?v=20261105f"></script>
-<script src="case-rules.js?v=20261105f"></script>
-<script src="app.js?v=20261105f"></script>
-<script src="search.js?v=20261105f"></script>
-<script src="payout-import.js?v=20261105f"></script>
-<script src="review.js?v=20261105f"></script>
-<script src="motion.js?v=20261105f"></script>
+<script src="charts.js?v=20261105g"></script>
+<script src="engine.js?v=20261105g"></script>
+<script src="data.js?v=20261105g"></script>
+<script src="real-data.js?v=20261105g"></script>
+<script src="case-data.js?v=20261105g"></script>
+<script src="cases.js?v=20261105g"></script>
+<script src="case-rules.js?v=20261105g"></script>
+<script src="app.js?v=20261105g"></script>
+<script src="search.js?v=20261105g"></script>
+<script src="payout-import.js?v=20261105g"></script>
+<script src="review.js?v=20261105g"></script>
+<script src="motion.js?v=20261105g"></script>
 </body>
 </html>

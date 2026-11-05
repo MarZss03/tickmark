@@ -64,9 +64,14 @@
   // ---------- routes: every page has an address, so refresh and links land in the same place ----------
   function parse(hash) {
     const h = String(hash || '').replace(/^#/, '');
+    if (h === '' || h === 'home' || h === 'top') return { page: 'home' };
+    if (h === 'contact') return { page: 'home', contact: true };
+    if (h === 'case-study') { location.replace('notes.html'); return { page: 'home' }; }
     if (h === 'try') return { page: 'case', try: true };
-    if (h === 'try/store') return { page: 'case', store: true };
+    if (h === 'try/store') return { page: 'store', explain: true };
     if (h === 'store') return { page: 'store' };
+    if (h === 'validation' || h === 'lab') return { page: 'view', view: 'eval', label: 'Model evaluation', demo: true };
+    if (h === 'control' || h === 'demo/control') return { page: 'view', view: 'control', label: 'Journal entry control', demo: true };
     if (h === 'search' || h.startsWith('search/')) { let q = h.slice(7); try { q = decodeURIComponent(q); } catch {} return { page: 'search', q }; }
     const [a, b] = h.split('/');
     if (a === 'queue' && MODULES[b]) return { page: 'queue', module: b };
@@ -77,7 +82,10 @@
     if (a === 'demo' && ['filings', 'eval', 'stress'].includes(b)) return { page: 'view', view: { filings: 'sec', eval: 'eval', stress: 'stress' }[b], label: { filings: 'Public filings', eval: 'Model evaluation', stress: 'Stress test' }[b], demo: true };
     return { page: 'mywork' };
   }
-  const hashOf = (r) => (r.page === 'search' ? '#search' + (r.q ? '/' + encodeURIComponent(r.q) : '') : r.page === 'store' ? '#store' : r.page === 'queue' ? `#queue/${r.module}` : r.page === 'case' ? (r.try ? '#try' : r.store ? '#try/store' : `#case/${encodeURIComponent(r.id)}`) : r.page === 'other' ? '#' + MODULES[r.module].other.route : r.page === 'view' ? { mine: '#imports', audit: '#audit', sec: '#demo/filings', eval: '#demo/eval', stress: '#demo/stress' }[r.view] : '#workbench');
+  const hashOf = (r) => (r.page === 'home' ? (r.contact ? '#contact' : '#home') : r.page === 'search' ? '#search' + (r.q ? '/' + encodeURIComponent(r.q) : '') : r.page === 'store' ? (r.explain ? '#try/store' : '#store') : r.page === 'queue' ? `#queue/${r.module}` : r.page === 'case' ? (r.try ? '#try' : `#case/${encodeURIComponent(r.id)}`) : r.page === 'other' ? '#' + MODULES[r.module].other.route : r.page === 'view' ? { mine: '#imports', audit: '#audit', sec: '#demo/filings', eval: '#demo/eval', stress: '#demo/stress', control: '#demo/control' }[r.view] : '#workbench');
+  // four experiences, one page: the home screen, the workbench, the guided demo, and the lab
+  const modeOf = (r) => (r.page === 'home' ? 'home' : (r.page === 'case' && r.try) || (r.page === 'store' && r.explain) ? 'try' : r.page === 'store' ? 'store' : r.page === 'view' && r.demo ? 'lab' : 'app');
+  const isTry = () => modeOf(ui.route) === 'try';
   function go(r, { replace = false } = {}) {
     const h = hashOf(r);
     if (location.hash !== h) { try { history[replace ? 'replaceState' : 'pushState'](null, '', h); } catch { location.hash = h; } }
@@ -85,12 +93,16 @@
   }
   let closeRan = false;
   function apply(r) {
-    if (r.page === 'case' && r.try) { const c = caseByKey(TRY_KEY); r = { page: 'case', id: c.id, try: true }; ui.guided = true; if (!c.tasks.length && !c.closed) setMe('ava'); }
-    else if (r.page === 'case' && r.store) { const c = caseByKey(STORE_KEY); r = { page: 'case', id: c.id, store: true }; ui.guided = false; setMe(c.owner); }
-    else if (r.page !== 'case' || r.id !== (ui.route && ui.route.id)) ui.guided = r.page === 'case' && ui.guided && r.id === caseByKey(TRY_KEY).id;
+    if (r.page === 'case' && r.try) { const c = caseByKey(TRY_KEY); r = { page: 'case', id: c.id, try: true }; if (!c.tasks.length && !c.closed) setMe('ava'); }
+    ui.guided = !!(r.page === 'case' && r.try);
     if (r.page === 'case' && !state.cases[r.id]) r = { page: 'mywork' };
     if (r.page !== 'case' || r.id !== ui.route.id) { ui.form = null; ui.msg = ''; }
     ui.route = r;
+    const mode = modeOf(r), root = document.documentElement, was = root.dataset.mode;
+    root.dataset.mode = mode;
+    root.classList.toggle('show-contact', !!r.contact);
+    if (was && was !== mode && !r.contact) window.scrollTo({ top: 0, behavior: 'instant' });
+    if (r.contact) requestAnimationFrame(() => { const ct = $('#contact'); if (ct) ct.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth' }); });
     const view = r.page === 'other' ? MODULES[r.module].other.view : r.page === 'view' ? r.view : 'queue';
     if (app.setView) app.setView(view);
     // the close run fires once, on the page that shows it, not on whatever page is open
@@ -98,8 +110,9 @@
     render();
   }
   window.addEventListener('popstate', () => apply(parse(location.hash)));
-  window.addEventListener('hashchange', () => { const r = parse(location.hash); apply(r); if (location.hash !== '#workbench') toWorkbench(); });
-  const toWorkbench = () => { const w = $('#workbench'); if (!w) return; const top = w.getBoundingClientRect().top; if (top > innerHeight * 0.6 || top < -$('#workbench').offsetHeight + 200) w.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth' }); };
+  window.addEventListener('hashchange', () => apply(parse(location.hash)));
+  // from the home screen, the workbench is a different screen, not a scroll away
+  const toWorkbench = () => { if (modeOf(ui.route) === 'home') go({ page: 'mywork' }); };
   const toSheet = () => { const s = $('#sheet'); if (!s) return; const top = s.getBoundingClientRect().top; if (top < 60 || top > innerHeight * 0.5) window.scrollTo({ top: top + window.scrollY - 76, behavior: reduced ? 'auto' : 'smooth' }); };
 
   // ---------- a step, its result, and a fresh render ----------
@@ -119,17 +132,23 @@
 
   // ---------- page head: where you are ----------
   function headHtml(r) {
-    if (r.page === 'case') return '';
+    if (r.page === 'case' || r.page === 'home') return '';
     if (r.page === 'search') return `<header class="pg-h"><div><h3 class="pg-t">Search</h3><p class="pg-s">Every case in the five queues, as ${esc(name(me))} sees them · demo clock ${esc(at(state.now))}</p></div></header>`;
-    if (r.page === 'store') return `<header class="pg-h"><div><h3 class="pg-t">Why is my payout different?</h3><p class="pg-s">${esc(SV.store)} · owner view · demo clock ${esc(at(state.now))}</p></div><div class="pg-a"><button type="button" class="link-btn sm" data-do="svreset">Start over</button></div></header>`;
-    if (r.page === 'mywork') return `<header class="pg-h"><div><h3 class="pg-t">My Work</h3><p class="pg-s">${esc(name(me))} · ${esc(team(D.people[me].team))} · demo clock ${esc(at(state.now))}</p></div>
-      <div class="pg-a"><button type="button" class="link-btn sm" data-do="reset">Reset the demo</button></div></header>`;
-    if (r.page === 'view') return `<header class="pg-h"><div><h3 class="pg-t">${esc(r.label)}</h3>${r.demo ? '<p class="pg-s">Demo &amp; Validation · real public data or test harnesses, apart from the daily queues</p>' : ''}</div></header>`;
+    if (r.page === 'store' && r.explain) return `${demoBar('Store owner', 1, 1)}<header class="pg-h"><div><h3 class="pg-t">Why is my payout different?</h3><p class="pg-s">You are ${esc(SV.owner)}, who runs ${esc(SV.store)}. Pick a payout, read what the records say, then open the source that settles it.</p></div></header>`;
+    if (r.page === 'store') return `<header class="pg-h"><div><h3 class="pg-t">Payouts</h3><p class="pg-s">${esc(SV.store)} · since 28 Oct</p></div><div class="pg-a"><button type="button" class="link-btn sm" data-do="svreset">Reset demo</button></div></header>`;
+    if (r.page === 'mywork') return `<header class="pg-h"><div><h3 class="pg-t">My Work</h3><p class="pg-s">${esc(name(me))} · ${esc(team(D.people[me].team))}</p></div>
+      <div class="pg-a"><button type="button" class="link-btn sm" data-do="reset">Reset demo</button></div></header>`;
+    if (r.page === 'view') return `<header class="pg-h"><div>${r.demo ? '<p class="pg-k">Demo Lab</p>' : ''}<h3 class="pg-t">${esc(r.label)}</h3>${r.demo ? `<p class="pg-s">${{ sec: 'Real public filings from SEC EDGAR, checked by the same kind of rules', eval: 'Scores carried over from Run Replay, and a grader on public FinQA questions', stress: 'Plant known errors into the sample payroll and count what the rules catch', control: 'One journal entry, four checks; change an amount and see what blocks it' }[r.view] || ''}</p>` : ''}</div></header>`;
     const m = MODULES[r.module];
     const n = cases().filter((c) => c.module === r.module && !c.closed && c.exceptions.some((x) => x.status === 'open')).length;
     const tabs = m.other ? `<nav class="pg-tabs" aria-label="${esc(m.label)} pages"><a href="#queue/${r.module}" data-route="queue/${r.module}"${r.page === 'queue' ? ' aria-current="page"' : ''}>Queue</a><a href="#${m.other.route}" data-route="${m.other.route}"${r.page === 'other' ? ' aria-current="page"' : ''}>${m.other.label}</a></nav>` : '';
     return `<header class="pg-h"><div><h3 class="pg-t">${esc(m.label)}</h3><p class="pg-s">${n} open case${n === 1 ? '' : 's'} · ${esc(m.intro)}</p></div>
-      <div class="pg-a">${r.page === 'queue' && r.module === 'payouts' && me !== 'sam' ? `<button type="button" class="b-pri" data-do="as" data-p="sam">Try as Sam Ortiz</button>` : ''}${r.page === 'queue' ? `<button type="button" class="b-sec" data-do="scan" data-m="${r.module}">${esc(m.scan)}</button>` : ''}</div></header>${r.page === 'queue' && r.module === 'payouts' && me !== 'sam' ? `<p class="pg-tip">You are viewing as ${esc(name(me))}. Sam Ortiz keeps the store’s books and owns these cases; switch to act on them.</p>` : ''}${tabs}`;
+      <div class="pg-a">${r.page === 'queue' ? `<button type="button" class="b-sec" data-do="scan" data-m="${r.module}">${esc(m.scan)}</button>` : ''}</div></header>${tabs}`;
+  }
+  // the guided demo has its own bar: where you are in it, and the ways out
+  function demoBar(kind, n, total, done) {
+    return `<div class="demo-bar" role="region" aria-label="Guided demo"><p><b>Guided demo</b> · ${esc(kind)}${total > 1 ? ` · ${done ? 'done' : `step ${n} of ${total}`}` : ''}</p>
+      <div class="demo-acts"><button type="button" class="link-btn sm" data-do="${kind === 'Store owner' ? 'svreset' : 'tryreset'}">Start over</button><a class="link-btn sm" href="${kind === 'Store owner' ? '#store' : '#workbench'}" data-route="${kind === 'Store owner' ? 'store' : 'mywork'}">${kind === 'Store owner' ? 'Normal view' : 'Normal workbench'}</a><a class="link-btn sm" href="#home" data-route="home">Exit demo</a></div></div>`;
   }
 
   // ---------- My Work ----------
@@ -145,15 +164,14 @@
         <span class="mw-next">${p ? esc(p.label) : ''}</span>
         <span class="mw-due${late ? ' late' : ''}">${late ? 'Overdue · ' : ''}${esc(at(due))}</span></a></li>`;
     };
-    const sec = (title, items, kind, empty, note) => `<section class="mw-s"><h4>${title} <span class="count">${items.length}</span></h4><p class="mw-note">${note}</p>
+    const sec = (title, items, kind, empty, note) => `<section class="mw-s"><h4 title="${esc(note)}">${title} <span class="count">${items.length}</span></h4>
       ${items.length ? `<ul class="mw-list">${items.map((it) => row(it, kind)).join('')}</ul>` : `<p class="d-empty">${empty}</p>`}</section>`;
     return `<div class="mw">
-      ${sec('Needs my action', w.needs, 'needs', 'Nothing waits on you.', 'Cases you own, or decisions only you can make, with a step to take now')}
+      ${sec('Needs my action', w.needs, 'needs', 'Nothing waits on you.', 'Cases you own, or decisions only you can make')}
       ${sec('Assigned to me', w.assigned, 'assigned', 'No checks assigned to you.', 'Checks sent to you by name, or ones you claimed')}
-      ${sec('Team inbox', w.inbox, 'inbox', `Nothing for ${esc(team(D.people[me].team))} to claim.`, `Checks sent to ${esc(team(D.people[me].team))}; anyone in the team can claim one`)}
+      ${sec('Team inbox', w.inbox, 'inbox', `Nothing for ${esc(team(D.people[me].team))} to claim.`, `Checks sent to ${team(D.people[me].team)}; anyone in the team can claim one`)}
       ${sec('Waiting on others', w.waiting, 'waiting', 'You are not waiting on anyone.', 'Your cases and checks that are with someone else')}
-    </div>
-    <p class="mw-tip">Switch <b>Acting as</b> above to see another person’s work. Try <a href="#try" data-try-case>the guided payout case</a> to follow one case across three people, or <a href="#try/store" data-try-store>a store’s payout as Sam Ortiz</a>.</p>`;
+    </div>`;
   }
 
 
@@ -229,13 +247,46 @@
         <span class="sv-pid">${id} · ${esc(day(p.date))}</span><span class="sv-amt">${money(p.total)}</span>
         <span class="st ${seen ? (v.deadline ? 'warn' : 'ok') : v.tone}">${esc(seen ? v.chipAfter : v.chip)}</span></button></li>`;
     }).join('');
+    const explain = !!ui.route.explain;
     return `<div class="sv">
-      <p class="sv-lead">${ids.length} payouts since 28 Oct. <b>${open ? `${open} need${open === 1 ? 's' : ''} a look` : 'All explained'}</b>${due.length ? ` · ${due.map((id) => `${SV.payouts[id].deadlineLabel.toLowerCase()} ${day(SV.payouts[id].deadline)}`).join(', ')}` : ''}. Each one compares what the payment processor says it sent with what reached your bank.</p>
-      <div class="sv-grid"><ul class="sv-list" aria-label="Payouts">${list}</ul>${storeCard(sv.sel)}</div>
+      <p class="sv-lead"><b>${open ? `${open} of ${ids.length} need${open === 1 ? 's' : ''} a look` : 'All explained'}</b>${due.length ? ` · ${due.map((id) => `${SV.payouts[id].deadlineLabel.toLowerCase()} ${day(SV.payouts[id].deadline)}`).join(', ')}` : ''}${explain ? '. Each payout compares what the payment processor says it sent with what reached your bank.' : ''}</p>
+      <div class="sv-grid"><ul class="sv-list" aria-label="Payouts">${list}</ul>${explain ? storeCard(sv.sel) : storePlain(sv.sel)}</div>
       ${importHtml()}
-      <p class="sv-ask">Run a store, or keep books for one? <a href="#contact" data-feedback>Tell me which payout was unclear</a>. It goes to Martin, and changes land in the build log.</p>
-      <p class="sv-foot c-s">Simulated: ${esc(SV.store)} is a fictional store, and the payout report and bank statement are synthetic. The wording is written by fixed rules, not a model.</p>
+      ${explain ? `<p class="sv-ask">Run a store, or keep books for one? <a href="#contact" data-feedback>Tell me which payout was unclear</a>. It goes to Martin, and changes land in the build log.</p>
+      <p class="sv-foot c-s">Simulated: ${esc(SV.store)} is a fictional store, and the payout report and bank statement are synthetic. The wording is written by fixed rules, not a model.</p>` : `<p class="sv-foot c-s">Fictional store · synthetic payouts · <a href="#try/store" data-route="try/store">Guided version</a></p>`}
     </div>`;
+  }
+  // the everyday view: the numbers, one line on the cause, and the next step; the reasoning on request
+  function storePlain(id) {
+    const v = SV.payouts[id], r = storeRecords(id), p = r.payout, seen = !!sv.seen[id];
+    const dep = (r.deposits || [])[0];
+    const row = (l, val, note, cls = '') => `<tr class="${cls}"><td>${esc(l)}${note ? ` <span class="c-s">· ${esc(note)}</span>` : ''}</td><td class="num">${val == null ? '—' : (val < 0 ? '−' : '') + money(val)}</td></tr>`;
+    // only the lines that move this payout away from plain sales minus fees
+    const lines = [];
+    if (p.refunds && r.doubleRefund) lines.push(row('Refunds', p.refunds, 'includes a duplicate'));
+    for (const a of p.adjustments || []) lines.push(row(a.type === 'chargeback' ? 'Chargeback' : 'Adjustment', a.amount, a.ref || ''));
+    if (p.reserve) lines.push(row('Reserve', p.reserve, r.reserveRelease ? `back ${day(r.reserveRelease)}` : ''));
+    const sum = [['Sales', p.charges], ['Refunds', p.refunds || 0], ...(p.adjustments || []).map((a) => ['', a.amount]), ['', p.reserve || 0], ['Fees', p.fees]].reduce((s, x) => s + x[1], 0);
+    const off = Math.abs(sum - p.total) > 0.005;
+    const gap = off ? sum - p.total : dep ? p.total - dep.amount : p.total;
+    const left = v.deadline ? daysTo(v.deadline) : null;
+    const caseId = (caseByKey('po:' + id) || {}).id;
+    return `<article class="sv-card sv-plain" aria-labelledby="sv-h">
+      <h3 class="sv-h" id="sv-h">${esc(v.head)}</h3>
+      <table class="tbl sv-wf"><caption class="sr">Payout ${id}</caption><tbody>
+        ${row('Payout total', p.total, `sent ${day(p.date)}`, 'sv-tot')}
+        ${row('Bank deposit', dep ? dep.amount : null, dep ? day(dep.date) : 'not yet', 'sv-bank')}
+        ${row(off ? 'Lines minus payout' : 'Difference', gap, '', Math.abs(gap) > 0.005 ? 'sv-gap' : 'sv-ok')}
+        ${lines.join('')}
+        ${v.feeNote ? row('Fees', p.fees, seen ? v.feeNote : '') : ''}
+      </tbody></table>
+      ${seen ? `<p class="sv-cause"><span class="st ok">Confirmed</span> ${esc(v.after)}</p>`
+        : `<div class="sv-cause"><p><span class="sl">Possible cause</span>${esc(v.cause)}</p>
+          <details class="sv-why"><summary>Not confirmed · View reasoning</summary><p>${esc(v.found)}</p><p>${esc(v.maybe)}</p><p class="c-s">From: ${esc(storeSources(id).join(' · '))}</p></details></div>`}
+      <div class="sv-next"><p class="sl">Next</p><p>${esc(seen ? v.nextAfter : v.next)}</p>
+        ${v.deadline && seen ? `<p class="sv-dl"><span class="st ${left <= 2 ? 'neg' : 'warn'}">${esc(v.deadlineLabel)} ${esc(day(v.deadline).slice(0, -5))}</span> <span class="c-s">${left} day${left === 1 ? '' : 's'} left</span></p>` : ''}
+        <div class="rq-btns">${seen ? '' : `<button type="button" class="b-pri" data-do="svcheck" data-p="${id}">${esc(v.check)}</button>`}${caseId ? `<button type="button" class="b-sec" data-do="svteam" data-c="${caseId}">Open in team workbench</button>` : ''}</div></div>
+    </article>`;
   }
   function storeCard(id) {
     const v = SV.payouts[id], m = rawPayout(id), r = storeRecords(id), p = r.payout, seen = !!sv.seen[id];
@@ -336,7 +387,7 @@
     if (rw.status === 'reply-in') return ['warn', 'Reply to review'];
     if (rw.waitingOn.length) return [rw.overdue ? 'neg' : '', `Waiting on ${rw.waitingOn[0]}`];
     const x = topX(c);
-    if (!x) return ['ok', 'Nothing open'];
+    if (!x) return C.actionsFor(state, D, A, c.id, c.owner).some((a) => a.kind !== 'accept' && a.ready) ? ['warn', 'Ready for the next step'] : ['ok', 'Nothing open'];
     if (x.missing && x.missing.length) return ['warn', 'Missing evidence'];
     return ['', 'Needs a decision'];
   }
@@ -395,44 +446,46 @@
     const dan = tasks.find((t) => t.original === 'person:daniel' || t.assignee === 'daniel');
     const open = (code) => c.exceptions.some((x) => x.status === 'open' && x.code === code);
     if (c.closed) return { n: 9, done: true };
-    if (!pay) return { n: 1, who: 'ava', goal: 'Find out when the money actually reached the bank.', next: 'Press “Request receipt confirmation”, check the drafted question to Payments, and send it.' };
-    if (WAIT.includes(pay.status)) return { n: 2, who: 'leo', goal: 'Answer the check for Payments.', next: pay.status === 'open' ? 'Press “Claim check”. Then reply with the wire log.' : 'Press “Reply with evidence”, tick the wire log and send.' };
-    if (pay.status === 'replied') return { n: 3, who: 'ava', goal: 'Decide whether the reply answers the question.', next: 'The receipt time is now on record. Read the reply, then press “Reply answers it”.' };
-    if (!dan) return { n: 4, who: 'ava', goal: 'Get the settlement date decided by someone authorised.', next: 'Press “Request settlement decision”. It goes to Daniel Roy.' };
-    if (WAIT.includes(dan.status)) return { n: 5, who: 'daniel', goal: 'Set the settlement date.', next: 'Press “Reply with evidence”, tick the settlement decision and send.' };
-    if (dan.status === 'replied') return { n: 6, who: 'ava', goal: 'Accept the authorised decision.', next: 'Press “Reply answers it”.' };
-    if (open('LATE_POSTING')) return { n: 7, who: 'daniel', goal: 'Correct the balance.', next: 'Press “Reverse the interest charged during our hold”. The checks re-run.' };
-    return { n: 8, who: 'daniel', goal: 'Restart the paused work.', next: 'Every condition holds. Press “Resume discharge preparation”.' };
+    if (!pay) return { n: 1, who: 'ava', goal: 'Find out when the money actually reached the bank.', next: 'Press “Request receipt confirmation”, check the drafted question to Payments, and send it.', why: 'The payout posted, yet the loan still shows a balance. Whether the money came late depends on when it reached the bank, and only Payments holds the wire log.' };
+    if (WAIT.includes(pay.status)) return { n: 2, who: 'leo', goal: 'Answer the check for Payments.', next: pay.status === 'open' ? 'Press “Claim check”. Then reply with the wire log.' : 'Press “Reply with evidence”, tick the wire log and send.', why: 'A check goes to a team, not to the case. Leo answers one question; the case stays with Ava.' };
+    if (pay.status === 'replied') return { n: 3, who: 'ava', goal: 'Decide whether the reply answers the question.', next: 'The receipt time is now on record. Read the reply, then press “Reply answers it”.', why: 'The wire log arrived as evidence, so the checks re-ran with it. A person still decides whether it answers the question.' };
+    if (!dan) return { n: 4, who: 'ava', goal: 'Get the settlement date decided by someone authorised.', next: 'Press “Request settlement decision”. It goes to Daniel Roy.', why: 'Which date the loan settles on is a decision, not a fact in any system. Only someone with that authority can set it.' };
+    if (WAIT.includes(dan.status)) return { n: 5, who: 'daniel', goal: 'Set the settlement date.', next: 'Press “Reply with evidence”, tick the settlement decision and send.', why: 'Daniel’s reply becomes evidence with his name and time on it, so the decision can be traced later.' };
+    if (dan.status === 'replied') return { n: 6, who: 'ava', goal: 'Accept the authorised decision.', next: 'Press “Reply answers it”.', why: 'Accepting closes the check. The steps that were waiting for this date can now be tried.' };
+    if (open('LATE_POSTING')) return { n: 7, who: 'daniel', goal: 'Correct the balance.', next: 'Press “Reverse the interest charged during our hold”. The checks re-run.', why: 'With the receipt time and settlement date both confirmed, the interest charged while the lender held the money can be reversed. Before that, the correction stayed paused.' };
+    return { n: 8, who: 'daniel', goal: 'Restart the paused work.', next: 'Every condition holds. Press “Resume discharge preparation”.', why: 'The checks re-ran after the correction. Every condition for the paused step now holds.' };
   }
   function guideHtml(c) {
     const g = guideStep(c);
     const steps = `<ol class="gd-steps" aria-hidden="true">${Array.from({ length: 8 }, (_, i) => `<li class="${i + 1 < g.n ? 'done' : i + 1 === g.n ? 'now' : ''}"></li>`).join('')}</ol>`;
+    const bar = demoBar('Mortgage payoff', g.n, 8, g.done);
     if (g.done) {
       const facts = C.trace(c).filter((f) => f.status === 'agree' || f.status === 'single').slice(0, 4);
-      return `<section class="gd gd-done" aria-label="Guided demo"><div class="gd-top"><p class="gd-k">Guided demo · done</p><button type="button" class="link-btn sm" data-do="tryreset">Start over</button></div>${steps}
+      return `${bar}<section class="gd gd-done" aria-label="What happened">${steps}
         <div class="gd-sum"><div><p class="sl">Confirmed</p><ul>${facts.map((f) => `<li>${esc(f.label)}: <b>${esc(showVal(f.readings[0].value, c.module, f.key))}</b></li>`).join('')}</ul></div>
           <div><p class="sl">Done</p><ul><li>Payments confirmed the receipt time</li><li>Daniel Roy set the settlement date</li><li>The hold interest was reversed</li><li>Discharge preparation resumed; no shortfall notice was sent</li></ul></div>
           <div><p class="sl">Still to do, outside this demo</p><ul><li>Prepare and register the discharge in the registration system</li><li>Other open cases in the queue</li></ul></div></div>
-        <div class="rq-btns"><a class="b-sec btn-l" href="#workbench" data-route="mywork">My Work</a><a class="b-sec btn-l" href="#queue/mortgage" data-route="queue/mortgage">Mortgage Servicing queue</a></div></section>`;
+        <div class="rq-btns"><a class="b-pri btn-l" href="#workbench" data-route="mywork">Open the normal workbench</a><a class="b-sec btn-l" href="notes.html" data-wipe>Why it works this way</a></div></section>`;
     }
     const role = me === g.who;
-    return `<section class="gd" aria-label="Guided demo" aria-live="polite"><div class="gd-top"><p class="gd-k">Guided demo · step ${g.n} of 8</p><button type="button" class="link-btn sm" data-do="tryreset">Start over</button></div>${steps}
-      <p class="gd-who">You are <b>${esc(name(me))}</b>, ${esc(team(D.people[me].team))}. ${role ? `Goal: ${esc(g.goal)}` : ''}</p>
-      ${role ? `<p class="gd-next">${esc(g.next).replace(/“([^”]+)”/g, '<b>“$1”</b>')}</p>` : `<div class="rq-btns"><button type="button" class="b-pri" data-do="as" data-p="${g.who}">Switch to ${esc(name(g.who).split(' ')[0])} in ${esc(team(D.people[g.who].team))}</button><span class="c-s">Switching simulates signing in as them.</span></div>`}</section>`;
+    return `${bar}<section class="gd" aria-label="This step" aria-live="polite">${steps}
+      <p class="gd-who">You are <b>${esc(name(me))}</b>, ${esc(team(D.people[me].team))}.${role ? ` Your goal: ${esc(g.goal)}` : ` This step is for ${esc(name(g.who))} in ${esc(team(D.people[g.who].team))}.`}</p>
+      ${role ? `<p class="gd-next">${esc(g.next).replace(/“([^”]+)”/g, '<b>“$1”</b>')}</p>` : `<div class="rq-btns"><button type="button" class="b-pri" data-do="as" data-p="${g.who}">Switch to ${esc(name(g.who).split(' ')[0])}</button><span class="c-s">Switching simulates signing in as them; each person sees only what their role allows.</span></div>`}
+      <p class="gd-why"><span class="sl">Why</span>${esc(g.why)}</p></section>`;
   }
 
   // ---------- case review ----------
-  function factLine(c, f) {
+  function factLine(c, f, full) {
     const r = f.readings[0];
     const tag = f.status === 'agree' ? ['ok', 'Confirmed'] : f.status === 'conflict' ? ['neg', 'Sources disagree'] : ['', 'On record'];
-    return `<li><span class="fk">${esc(f.label)}</span><span class="fv">${esc(f.status === 'conflict' ? f.readings.map((x) => showVal(x.value, c.module, f.key)).join(' vs ') : showVal(r.value, c.module, f.key))}${f.key === 'balance' ? ' <span class="c-s">book balance</span>' : ''}</span><span class="fs"><span class="st ${tag[0]}">${tag[1]}</span> ${esc(r.label)}</span></li>`;
+    return `<li><span class="fk">${esc(f.label)}</span><span class="fv">${esc(f.status === 'conflict' ? f.readings.map((x) => showVal(x.value, c.module, f.key)).join(' vs ') : showVal(r.value, c.module, f.key))}${f.key === 'balance' ? ' <span class="c-s">book balance</span>' : ''}</span><span class="fs" title="${esc(r.label)}">${f.status === 'single' && !full ? '' : `<span class="st ${tag[0]}">${tag[1]}</span>`}${full ? ` ${esc(r.label)}` : ''}</span></li>`;
   }
   // two amounts that should tie: show the difference beside them, computed, not a source
   function gapLine(c, byKey) {
     const a = byKey.payout_total, b = byKey.deposit;
     if (c.module !== 'payouts' || !a || !b || !a.readings.length || !b.readings.length) return '';
     const d = Math.abs(a.readings[0].value - b.readings[0].value);
-    return d < 0.005 ? '' : `<li class="cs-gap"><span class="fk">Difference</span><span class="fv">${money(d)}</span><span class="fs">Payout total minus bank deposit</span></li>`;
+    return d < 0.005 ? '' : `<li class="cs-gap"><span class="fk">Difference</span><span class="fv">${money(d)}</span><span class="fs"></span></li>`;
   }
   function caseHtml(c) {
     const facts = C.trace(c), byKey = Object.fromEntries(facts.map((f) => [f.key, f]));
@@ -445,27 +498,40 @@
     const p = C.primaryAction(state, D, A, c.id, me);
     const pri = C.effectivePriority(c);
     const tasks = c.tasks.map((id) => state.tasks[id]);
-    return `${ui.guided ? guideHtml(c) : ''}
+    const guided = ui.guided;
+    // one line: the sentence that names a cause, not the one restating the problem
+    const first = (t) => { const ss = String(t || '').match(/[^.!?]+(?:[.!?](?=\s|$)|$)/g) || ['']; return (ss.find((x) => /\b(may|might|likely|looks?|probably|explains?)\b/i.test(x)) || ss[0]).trim(); };
+    const others = c.exceptions.filter((y) => y.status === 'open' && y !== x);
+    const due = `${c.dueLabel && c.dueLabel !== 'Due' ? esc(c.dueLabel) : 'Due'} ${esc(day(c.due).slice(0, -5))}`;
+    const cause = x && x.cause ? `<div class="cs-cause"><p><span class="sl">${pending.length ? 'Possible cause' : 'Cause'}</span>${esc(guided ? x.cause : first(x.cause))}</p>
+        <details class="cs-why"${guided ? ' open' : ''}><summary>${pending.length ? 'Not confirmed · ' : ''}View reasoning</summary>
+          ${guided ? '' : `<p>${esc(x.cause)}</p>`}
+          <ul class="cs-why-l"><li><span>Classification</span>${esc(CLS[x.cls] || x.cls)}${x.clsBy ? ` (set by ${esc(name(x.clsBy))})` : ''}</li><li><span>Read by</span>${esc(x.by)}</li>${x.confidence ? `<li><span>Confidence in the reading</span>${esc(x.confidence)}</li>` : ''}${pending.length ? `<li><span>What would settle it</span>${esc(pending.map((m) => m.what).join('; '))}</li>` : ''}</ul></details></div>` : '';
+    // a case with nothing open can still have a step left; say which
+    const idle = !x && !c.closed && p.kind !== 'none' && p.kind !== 'done' ? p.label : '';
+    return `${guided ? guideHtml(c) : ''}
       <a class="link-btn sm cs-back" href="#queue/${c.module}" data-route="queue/${c.module}">← ${esc(MODULES[c.module].label)}</a>
       <header class="cs-h"><h3 class="cs-t">${esc(headline(c))}</h3>
-        <p class="cs-m">${c.id} · ${esc(MODULES[c.module].label)}${c.branchLabel ? ' · ' + esc(c.branchLabel) : ''} · owner ${esc(name(c.owner))} · <span class="pill ${PRI[pri]}">${c.closed ? 'Closed' : pri}</span>${c.priority && !c.closed ? ` <span class="c-s">${esc(c.priority.reasons.slice(0, 2).join(' · '))}</span>` : ''}</p></header>
+        <p class="cs-m">${c.id} · ${esc(MODULES[c.module].label)}${c.branchLabel ? ' · ' + esc(c.branchLabel) : ''}</p>
+        <p class="cs-tags"><span class="pill ${c.closed ? 'ok' : PRI[pri]}"${c.priority && !c.closed ? ` title="${esc(c.priority.reasons.join(' · '))}"` : ''}>${c.closed ? 'Closed' : pri}</span>${c.closed ? '' : `<span class="cs-tag">${due}</span>`}<span class="cs-tag">Owner <b>${esc(name(c.owner))}</b></span></p></header>
       <div class="cs-grid">
         <div class="cs-main">
           ${x ? `<section class="cs-sum">
-            <div class="cs-blk cs-b-known"><p class="sl">What we know</p><ul class="cs-facts">${known.map((f) => factLine(c, f)).join('') || '<li class="c-s">No recorded facts yet.</li>'}${gapLine(c, byKey)}</ul></div>
-            <div class="cs-blk cs-b-pend"><p class="sl">Not confirmed yet</p>${pending.length ? `<ul class="cs-pend">${pending.map((m) => `<li><b>Pending confirmation:</b> ${esc(m.what)}<span class="c-s"> · ${esc(m.who)} can supply it</span></li>`).join('')}</ul>` : '<p class="c-s">Nothing required is missing.</p>'}</div>
-            <div class="cs-blk cs-b-imp"><p class="sl">What it holds up</p><p class="cs-imp">${esc((c.affects || '—').replace(/^\w/, (s) => s.toUpperCase()))} <span class="c-s">· ${esc(c.dueLabel || 'Due')} ${esc(at(c.due))}</span></p>
-              ${paused.length ? `<ul class="cs-paused">${paused.map((a) => `<li><span class="st warn">Paused</span> ${esc(a.label)}<span class="c-s"> · needs: ${esc((a.prereqs.find((q) => !q.ok) || {}).label || a.permLabel || '')}</span></li>`).join('')}</ul>` : ''}</div>
-            ${x.cause ? `<div class="cs-blk cs-b-why"><p class="sl">${pending.length ? 'Possible explanation · not confirmed' : 'Explanation from the evidence'}</p><p class="cs-inf">${esc(x.cause)}</p>
-              <p class="c-s">${esc(CLS[x.cls] || x.cls)}${x.clsBy ? ` (set by ${esc(name(x.clsBy))})` : ''} · ${esc(x.by)}${x.confidence ? ` · confidence in the reading: ${esc(x.confidence)}` : ''}</p></div>` : ''}
-            ${c.exceptions.filter((y) => y.status === 'open').length > 1 ? `<p class="c-s">Also open on this case: ${esc(c.exceptions.filter((y) => y.status === 'open' && y !== x).map((y) => y.short || y.title).join('; '))}</p>` : ''}
-          </section>` : `<section class="cs-sum"><p class="cs-imp">${c.closed ? `Closed · ${esc(c.stage || '')}` : 'Nothing open on this case.'}</p><p class="c-s">${c.exceptions.length} exception${c.exceptions.length === 1 ? '' : 's'} recorded; the evidence and activity below stay.</p></section>`}
+            <div class="cs-blk"><p class="sl">Issue</p><ul class="cs-facts">${known.map((f) => factLine(c, f, guided)).join('') || '<li class="c-s">No recorded facts yet.</li>'}${gapLine(c, byKey)}</ul></div>
+            ${pending.length ? `<div class="cs-blk"><p class="sl">Missing evidence</p><ul class="cs-pend">${pending.map((m) => `<li><b>${esc(m.what.replace(/^\w/, (s) => s.toUpperCase()))}</b><span class="c-s">Available from ${esc(m.who)}</span></li>`).join('')}</ul></div>` : ''}
+            <div class="cs-blk"><p class="sl">Impact</p><p class="cs-imp">${esc((c.affects || '—').replace(/^\w/, (s) => s.toUpperCase()))}</p>
+              ${paused.length ? `<ul class="cs-paused">${paused.map((a) => `<li><span class="st warn">Paused</span> ${esc(a.label)}<span class="c-s"> · needs ${esc((a.prereqs.find((q) => !q.ok) || {}).label || a.permLabel || '')}</span></li>`).join('')}</ul>` : ''}</div>
+            ${cause}
+            ${others.length ? `<p class="c-s cs-also">Also open: ${esc(others.map((y) => y.short || y.title).join('; '))}</p>` : ''}
+          </section>` : `<section class="cs-sum"><div class="cs-blk"><p class="sl">${c.closed ? 'Closed' : 'No open exceptions'}</p><p class="cs-imp">${c.closed ? esc(c.stage || 'Closed') : idle ? `One step left: ${esc(idle)}` : 'Nothing left to do on this case.'}</p><p class="c-s">${c.exceptions.length} exception${c.exceptions.length === 1 ? '' : 's'} recorded. Evidence and activity are kept below.</p></div></section>`}
         </div>
-        <aside class="cs-act" aria-label="Your next step">${actionHtml(c, p, acts, tasks)}</aside>
+        <aside class="cs-act" aria-label="Next action">${actionHtml(c, p, acts, tasks)}</aside>
       </div>
+      <div class="cs-folds">
       ${evidenceHtml(c, facts, keys)}
       ${checksHtml(c, tasks)}
-      ${activityHtml(c)}`;
+      ${activityHtml(c)}
+      </div>`;
   }
 
   // the action panel: one primary step for this person, then anything paused, then less common actions
@@ -510,7 +576,8 @@
     if (ui.form === 'priority') form = `<div class="cs-form"><label class="tol">Priority <select id="pr-l">${['P1', 'P2', 'P3', 'auto'].map((l) => `<option value="${l}">${l === 'auto' ? 'Back to computed' : l}</option>`).join('')}</select></label>${area('pr-r', 'Why (8+ characters)', 2)}<button type="button" class="b-pri" data-do="priority">Save priority</button></div>`;
     if (ui.form === 'cls' && topX(c)) form = `<div class="cs-form"><label class="tol">Classification <select id="cl-v">${Object.entries(CLS).map(([k, l]) => `<option value="${k}"${k === topX(c).cls ? ' selected' : ''}>${l}</option>`).join('')}</select></label>${area('cl-r', 'Why (8+ characters)', 2)}<button type="button" class="b-pri" data-do="cls" data-x="${topX(c).id}">Save classification</button></div>`;
     if (ui.form && ui.form.startsWith('act:')) { const a = acts.find((y) => y.id === ui.form.slice(4)); if (a) form = `<div class="cs-form"><p class="sl">${esc(a.label)}</p>${a.needsReason ? area('r-' + a.id, 'Reason, kept with the decision (12+ characters)', 2) : ''}<button type="button" class="b-pri" data-do="act" data-a="${esc(a.id)}">Confirm</button></div>`; }
-    return `<p class="sl">${p.kind === 'waiting' || p.kind === 'authority' || p.kind === 'done' || (p.kind === 'none' && !main.includes('data-do="as"')) ? 'Status' : 'Your next step'}</p>${main}${form}${secondary}
+    if (ui.guided) main = main.replace(/class="b-pri cs-primary"/, 'class="b-pri cs-primary gd-hl"');
+    return `<p class="sl">${p.kind === 'waiting' || p.kind === 'authority' || p.kind === 'done' || (p.kind === 'none' && !main.includes('data-do="as"')) ? 'Status' : 'Next action'}</p>${main}${form}${secondary}
       <p class="cs-who">Acting as ${esc(name(me))} · ${esc(D.people[me].role)}</p>`;
   }
   function reassignForm(t, primary) {
@@ -542,8 +609,7 @@
   function evidenceHtml(c, facts, keys) {
     const tag = (f) => (f.status === 'agree' ? ['ok', 'Confirmed'] : f.status === 'single' ? ['', 'On record'] : f.status === 'conflict' ? ['neg', 'Sources disagree'] : ['warn', 'Pending confirmation']);
     const n = c.evidence.filter((e) => !e.superseded).length;
-    return `<section class="cs-sec" aria-labelledby="ev-h"><h4 id="ev-h">Evidence</h4>
-      <details class="cs-det"><summary>Sources and full detail: where each fact came from, when, which version, and whether sources are independent (${n} source${n === 1 ? '' : 's'})</summary>
+    return `<details class="cs-sec cs-fold"${ui.guided ? ' open' : ''}><summary><h4>Evidence</h4><span class="c-s">${n} source${n === 1 ? '' : 's'} · where each fact came from, which version, and whether sources are independent</span></summary>
         <table class="tbl rq-trace"><thead><tr><th scope="col">Fact</th><th scope="col">Value</th><th scope="col">Source</th><th scope="col">Independence</th></tr></thead><tbody>
         ${facts.map((f) => f.readings.length ? f.readings.map((r, i) => {
           const e = c.evidence.find((y) => y.id === r.evidence);
@@ -556,7 +622,7 @@
         </tbody></table>
         ${docsHtml(c)}
         ${c.evidence.some((e) => e.superseded) ? `<p class="sl">Earlier versions, kept</p><ul class="rq-old">${c.evidence.filter((e) => e.superseded).map((e) => `<li>${esc(e.label)} v${e.version} · replaced ${esc(at(e.superseded))}</li>`).join('')}</ul>` : ''}
-      </details></section>`;
+      </details>`;
   }
   // documents keep their text; the extracted spans are marked where they were read
   function docsHtml(c) {
@@ -574,9 +640,11 @@
   // checks: the live ones first, finished ones folded
   function checksHtml(c, tasks) {
     const live = tasks.filter((t) => t.status !== 'closed'), done = tasks.filter((t) => t.status === 'closed');
-    return `<section class="cs-sec" aria-labelledby="ck-h"><h4 id="ck-h">Checks <span class="c-s">· the case stays with ${esc(name(c.owner))}; a check only answers its question</span></h4>
+    const lateN = live.filter((t) => C.isOverdue(state, t)).length;
+    return `<details class="cs-sec cs-fold"${ui.guided || ui.form && ui.form.includes(':') ? ' open' : ''}><summary><h4>Checks</h4><span class="c-s">${live.length} open${lateN ? ` · <b class="neg">${lateN} overdue</b>` : ''}${done.length ? ` · ${done.length} finished` : ''}</span></summary>
+      ${ui.guided ? `<p class="c-s">The case stays with ${esc(name(c.owner))}; a check only answers its question.</p>` : ''}
       ${live.length ? live.map((t) => taskHtml(c, t)).join('') : '<p class="d-empty">No check is open.</p>'}
-      ${done.length ? `<details class="cs-det"><summary>Finished checks (${done.length})</summary>${done.map((t) => taskHtml(c, t)).join('')}</details>` : ''}</section>`;
+      ${done.length ? `<details class="cs-det"><summary>Finished checks (${done.length})</summary>${done.map((t) => taskHtml(c, t)).join('')}</details>` : ''}</details>`;
   }
   function taskHtml(c, t) {
     const mine = t.assignee === me, lead = C.isLead(D, me, t.team), owner = C.onCase(D, me, c), member = D.people[me].team === t.team;
@@ -605,15 +673,17 @@
   // activity: the latest few, the rest folded; decisions show whether they still hold
   function activityHtml(c) {
     const h = c.history.slice().reverse();
-    const li = (e) => `<li><span class="c-s">${esc(at(e.at))} · ${esc(D.people[e.by] ? name(e.by) : e.by)}</span><br>${esc(e.event)}${e.detail ? ` <span class="c-s">· ${esc(e.detail)}</span>` : ''}${e.changes && e.changes.length ? `<ul class="rq-chg">${e.changes.map((x) => `<li>${esc(x.label)}: <s>${esc(C.fmt(x.before))}</s> → ${esc(C.fmt(x.after))}</li>`).join('')}</ul>` : ''}</li>`;
-    return `<section class="cs-sec" aria-labelledby="ac-h"><h4 id="ac-h">Activity</h4>
+    // what changed sits one click down, in words, not as raw records
+    const li = (e) => { const chg = e.changes && e.changes.length; return `<li><span class="c-s">${esc(at(e.at))} · ${esc(D.people[e.by] ? name(e.by) : e.by)}</span><br>${esc(e.event)}${e.detail && !chg ? ` <span class="c-s">· ${esc(e.detail)}</span>` : ''}${chg ? `<details class="rq-chg-d"><summary class="c-s">${e.changes.length} value${e.changes.length === 1 ? '' : 's'} changed</summary><ul class="rq-chg">${e.changes.map((x) => `<li>${esc(x.label)}: <s>${esc(C.fmt(x.before))}</s> → ${esc(C.fmt(x.after))}</li>`).join('')}</ul></details>` : ''}</li>`; };
+    const stale = c.decisions.filter((d) => d.stale && !d.rereviewed).length;
+    return `<details class="cs-sec cs-fold"${ui.guided || stale ? ' open' : ''}><summary><h4>Activity</h4><span class="c-s">${h.length} entr${h.length === 1 ? 'y' : 'ies'}${c.decisions.length ? ` · ${c.decisions.length} decision${c.decisions.length === 1 ? '' : 's'}` : ''}${stale ? ` · <b class="warn">${stale} need${stale === 1 ? 's' : ''} re-review</b>` : ''}</span></summary>
       ${c.decisions.length ? `<ul class="cs-dec">${c.decisions.map((d) => `<li>${d.stale && !d.rereviewed ? '<span class="st warn">Needs re-review</span>' : d.rereviewed ? '<span class="st">Replaced</span>' : '<span class="st ok">Holds</span>'} <b>${esc(d.label)}</b> <span class="c-s">· ${esc(name(d.by))} · ${esc(at(d.at))} · evidence v${d.version}${d.reason ? ` · “${esc(d.reason)}”` : ''}</span></li>`).join('')}</ul>` : ''}
       <ol class="rq-tl">${h.slice(0, 5).map(li).join('')}</ol>
-      ${h.length > 5 ? `<details class="cs-det"><summary>Full history (${h.length} entries)</summary><ol class="rq-tl">${h.slice(5).map(li).join('')}</ol></details>` : ''}</section>`;
+      ${h.length > 5 ? `<details class="cs-det"><summary>Full history (${h.length} entries)</summary><ol class="rq-tl">${h.slice(5).map(li).join('')}</ol></details>` : ''}</details>`;
   }
 
   // ---------- render ----------
-  const WHERE = (r) => (r.page === 'search' ? 'Search' : r.page === 'store' ? 'Store owner view' : r.page === 'mywork' ? 'My Work' : r.page === 'queue' ? `Work Queues · ${MODULES[r.module].label}` : r.page === 'other' ? `${MODULES[r.module].label} · ${MODULES[r.module].other.label}` : r.page === 'case' ? `${MODULES[state.cases[r.id].module].label} · ${r.id}` : r.label);
+  const WHERE = (r) => (r.page === 'home' ? 'My Work' : r.page === 'search' ? 'Search' : r.page === 'store' ? 'Store owner view' : r.page === 'mywork' ? 'My Work' : r.page === 'queue' ? `Work Queues · ${MODULES[r.module].label}` : r.page === 'other' ? `${MODULES[r.module].label} · ${MODULES[r.module].other.label}` : r.page === 'case' ? `${MODULES[state.cases[r.id].module].label} · ${r.id}` : r.label);
   function render() {
     const r = ui.route;
     const head = $('#wb-head'); if (head) head.innerHTML = headHtml(r);
@@ -623,12 +693,17 @@
     const sIn = $('#wb-s'); if (sIn && document.activeElement !== sIn) sIn.value = r.page === 'search' ? r.q || '' : '';
     if (body && ['mywork', 'queue', 'case'].includes(r.page)) {
       const c = r.page === 'case' && state.cases[r.id];
+      // folded sections stay as the person left them while they work on the same case
+      const kept = c && body.dataset.case === c.id ? $$('.cs-fold', body).map((d) => d.open) : null;
+      body.dataset.case = c ? c.id : '';
       body.innerHTML = r.page === 'mywork' ? myWorkHtml() : r.page === 'queue' ? queueHtml(r.module) : caseHtml(c);
       body.className = r.page === 'case' ? 'is-case' : '';
       if (c) body.dataset.version = c.version;
+      if (kept) $$('.cs-fold', body).forEach((d, i) => { if (kept[i]) d.open = true; });
     }
-    const who = $('.app-top .who'); if (who) who.hidden = r.page === 'store';
-    const sf = $('#wb-sf'); if (sf) sf.hidden = r.page === 'store';
+    const mode = modeOf(r);
+    const who = $('.app-top .who'); if (who) who.hidden = r.page === 'store' || mode === 'lab';
+    const sf = $('#wb-sf'); if (sf) sf.hidden = mode !== 'app';
     $('#rq-msg').hidden = !ui.msg; $('#rq-msg').textContent = ui.msg;
     $('#wb-where').textContent = WHERE(r);
     // the rail: where you are, and counts that always mean the same thing
@@ -659,9 +734,9 @@
     const a = e.target.closest('[data-route]');
     if (a && !e.metaKey && !e.ctrlKey && !e.shiftKey) { e.preventDefault(); const r = parse('#' + a.dataset.route); if (r.page !== 'case') ui.guided = false; go(r); closeMenu(); if (r.page === 'case' || r.page === 'store') requestAnimationFrame(toSheet); return; }
     const fb = e.target.closest('[data-feedback]');
-    if (fb) { e.preventDefault(); const m = $('#ct-msg'); if (m && !m.value) m.value = `About the store owner view (${sv.sel}): `; if (m) m.focus({ preventScroll: true }); requestAnimationFrame(() => requestAnimationFrame(() => { const c = $('#contact'); window.scrollTo({ top: c.getBoundingClientRect().top + window.scrollY - 60, behavior: reduced ? 'auto' : 'smooth' }); })); return; }
+    if (fb) { e.preventDefault(); const m = $('#ct-msg'); if (m && !m.value) m.value = `About the store owner view (${sv.sel}): `; go({ page: 'home', contact: true }); if (m) setTimeout(() => m.focus({ preventScroll: true }), 400); return; }
     const st = e.target.closest('[data-try-store]');
-    if (st) { e.preventDefault(); go({ page: 'case', store: true }); closeMenu(); requestAnimationFrame(toSheet); return; }
+    if (st) { e.preventDefault(); go({ page: 'store', explain: true }); closeMenu(); return; }
     const t = e.target.closest('[data-try-case]');
     if (t) { e.preventDefault(); go({ page: 'case', try: true }); closeMenu(); requestAnimationFrame(toSheet); return; }
     const c = e.target.closest('[data-case]');
@@ -777,21 +852,10 @@
     return c ? `<button type="button" class="link-btn sm" data-case="${c.id}">${c.id} →</button>` : '';
   };
   window.tmOpenCase = (id) => go({ page: 'case', id });
-  window.tmGo = (hash) => { go(parse(hash)); toWorkbench(); };
+  window.tmGo = (hash) => go(parse(hash));
   window.tmSyncCash = (win) => { C.sync(state, D, A, 'cash', { bank: window.TM.bank, gl: window.TM.gl, window: win }); save(); render(); };
 
   // first paint: straight to the address in the URL, with no other panel shown first
-  const first = parse(location.hash);
-  apply(first);
-  if (location.hash === '#try' || first.page === 'case' || first.page === 'store' || first.page === 'search') {
-    // a link straight to a page lands on it; the page above keeps growing while media loads, so land again until the visitor scrolls
-    let moved = false;
-    const stop = () => { moved = true; };
-    ['wheel', 'touchstart', 'keydown'].forEach((ev) => addEventListener(ev, stop, { once: true, passive: true }));
-    const land = () => { if (moved) return; const s = $('#sheet'); if (s) window.scrollTo({ top: s.getBoundingClientRect().top + window.scrollY - 76, behavior: 'instant' }); };
-    requestAnimationFrame(() => requestAnimationFrame(land));
-    addEventListener('load', () => { land(); setTimeout(land, 400); }, { once: true });
-    setTimeout(land, 1200);
-  }
+  apply(parse(location.hash));
   app.refresh && app.refresh();
 })();

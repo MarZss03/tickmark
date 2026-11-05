@@ -1294,3 +1294,93 @@ button.wb-g[aria-expanded="false"]::after { transform: rotate(-90deg); }
   .imp-in input[data-imp="bank"] { width: 100%; height: 42px; font-size: 16px; }
   .imp-file { justify-content: center; }
 }
+
+/* ---------- v3.5 four experiences: the home screen, the workbench, the guided demo, the lab ----------
+   The workbench only helps people work; explanations live in the guided demo and the case study. */
+.hero-tags { list-style: none; display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 30px 0 0; padding: 0; color: var(--muted); font-size: 0.9375rem; font-weight: 600; }
+.hero-tags li::before { content: ""; display: inline-block; width: 7px; height: 7px; background: var(--gold); margin-right: 10px; transform: translateY(-2px) rotate(45deg); }
+.hero-alt { margin: 18px 0 0; color: var(--muted); font-size: 0.9375rem; }
+.hero-alt a { color: var(--gold); }
+.contact { display: none; }
+html.show-contact[data-mode="home"] .contact { display: grid; }
+html:not([data-mode="home"]) .hero, html:not([data-mode="home"]) .foot { display: none; }
+html[data-mode="home"] .workbench { display: none; }
+html:not([data-mode="home"]) .workbench { padding: 72px var(--m) 24px; }
+html:not([data-mode="home"]) .app { min-height: calc(100svh - 96px); }
+html:not([data-mode="home"]) .bar { background: rgba(10, 10, 10, 0.94); padding-top: 12px; padding-bottom: 12px; }
+
+/* the rail: daily work, or the lab, never both */
+.wb-biz, html[data-mode="lab"] .wb-lab { display: contents; }
+.wb-lab, html[data-mode="lab"] .wb-biz { display: none; }
+.app-env a { color: var(--a-muted); }
+.app-env a:hover { color: var(--gold); }
+.wb-back { margin-top: 14px; }
+.pg-k { margin: 0 0 4px; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--gold); }
+.sheet .control { margin: 0; padding: clamp(22px, 3vw, 40px); }
+
+/* the guided demo and the store owner screen have no rail */
+html[data-mode="try"] .app, html[data-mode="store"] .app { grid-template-columns: minmax(0, 1fr); }
+html[data-mode="try"] .app-side, html[data-mode="store"] .app-side { display: none; }
+html[data-mode="try"] .sheet, html[data-mode="store"] .sheet { margin-left: 8px; }
+html[data-mode="try"] .app-top, html[data-mode="store"] .app-top { padding-left: 16px; }
+.demo-bar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 18px; background: var(--gold); color: var(--on-cream); padding: 10px 16px; margin: 0 0 18px; }
+.demo-bar p { margin: 0; font-size: 13px; letter-spacing: 0.04em; }
+.demo-bar b { text-transform: uppercase; letter-spacing: 0.08em; }
+.demo-acts { display: flex; flex-wrap: wrap; gap: 6px 18px; }
+.demo-bar .link-btn { color: var(--on-cream); text-decoration: underline; text-underline-offset: 3px; font-weight: 700; }
+.gd-why { margin: 12px 0 0; color: var(--a-muted); font-size: 13.5px; line-height: 1.5; max-width: 76ch; }
+.gd-why .sl { display: block; margin-bottom: 2px; }
+.gd-hl { box-shadow: 0 0 0 3px #f1cf7f; }
+
+/* case: the issue, what is missing, what it holds up, one line on the cause; the rest folded */
+.cs-tags { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0 0; }
+.cs-tag { font-size: 13px; color: var(--a-text); background: #22201d; padding: 3px 9px; }
+.cs-tag b { font-weight: 650; }
+.cs-sum { gap: 22px; }
+.cs-blk, .cs-blk:first-child { border-top: 0; padding-top: 0; }
+.cs-pend li { display: grid; gap: 2px; }
+.cs-pend b { color: var(--a-text); font-weight: 650; }
+.cs-imp { margin: 0 0 6px; }
+.cs-cause > p { margin: 0; font-size: 15px; line-height: 1.5; max-width: 72ch; }
+.cs-cause .sl { display: block; }
+.cs-why > summary, .sv-why > summary { cursor: pointer; color: var(--gold); font-size: 13px; font-weight: 600; margin-top: 6px; width: fit-content; }
+.cs-why > p { margin: 8px 0 0; padding-left: 12px; border-left: 2px solid var(--a-edge); max-width: 72ch; line-height: 1.5; }
+.cs-why-l { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 4px; font-size: 13px; }
+.cs-why-l span { color: var(--a-muted); margin-right: 8px; }
+.cs-also { margin-top: -8px; }
+.cs-folds { margin-top: 28px; display: grid; gap: 8px; }
+.cs-sec.cs-fold { margin: 0; padding: 0; border: 1px solid var(--a-edge); }
+.cs-fold > summary { list-style: none; cursor: pointer; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding: 13px 16px; }
+.cs-fold > summary::-webkit-details-marker { display: none; }
+.cs-fold > summary::before { content: "+"; color: var(--gold); font-weight: 700; width: 12px; }
+.cs-fold[open] > summary::before { content: "−"; }
+.cs-fold > summary h4 { margin: 0; font-size: 15px; }
+.cs-fold > summary:hover h4 { color: var(--gold); }
+.cs-fold > :not(summary) { margin-left: 16px; margin-right: 16px; }
+.cs-fold[open] { padding-bottom: 14px; }
+.cs-fold .rq-trace { margin-top: 4px; }
+b.neg { color: var(--neg); } b.warn { color: var(--warn); }
+.rq-chg-d > summary { cursor: pointer; width: fit-content; }
+@media (max-width: 1100px) {
+  .cs-sum > .cs-blk:first-child { order: -2; }
+  .cs-act { order: -1; }
+  html[data-mode="try"] .gd-who { display: block; }
+  html[data-mode="try"] .sheet, html[data-mode="store"] .sheet { margin-left: 8px; }
+}
+
+/* the store owner's everyday screen */
+.sv-cause { margin: 0; }
+.sv-cause > p, p.sv-cause { margin: 0; font-size: 15.5px; line-height: 1.5; color: #e4e5e8; max-width: 66ch; }
+.sv-cause .sl { display: block; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; }
+p.sv-cause .st { margin-right: 8px; }
+.sv-why p { margin: 8px 0 0; font-size: 14px; line-height: 1.5; color: #c9ccd3; max-width: 66ch; }
+.sv-next { border-top: 1px solid #373b43; padding-top: 14px; display: grid; gap: 8px; }
+.sv-next p { margin: 0; font-size: 15.5px; }
+.sv-next .sl { text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; }
+.sv-next .sv-dl { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+/* small text a little brighter */
+.app { --a-muted: #b0a797; }
+html[data-mode="try"] .cs-back { display: none; }
+.sheet .control .control-copy > .head { display: none; }
+.demo-bar .demo-acts .link-btn { width: auto; display: inline-flex; align-items: center; min-height: 32px; padding: 0; }
