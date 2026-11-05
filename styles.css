@@ -1278,3 +1278,19 @@ button.wb-g[aria-expanded="false"]::after { transform: rotate(-90deg); }
   .sr-row > .st { justify-self: start; }
   .sr-chip { min-height: 40px; }
 }
+
+/* ---------- v3.4: a store owner's own payout file ---------- */
+.sv-imp { margin-top: 28px; padding-top: 22px; border-top: 1px solid #2a2d33; display: grid; gap: 12px; }
+.sv-imp > .c-s { max-width: 72ch; margin: 0; }
+.imp-in { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.imp-file { position: relative; display: inline-flex; align-items: center; min-height: 40px; cursor: pointer; }
+.imp-file:focus-within { outline: 2px solid var(--gold); outline-offset: 2px; }
+.imp-in input[data-imp="bank"] { height: 38px; width: 170px; border: 1px solid var(--a-edge); background: #15171a; color: var(--a-text); padding: 0 10px; font: inherit; font-variant-numeric: tabular-nums; } /* taste-skill-ignore: form field */
+.imp-card .sv-blk ul { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 6px; }
+.sv-err { border-left: 3px solid #f08a7e; padding-left: 14px; }
+.sv-err p { margin: 4px 0; }
+@media (max-width: 600px) {
+  .imp-in { flex-direction: column; align-items: stretch; }
+  .imp-in input[data-imp="bank"] { width: 100%; height: 42px; font-size: 16px; }
+  .imp-file { justify-content: center; }
+}

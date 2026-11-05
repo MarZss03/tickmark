@@ -232,6 +232,7 @@
     return `<div class="sv">
       <p class="sv-lead">${ids.length} payouts since 28 Oct. <b>${open ? `${open} need${open === 1 ? 's' : ''} a look` : 'All explained'}</b>${due.length ? ` · ${due.map((id) => `${SV.payouts[id].deadlineLabel.toLowerCase()} ${day(SV.payouts[id].deadline)}`).join(', ')}` : ''}. Each one compares what the payment processor says it sent with what reached your bank.</p>
       <div class="sv-grid"><ul class="sv-list" aria-label="Payouts">${list}</ul>${storeCard(sv.sel)}</div>
+      ${importHtml()}
       <p class="sv-ask">Run a store, or keep books for one? <a href="#contact" data-feedback>Tell me which payout was unclear</a>. It goes to Martin, and changes land in the build log.</p>
       <p class="sv-foot c-s">Simulated: ${esc(SV.store)} is a fictional store, and the payout report and bank statement are synthetic. The wording is written by fixed rules, not a model.</p>
     </div>`;
@@ -268,6 +269,51 @@
       <p class="sv-more c-s">Keep books with someone else? ${caseId ? `<button type="button" class="link-btn sm" data-do="svteam" data-c="${caseId}">Open ${id} in the team workbench</button>, where your bookkeeper can ask, track and record it.` : ''}</p>
     </article>`;
   }
+
+  // ---------- your own payout: a Shopify "Export payout transactions" CSV, read in this browser only ----------
+  const PI = window.TickmarkPayoutImport;
+  let imp = { text: null, name: '', bank: '' };
+  function importHtml() {
+    if (!PI) return '';
+    const mny = (v) => (v < 0 ? '−' : '') + money(v);
+    let out = imp.err ? `<div class="sv-blk sv-err" role="alert"><p class="sl">Could not read ${esc(imp.name)}</p><p>${esc(imp.err)}</p></div>` : '';
+    if (imp.text != null) {
+      const r = PI.analyse(imp.text, { bank: imp.bank });
+      if (!r.ok) out = `<div class="sv-blk sv-err" role="alert"><p class="sl">Could not read ${esc(imp.name)}</p><p>${esc(r.error)}</p>${r.found ? `<p class="c-s">Columns found: ${esc(r.found.join(', ') || 'none')}. Expected: ${esc(PI.COLUMNS.join(', '))}.</p>` : ''}</div>`;
+      else {
+        const sales = r.lines.find((l) => l.key === 'sales');
+        const c = r.compare;
+        const head = sales ? `Sales of ${money(sales.amount)} became a payout of ${mny(r.net)}${c ? (c.ties ? ', and it all reached your bank.' : `; your bank shows ${money(c.bank)}.`) : '.'}` : `This file comes to ${mny(r.net)}.`;
+        const row = (l, val, note, cls = '') => `<tr class="${cls}"><td>${esc(l)}${note ? ` <span class="c-s">· ${esc(note)}</span>` : ''}</td><td class="num">${val == null ? '—' : mny(val)}</td></tr>`;
+        out = `<article class="sv-card imp-card" aria-labelledby="imp-r">
+          <h3 class="sv-h" id="imp-r">${esc(head)}</h3>
+          <table class="tbl sv-wf"><caption class="sr">How ${esc(imp.name)} adds up</caption><tbody>
+            ${r.lines.map((l) => row(l.label, l.amount, `${l.count} line${l.count === 1 ? '' : 's'}`)).join('')}
+            ${row('Fees', r.fees, 'the Fee column')}
+            ${row('Payout', r.net, r.payoutDates.length === 1 ? `sum of Net · paid out ${day(r.payoutDates[0])}` : 'sum of Net', 'sv-tot')}
+            ${c ? row('Reached your bank', c.bank, 'as you entered it', 'sv-bank') + row('Difference', c.gap, '', c.ties ? 'sv-ok' : 'sv-gap') : ''}
+          </tbody></table>
+          <p class="sv-src c-s">From: ${esc(imp.name)} · ${r.rows.length} lines · read in this browser, not sent or saved</p>
+          <div class="sv-blk"><p class="sl">What the file says</p><ul>${r.facts.map((f) => `<li>${esc(f)}</li>`).join('')}</ul></div>
+          ${c && c.maybe ? `<div class="sv-blk sv-maybe"><p class="sl">Possible reason · not confirmed</p><p>${esc(c.maybe)}</p></div>` : ''}
+          ${r.todo.length ? `<div class="sv-blk sv-do"><p class="sl">What to do</p><ul>${r.todo.map((t) => `<li>${esc(t)}</li>`).join('')}</ul></div>` : `<div class="sv-blk sv-conf"><p class="sl">Nothing to do</p><p>Every line is a sale, a refund or a fee.</p></div>`}
+        </article>`;
+      }
+    }
+    return `<section class="sv-imp" aria-labelledby="imp-h">
+      <h3 class="sv-h" id="imp-h">Check one of your own payouts</h3>
+      <p class="c-s">On Shopify: Finance › Payouts › open a payout › Export › <b>Export payout transactions</b>. Shopify emails you the CSV. This page reads it in your browser; nothing is uploaded or saved.</p>
+      <div class="imp-in">
+        <label class="b-sec imp-file">Choose the CSV<input type="file" accept=".csv,text/csv" data-imp="file" class="sr"></label>
+        <button type="button" class="link-btn sm" data-do="impsample">Try a sample file</button>
+        <label class="tol">Reached your bank <input type="text" inputmode="decimal" data-imp="bank" value="${esc(imp.bank)}" placeholder="optional, e.g. 3,328.67" aria-describedby="imp-bank-n"></label>
+        ${imp.text != null ? '<button type="button" class="link-btn sm" data-do="impclear">Clear</button>' : ''}
+      </div>
+      <p class="c-s" id="imp-bank-n">Add the deposit from your bank statement to compare. Columns read: ${esc(PI.REQUIRED.join(', '))}, plus the dates, order and payout status when present.</p>
+      ${out}
+    </section>`;
+  }
+  const impFocus = () => { const h = $('#imp-r') || $('.sv-err'); if (h) { h.setAttribute('tabindex', '-1'); h.focus({ preventScroll: true }); h.scrollIntoView({ block: 'nearest', behavior: reduced ? 'auto' : 'smooth' }); } };
 
   // ---------- a business queue ----------
   function colsFor(c) {
@@ -664,6 +710,15 @@
     clearTimeout(e.target._t); e.target._t = setTimeout(() => { const pos = e.target.selectionStart; render(); const i = $('[data-f="q"]'); if (i) { i.focus(); i.setSelectionRange(pos, pos); } }, 200);
   });
   $('#sheet').addEventListener('change', (e) => {
+    const im = e.target.dataset.imp;
+    if (im === 'file') {
+      const file = e.target.files && e.target.files[0]; if (!file) return;
+      if (file.size > 5e6) { imp = { ...imp, text: null, name: file.name, err: 'This file is over 5 MB. Export a single payout rather than all transactions.' }; render(); return; }
+      const rd = new FileReader();
+      rd.onload = () => { imp = { ...imp, text: String(rd.result), name: file.name, err: '' }; log('Read a payout file in the store view', file.name); render(); impFocus(); };
+      rd.readAsText(file); return;
+    }
+    if (im === 'bank') { const had = document.activeElement === e.target; imp.bank = e.target.value.trim(); render(); const nb = $('[data-imp="bank"]'); if (had && nb) { nb.focus({ preventScroll: true }); nb.setSelectionRange(nb.value.length, nb.value.length); } return; }
     const f = e.target.dataset.f;
     if (f && f !== 'q') { filters[ui.route.module][f] = e.target.value || undefined; saveF(); render(); }
     if (e.target.name === 'es-to') { ui.escTo = e.target.value; $('#es-team-l').hidden = ui.escTo !== 'team'; $('#es-person-l').hidden = ui.escTo !== 'person'; }
@@ -674,6 +729,8 @@
     if (d === 'sq') { const v = b.dataset.q; if (sBox) sBox.value = v; return go({ page: 'search', q: v }, { replace: ui.route.page === 'search' }); }
     if (d === 'sv') { sv.sel = b.dataset.p; saveSv(); render(); const h = $('#sv-h'); if (h && innerWidth < 900) h.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' }); return; }
     if (d === 'svcheck') { sv.seen[b.dataset.p] = true; saveSv(); log('Read a source in the store view', b.dataset.p); render(); return; }
+    if (d === 'impsample') { imp = { text: PI.SAMPLE, name: 'sample-payout-transactions.csv', bank: PI.SAMPLE_BANK.toLocaleString('en-US', { minimumFractionDigits: 2 }) }; render(); impFocus(); return; }
+    if (d === 'impclear') { imp = { text: null, name: '', bank: '' }; render(); return; }
     if (d === 'svreset') { sv = { sel: 'PO-1028', seen: {} }; saveSv(); render(); return; }
     if (d === 'svteam') { setMe('sam'); go({ page: 'case', id: b.dataset.c }); toSheet(); return; }
     if (d === 'as') { setMe(b.dataset.p); render(); const p = $('.cs-primary'); if (p) { flash(p); p.focus({ preventScroll: true }); } return; }
