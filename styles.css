@@ -1183,3 +1183,12 @@ button.wb-g[aria-expanded="false"]::after { transform: rotate(-90deg); }
 }
 
 .app .count[hidden] { display: none; }
+
+/* a second way in: the store's payout, as its bookkeeper */
+.try-row { flex-basis: 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+.try-cta.alt { background: transparent; color: var(--cream); border-color: var(--line, #373b43); }
+.try-cta.alt:hover { background: rgba(255, 255, 255, 0.04); border-color: var(--gold); }
+.try-cta.alt span { color: var(--soft, #b8bdc7); opacity: 1; }
+.try-cta.alt .try-k { color: var(--gold) !important; }
+.pg-tip { margin: -6px 0 14px; color: #b8bdc7; font-size: 14px; }
+.cs-gap .fv { color: var(--warn, #e0b25a); font-weight: 600; }

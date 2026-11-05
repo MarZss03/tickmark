@@ -65,6 +65,7 @@
   function parse(hash) {
     const h = String(hash || '').replace(/^#/, '');
     if (h === 'try') return { page: 'case', try: true };
+    if (h === 'try/store') return { page: 'case', store: true };
     const [a, b] = h.split('/');
     if (a === 'queue' && MODULES[b]) return { page: 'queue', module: b };
     if (a === 'case' && b) return { page: 'case', id: decodeURIComponent(b) };
@@ -74,7 +75,7 @@
     if (a === 'demo' && ['filings', 'eval', 'stress'].includes(b)) return { page: 'view', view: { filings: 'sec', eval: 'eval', stress: 'stress' }[b], label: { filings: 'Public filings', eval: 'Model evaluation', stress: 'Stress test' }[b], demo: true };
     return { page: 'mywork' };
   }
-  const hashOf = (r) => (r.page === 'queue' ? `#queue/${r.module}` : r.page === 'case' ? (r.try ? '#try' : `#case/${encodeURIComponent(r.id)}`) : r.page === 'other' ? '#' + MODULES[r.module].other.route : r.page === 'view' ? { mine: '#imports', audit: '#audit', sec: '#demo/filings', eval: '#demo/eval', stress: '#demo/stress' }[r.view] : '#workbench');
+  const hashOf = (r) => (r.page === 'queue' ? `#queue/${r.module}` : r.page === 'case' ? (r.try ? '#try' : r.store ? '#try/store' : `#case/${encodeURIComponent(r.id)}`) : r.page === 'other' ? '#' + MODULES[r.module].other.route : r.page === 'view' ? { mine: '#imports', audit: '#audit', sec: '#demo/filings', eval: '#demo/eval', stress: '#demo/stress' }[r.view] : '#workbench');
   function go(r, { replace = false } = {}) {
     const h = hashOf(r);
     if (location.hash !== h) { try { history[replace ? 'replaceState' : 'pushState'](null, '', h); } catch { location.hash = h; } }
@@ -83,6 +84,7 @@
   let closeRan = false;
   function apply(r) {
     if (r.page === 'case' && r.try) { const c = caseByKey(TRY_KEY); r = { page: 'case', id: c.id, try: true }; ui.guided = true; if (!c.tasks.length && !c.closed) setMe('ava'); }
+    else if (r.page === 'case' && r.store) { const c = caseByKey(STORE_KEY); r = { page: 'case', id: c.id, store: true }; ui.guided = false; setMe(c.owner); }
     else if (r.page !== 'case' || r.id !== (ui.route && ui.route.id)) ui.guided = r.page === 'case' && ui.guided && r.id === caseByKey(TRY_KEY).id;
     if (r.page === 'case' && !state.cases[r.id]) r = { page: 'mywork' };
     if (r.page !== 'case' || r.id !== ui.route.id) { ui.form = null; ui.msg = ''; }
@@ -123,7 +125,7 @@
     const n = cases().filter((c) => c.module === r.module && !c.closed && c.exceptions.some((x) => x.status === 'open')).length;
     const tabs = m.other ? `<nav class="pg-tabs" aria-label="${esc(m.label)} pages"><a href="#queue/${r.module}" data-route="queue/${r.module}"${r.page === 'queue' ? ' aria-current="page"' : ''}>Queue</a><a href="#${m.other.route}" data-route="${m.other.route}"${r.page === 'other' ? ' aria-current="page"' : ''}>${m.other.label}</a></nav>` : '';
     return `<header class="pg-h"><div><h3 class="pg-t">${esc(m.label)}</h3><p class="pg-s">${n} open case${n === 1 ? '' : 's'} · ${esc(m.intro)}</p></div>
-      <div class="pg-a">${r.page === 'queue' ? `<button type="button" class="b-sec" data-do="scan" data-m="${r.module}">${esc(m.scan)}</button>` : ''}</div></header>${tabs}`;
+      <div class="pg-a">${r.page === 'queue' && r.module === 'payouts' && me !== 'sam' ? `<button type="button" class="b-pri" data-do="as" data-p="sam">Try as Sam Ortiz</button>` : ''}${r.page === 'queue' ? `<button type="button" class="b-sec" data-do="scan" data-m="${r.module}">${esc(m.scan)}</button>` : ''}</div></header>${r.page === 'queue' && r.module === 'payouts' && me !== 'sam' ? `<p class="pg-tip">You are viewing as ${esc(name(me))}. Sam Ortiz keeps the store’s books and owns these cases; switch to act on them.</p>` : ''}${tabs}`;
   }
 
   // ---------- My Work ----------
@@ -147,7 +149,7 @@
       ${sec('Team inbox', w.inbox, 'inbox', `Nothing for ${esc(team(D.people[me].team))} to claim.`, `Checks sent to ${esc(team(D.people[me].team))}; anyone in the team can claim one`)}
       ${sec('Waiting on others', w.waiting, 'waiting', 'You are not waiting on anyone.', 'Your cases and checks that are with someone else')}
     </div>
-    <p class="mw-tip">Switch <b>Acting as</b> above to see another person’s work. Try <a href="#try" data-try-case>the guided payout case</a> to follow one case across three people.</p>`;
+    <p class="mw-tip">Switch <b>Acting as</b> above to see another person’s work. Try <a href="#try" data-try-case>the guided payout case</a> to follow one case across three people, or <a href="#try/store" data-try-store>a store’s payout as Sam Ortiz</a>.</p>`;
   }
 
   // ---------- a business queue ----------
@@ -222,7 +224,7 @@
   }
 
   // ---------- the guided payout case: each step read from the case's own state ----------
-  const TRY_KEY = 'ms:ML-40311';
+  const TRY_KEY = 'ms:ML-40311', STORE_KEY = 'po:PO-1028';
   const WAIT = ['open', 'claimed', 'more-info'];
   function guideStep(c) {
     const tasks = c.tasks.map((id) => state.tasks[id]);
@@ -262,6 +264,13 @@
     const tag = f.status === 'agree' ? ['ok', 'Confirmed'] : f.status === 'conflict' ? ['neg', 'Sources disagree'] : ['', 'On record'];
     return `<li><span class="fk">${esc(f.label)}</span><span class="fv">${esc(f.status === 'conflict' ? f.readings.map((x) => showVal(x.value, c.module, f.key)).join(' vs ') : showVal(r.value, c.module, f.key))}${f.key === 'balance' ? ' <span class="c-s">book balance</span>' : ''}</span><span class="fs"><span class="st ${tag[0]}">${tag[1]}</span> ${esc(r.label)}</span></li>`;
   }
+  // two amounts that should tie: show the difference beside them, computed, not a source
+  function gapLine(c, byKey) {
+    const a = byKey.payout_total, b = byKey.deposit;
+    if (c.module !== 'payouts' || !a || !b || !a.readings.length || !b.readings.length) return '';
+    const d = Math.abs(a.readings[0].value - b.readings[0].value);
+    return d < 0.005 ? '' : `<li class="cs-gap"><span class="fk">Difference</span><span class="fv">${money(d)}</span><span class="fs">Payout total minus bank deposit</span></li>`;
+  }
   function caseHtml(c) {
     const facts = C.trace(c), byKey = Object.fromEntries(facts.map((f) => [f.key, f]));
     const x = topX(c);
@@ -280,7 +289,7 @@
       <div class="cs-grid">
         <div class="cs-main">
           ${x ? `<section class="cs-sum">
-            <div class="cs-blk cs-b-known"><p class="sl">What we know</p><ul class="cs-facts">${known.map((f) => factLine(c, f)).join('') || '<li class="c-s">No recorded facts yet.</li>'}</ul></div>
+            <div class="cs-blk cs-b-known"><p class="sl">What we know</p><ul class="cs-facts">${known.map((f) => factLine(c, f)).join('') || '<li class="c-s">No recorded facts yet.</li>'}${gapLine(c, byKey)}</ul></div>
             <div class="cs-blk cs-b-pend"><p class="sl">Not confirmed yet</p>${pending.length ? `<ul class="cs-pend">${pending.map((m) => `<li><b>Pending confirmation:</b> ${esc(m.what)}<span class="c-s"> · ${esc(m.who)} can supply it</span></li>`).join('')}</ul>` : '<p class="c-s">Nothing required is missing.</p>'}</div>
             <div class="cs-blk cs-b-imp"><p class="sl">What it holds up</p><p class="cs-imp">${esc((c.affects || '—').replace(/^\w/, (s) => s.toUpperCase()))} <span class="c-s">· ${esc(c.dueLabel || 'Due')} ${esc(at(c.due))}</span></p>
               ${paused.length ? `<ul class="cs-paused">${paused.map((a) => `<li><span class="st warn">Paused</span> ${esc(a.label)}<span class="c-s"> · needs: ${esc((a.prereqs.find((q) => !q.ok) || {}).label || a.permLabel || '')}</span></li>`).join('')}</ul>` : ''}</div>
@@ -322,6 +331,7 @@
         ${p.overdue && p.mine ? `<div class="rq-btns"><button type="button" class="b-pri cs-primary" data-do="remind" data-t="${t.id}">Send a reminder</button><button type="button" class="b-sec" data-do="lead" data-t="${t.id}">Pass to the team lead</button></div>` : ''}`;
     else if (p.kind === 'authority') main = `<p class="cs-wait"><span class="st">Waiting</span> ${esc(p.label)}</p><p class="c-s">${esc(p.why)}</p>`;
     else if (p.kind === 'done') main = `<p class="cs-wait"><span class="st ok">Done</span> ${esc(p.label)}</p><p class="c-s">History and evidence stay below.</p>`;
+    else if (!C.onCase(D, me, c) && !c.closed && c.owner !== me) main = `<p class="cs-wait">${esc(p.label)}</p><p class="c-s">You are viewing as ${esc(name(me))}. ${esc(name(c.owner))} owns this case and can act on it.</p><button type="button" class="b-pri cs-primary" data-do="as" data-p="${esc(c.owner)}">Try as ${esc(name(c.owner))}</button><p class="c-s">Switching simulates signing in as them.</p>`;
     else main = `<p class="cs-wait">${esc(p.label)}</p><p class="c-s">${esc(p.why)}</p>`;
     const onCase = C.onCase(D, me, c);
     const extra = acts.filter((a) => a.allowed && a.ready && a.id !== p.action);
@@ -337,7 +347,7 @@
     if (ui.form === 'priority') form = `<div class="cs-form"><label class="tol">Priority <select id="pr-l">${['P1', 'P2', 'P3', 'auto'].map((l) => `<option value="${l}">${l === 'auto' ? 'Back to computed' : l}</option>`).join('')}</select></label>${area('pr-r', 'Why (8+ characters)', 2)}<button type="button" class="b-pri" data-do="priority">Save priority</button></div>`;
     if (ui.form === 'cls' && topX(c)) form = `<div class="cs-form"><label class="tol">Classification <select id="cl-v">${Object.entries(CLS).map(([k, l]) => `<option value="${k}"${k === topX(c).cls ? ' selected' : ''}>${l}</option>`).join('')}</select></label>${area('cl-r', 'Why (8+ characters)', 2)}<button type="button" class="b-pri" data-do="cls" data-x="${topX(c).id}">Save classification</button></div>`;
     if (ui.form && ui.form.startsWith('act:')) { const a = acts.find((y) => y.id === ui.form.slice(4)); if (a) form = `<div class="cs-form"><p class="sl">${esc(a.label)}</p>${a.needsReason ? area('r-' + a.id, 'Reason, kept with the decision (12+ characters)', 2) : ''}<button type="button" class="b-pri" data-do="act" data-a="${esc(a.id)}">Confirm</button></div>`; }
-    return `<p class="sl">${p.kind === 'waiting' || p.kind === 'authority' || p.kind === 'done' || p.kind === 'none' ? 'Status' : 'Your next step'}</p>${main}${form}${secondary}
+    return `<p class="sl">${p.kind === 'waiting' || p.kind === 'authority' || p.kind === 'done' || (p.kind === 'none' && !main.includes('data-do="as"')) ? 'Status' : 'Your next step'}</p>${main}${form}${secondary}
       <p class="cs-who">Acting as ${esc(name(me))} · ${esc(D.people[me].role)}</p>`;
   }
   function reassignForm(t, primary) {
@@ -367,15 +377,10 @@
 
   // evidence: the facts this decision rests on first, the full trace on request
   function evidenceHtml(c, facts, keys) {
-    const rel = keys.map((k) => facts.find((f) => f.key === k)).filter(Boolean).slice(0, 4);
     const tag = (f) => (f.status === 'agree' ? ['ok', 'Confirmed'] : f.status === 'single' ? ['', 'On record'] : f.status === 'conflict' ? ['neg', 'Sources disagree'] : ['warn', 'Pending confirmation']);
-    const valOf = (f) => (f.readings.length ? f.readings.map((r) => showVal(r.value, c.module, f.key)).filter((v, i, a) => a.indexOf(v) === i).join(' vs ') : '—');
-    const srcOf = (f) => (f.readings.length ? f.readings.map((r) => r.label).join('; ') : `${team(f.who) || 'The owning team'} can supply it`);
+    const n = c.evidence.filter((e) => !e.superseded).length;
     return `<section class="cs-sec" aria-labelledby="ev-h"><h4 id="ev-h">Evidence</h4>
-      <table class="tbl cs-ev"><thead><tr><th scope="col">Field</th><th scope="col">Value</th><th scope="col">Source</th><th scope="col">Status</th></tr></thead><tbody>
-      ${rel.map((f) => `<tr><td>${esc(f.label)}</td><td class="num">${esc(valOf(f))}</td><td>${esc(srcOf(f))}</td><td><span class="st ${tag(f)[0]}">${tag(f)[1]}</span></td></tr>`).join('')}
-      </tbody></table>
-      <details class="cs-det"><summary>Full evidence trace: every source, location, time, version and independence (${c.evidence.filter((e) => !e.superseded).length} sources)</summary>
+      <details class="cs-det"><summary>Sources and full detail: where each fact came from, when, which version, and whether sources are independent (${n} source${n === 1 ? '' : 's'})</summary>
         <table class="tbl rq-trace"><thead><tr><th scope="col">Fact</th><th scope="col">Value</th><th scope="col">Source</th><th scope="col">Independence</th></tr></thead><tbody>
         ${facts.map((f) => f.readings.length ? f.readings.map((r, i) => {
           const e = c.evidence.find((y) => y.id === r.evidence);
@@ -462,6 +467,8 @@
     const cur = r.page === 'case' ? `queue/${state.cases[r.id].module}` : r.page === 'other' ? `queue/${r.module}` : r.page === 'queue' ? `queue/${r.module}` : r.page === 'view' ? hashOf(r).slice(1) : 'mywork';
     $$('#wb-nav [data-route]').forEach((a) => { if (a.dataset.route === cur) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
     const tryLink = $('#wb-nav [data-try-case]'); if (tryLink) { if (ui.guided && r.page === 'case') tryLink.setAttribute('aria-current', 'page'); else tryLink.removeAttribute('aria-current'); }
+    const storeLink = $('#wb-nav [data-try-store]'); if (storeLink) { if (r.store) storeLink.setAttribute('aria-current', 'page'); else storeLink.removeAttribute('aria-current'); }
+    if (r.store) $$('#wb-nav [data-route]').forEach((a) => a.removeAttribute('aria-current'));
     $('#wb-menu-l').textContent = WHERE(r);
     for (const m of Object.keys(MODULES)) { const el = $(`#wb-nav [data-n="${m}"]`); if (el) { const n = cases().filter((c) => c.module === m && !c.closed && c.exceptions.some((x) => x.status === 'open')).length; el.textContent = n || ''; } }
     const w = C.myWork(state, D, A, me), n = w.needs.length + w.assigned.length + w.inbox.length;
@@ -480,6 +487,8 @@
   document.addEventListener('click', (e) => {
     const a = e.target.closest('[data-route]');
     if (a && !e.metaKey && !e.ctrlKey && !e.shiftKey) { e.preventDefault(); const r = parse('#' + a.dataset.route); if (r.page !== 'case') ui.guided = false; go(r); closeMenu(); if (r.page === 'case') toSheet(); return; }
+    const st = e.target.closest('[data-try-store]');
+    if (st) { e.preventDefault(); go({ page: 'case', store: true }); closeMenu(); requestAnimationFrame(toSheet); return; }
     const t = e.target.closest('[data-try-case]');
     if (t) { e.preventDefault(); go({ page: 'case', try: true }); closeMenu(); requestAnimationFrame(toSheet); return; }
     const c = e.target.closest('[data-case]');

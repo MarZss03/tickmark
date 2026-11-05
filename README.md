@@ -6,7 +6,7 @@ Finance operations staff often see two records that should agree, and don't: the
 
 It started on 27 Oct 2026 as a finance review experiment (controls that show their work, for close, payroll and cash). On 3 Nov 2026, industry research and my mortgage servicing work narrowed it to one problem: settling exceptions whose facts sit with other teams. The [Notes](https://tickmark-martinzhang.vercel.app/notes) tell that story in order. It grew out of the earlier "Run Replay" prototype. All operational data is synthetic.
 
-**Start here:** [Try the payout exception](https://tickmark-martinzhang.vercel.app/#try) opens the main mortgage case with a step-by-step guide: ask Payments, switch roles, read the reply, ask the authorised reviewer, re-check.
+**Start here:** [Try the payout exception](https://tickmark-martinzhang.vercel.app/#try) opens the main mortgage case with a step-by-step guide: ask Payments, switch roles, read the reply, ask the authorised reviewer, re-check. Or [try as Sam Ortiz](https://tickmark-martinzhang.vercel.app/#try/store): a small online store's payout that reached the bank $300.00 short, opened as the bookkeeper who can act on it.
 
 Live: https://tickmark-martinzhang.vercel.app · Notes: https://tickmark-martinzhang.vercel.app/notes
 
