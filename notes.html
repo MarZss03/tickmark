@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=20261105k">
+<link rel="stylesheet" href="styles.css?v=20261105l">
 <script>document.documentElement.classList.add('js');try{if(sessionStorage.getItem('tm-wipe'))document.documentElement.classList.add('arriving')}catch(e){}</script>
 </head>
 <body data-page="notes">
@@ -28,24 +28,24 @@
 </div>
 
 <header class="bar">
-  <a class="logo" href="index.html" data-wipe aria-label="Tickmark, home"><svg class="mk" viewBox="0 0 191 225" aria-hidden="true"><path class="m-cream" d="M0 80L191 0V60L48 165L0 140Z"/><path class="m-gold" d="M0 156L48 181L191 76V145L0 225Z"/></svg><span class="wm">T<span class="wm-i">ı</span>ckmark</span></a>
+  <a class="logo" href="./" data-wipe aria-label="Tickmark, home"><svg class="mk" viewBox="0 0 191 225" aria-hidden="true"><path class="m-cream" d="M0 80L191 0V60L48 165L0 140Z"/><path class="m-gold" d="M0 156L48 181L191 76V145L0 225Z"/></svg><span class="wm">T<span class="wm-i">ı</span>ckmark</span></a>
   <nav class="bar-links" aria-label="Sections">
-    <a href="index.html#workbench">Workbench</a>
-    <a href="index.html#try">Guided demo</a>
-    <a href="notes.html" data-wipe aria-current="page">Case study</a>
+    <a href="./#workbench">Workbench</a>
+    <a href="./#try">Guided demo</a>
+    <a href="notes" data-wipe aria-current="page">Case study</a>
   </nav>
-  <button type="button" class="kbd" id="pal-open" aria-keyshortcuts="Control+K Meta+K"><span>Jump to section</span><kbd>⌘K</kbd></button>
-  <a class="bar-action magnetic" href="index.html#contact">Contact</a>
+  <button type="button" class="kbd" id="pal-open" aria-keyshortcuts="Control+K Meta+K" aria-label="Jump to a section (Ctrl K)"><span>Jump to section</span><kbd>⌘K</kbd></button>
+  <a class="bar-action magnetic" href="./#contact">Contact</a>
   <button type="button" class="bar-menu" id="bar-menu" aria-expanded="false" aria-controls="bar-sheet">Menu</button>
 </header>
 <nav class="bar-sheet" id="bar-sheet" aria-label="Site" hidden>
-  <a href="index.html#home">Home</a>
-  <a href="index.html#workbench">Workbench</a>
-  <a href="index.html#try">Guided demo <small>A mortgage payoff, step by step</small></a>
-  <a href="index.html#store">Store owner view <small>Why a payout is short</small></a>
-  <a href="notes.html" aria-current="page">Case study</a>
+  <a href="./#home">Home</a>
+  <a href="./#workbench">Workbench</a>
+  <a href="./#try">Guided demo <small>A mortgage payoff, step by step</small></a>
+  <a href="./#store">Store owner view <small>Why a payout is short</small></a>
+  <a href="notes" aria-current="page">Case study</a>
   <button type="button" class="bar-sheet-s" data-open-palette>Search cases and pages</button>
-  <a href="index.html#contact">Contact</a>
+  <a href="./#contact">Contact</a>
 </nav>
 
 <main id="top">
@@ -102,7 +102,7 @@
       <li><b>Keep urgency apart from confidence.</b><span>A closing tomorrow is urgent however sure the reading is; a confident reading is not a reason to rush.</span></li>
       <li><b>A person confirms what the data can't.</b><span>A settlement date, a waiver, a release scope: the rule pauses only the step that depends on it and names who can decide.</span></li>
     </ul>
-    <p data-reveal><a class="btn" href="index.html#try/store">Walk through a store owner’s payouts</a> <a class="btn ghost" href="index.html#try">Try the mortgage guided demo</a></p>
+    <p data-reveal><a class="btn" href="./#try/store">Walk through a store owner’s payouts</a> <a class="btn ghost" href="./#try">Try the mortgage guided demo</a></p>
     <p class="story-note" data-reveal>Out of scope on purpose: sending payments, statement requests, portal tracking and land registration. Those stay in the systems that run them; the demo shows their states, marked as simulated.</p>
   </div>
 </section>
@@ -245,7 +245,7 @@
 <section class="calendar" id="calendar" aria-labelledby="cal-h">
   <div class="cal-top">
     <h2 id="cal-h" class="head"><span class="soft">Five days to close,</span><br>and who checks what</h2>
-    <a class="btn ghost" href="index.html#workbench">Run day three</a>
+    <a class="btn ghost" href="./#workbench">Run day three</a>
   </div>
   <div class="cal-body">
     <div class="days" role="tablist" aria-label="Business days" id="days"></div>
@@ -282,7 +282,7 @@
     <p>What is missing for production: real servicing, payments, HRIS and ledger connections, single sign-on and real permissions, sending through the bank's own channels, and results from real reviewers. Whether this saves time or prevents errors is still a question I have to test.</p>
     <p class="sign">Martin Zhang</p>
     <p class="role">Finance systems and AI evaluation · Toronto</p>
-    <div class="tear"><span>Hiring for finance systems?</span><a href="index.html#contact">Write to me</a></div>
+    <div class="tear"><span>Hiring for finance systems?</span><a href="./#contact">Write to me</a></div>
   </div>
   <figure class="letter-pic">
     <img src="assets/hollerithmachine-chm.jpg" alt="Hollerith's punched-card tabulator, a wooden desk with rows of dials" width="1920" height="1440" loading="lazy">
@@ -298,14 +298,14 @@
   <p class="credits">Pictures: “Pittsboro Merchant Business Ledger”, public domain, via Wikimedia Commons · “HollerithMachine.CHM” by Adam Schuster, CC BY 2.0, via Wikimedia Commons. Data: SEC EDGAR XBRL, Bank of Canada exchange rates, FinQA (MIT licence). The 3D mark is modelled and rendered in Blender by the author.</p>
   <div class="foot-line">
     <span class="soft">Martin Zhang · Finance systems and AI evaluation · Toronto</span>
-    <span class="foot-links"><a href="index.html#workbench">Workbench</a><a href="index.html#try">Guided demo</a><a href="notes.html" data-wipe>Case study</a><a href="index.html#contact">Contact</a><a href="https://github.com/MarZss03/tickmark">Source</a></span>
+    <span class="foot-links"><a href="./#workbench">Workbench</a><a href="./#try">Guided demo</a><a href="notes" data-wipe>Case study</a><a href="./#contact">Contact</a><a href="https://github.com/MarZss03/tickmark">Source</a></span>
     <span class="soft">2026</span>
   </div>
 </footer>
 
-<script src="engine.js?v=20261105k"></script>
-<script src="data.js?v=20261105k"></script>
-<script src="app.js?v=20261105k"></script>
-<script src="motion.js?v=20261105k"></script>
+<script src="engine.js?v=20261105l"></script>
+<script src="data.js?v=20261105l"></script>
+<script src="app.js?v=20261105l"></script>
+<script src="motion.js?v=20261105l"></script>
 </body>
 </html>

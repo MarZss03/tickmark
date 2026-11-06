@@ -76,7 +76,7 @@
     e.preventDefault();
     store.set('tm-wipe', '1');
     document.getElementById('wipe')?.classList.add('cover');
-    setTimeout(() => { location.href = a.href; }, 720);
+    setTimeout(() => { location.href = a.href; }, 320);
   });
   addEventListener('pageshow', (e) => { if (e.persisted) { document.getElementById('wipe')?.classList.remove('cover'); root.classList.remove('arriving'); } });
 
@@ -126,10 +126,10 @@
     else if (sel.startsWith('#') && document.querySelector(sel)) document.querySelector(sel).scrollIntoView({ behavior: 'smooth' });
     else location.href = sel;
   };
-  const home = work ? '' : 'index.html';
+  const home = work ? '' : './';
   // workbench pages have their own addresses
-  const wb = (route) => () => { if (work && window.tmGo) window.tmGo('#' + route); else location.href = 'index.html#' + route; };
-  const notes = work ? 'notes.html' : '';
+  const wb = (route) => () => { if (work && window.tmGo) window.tmGo('#' + route); else location.href = './#' + route; };
+  const notes = work ? 'notes' : '';
   const items = [
     ['Search all cases', 'Workbench · IDs, people, amounts, words', wb('search')],
     ['Store owner view', 'Payouts for one store', wb('store')],
@@ -171,7 +171,7 @@
       const r = window.tmSearchCases(raw, 5);
       found = r.items.map((it) => [it.html, it.sub, () => window.tmGo('#case/' + encodeURIComponent(it.id))]);
       if (r.total > r.items.length) found.push([`All ${r.total} matching cases`, 'Search', () => window.tmGo('#search/' + encodeURIComponent(raw))]);
-    } else if (raw && !work) found = [[`Search cases for “${escH(raw)}”`, 'Workbench', () => { location.href = 'index.html#search/' + encodeURIComponent(raw); }]];
+    } else if (raw && !work) found = [[`Search cases for “${escH(raw)}”`, 'Workbench', () => { location.href = './#search/' + encodeURIComponent(raw); }]];
     shown = [...found, ...pages];
     sel = Math.min(sel, Math.max(0, shown.length - 1));
     list.innerHTML = shown.map(([n, g], i) => `<li role="option" id="pal-${i}" aria-selected="${i === sel}" data-i="${i}"><span>${n}</span><small>${g}</small></li>`).join('') || `<li class="none">Nothing matches “${escH(raw)}”</li>`;

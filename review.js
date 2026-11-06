@@ -66,7 +66,7 @@
     const h = String(hash || '').replace(/^#/, '');
     if (h === '' || h === 'home' || h === 'top') return { page: 'home' };
     if (h === 'contact') return { page: 'home', contact: true };
-    if (h === 'case-study') { location.replace('notes.html'); return { page: 'home' }; }
+    if (h === 'case-study') { location.replace('notes'); return { page: 'home' }; }
     if (h === 'try') return { page: 'case', try: true };
     if (h === 'try/store') return { page: 'store', explain: true };
     if (h === 'store') return { page: 'store' };
@@ -248,14 +248,16 @@
     const due = ids.filter((id) => sv.seen[id] && SV.payouts[id].deadline);
     const list = ids.map((id) => {
       const v = SV.payouts[id], r = storeRecords(id), p = r.payout, seen = !!sv.seen[id];
-      return `<li><button type="button" class="sv-p${id === sv.sel ? ' on' : ''}" data-do="sv" data-p="${id}" aria-pressed="${id === sv.sel}">
+      const on = id === sv.sel, chip = seen ? v.chipAfter : v.chip;
+      // one payout is shown at a time: a radio group, named in full for screen readers
+      return `<li role="none"><button type="button" role="radio" class="sv-p${on ? ' on' : ''}" data-do="sv" data-p="${id}" aria-checked="${on}" tabindex="${on ? 0 : -1}" aria-controls="sv-h" aria-label="${esc(`Payout ${id}, ${day(p.date)}, ${money(p.total)}: ${chip}`)}">
         <span class="sv-pid">${id} · ${esc(day(p.date))}</span><span class="sv-amt">${money(p.total)}</span>
         <span class="st ${seen ? (v.deadline ? 'warn' : 'ok') : v.tone}">${esc(seen ? v.chipAfter : v.chip)}</span></button></li>`;
     }).join('');
     const explain = !!ui.route.explain;
     return `<div class="sv">
       <p class="sv-lead"><b>${open ? `${open} of ${ids.length} need${open === 1 ? 's' : ''} a look` : 'All explained'}</b>${due.length ? ` · ${due.map((id) => `${SV.payouts[id].deadlineLabel.toLowerCase()} ${day(SV.payouts[id].deadline)}`).join(', ')}` : ''}${explain ? '. Each payout compares what the payment processor says it sent with what reached your bank.' : ''}</p>
-      <div class="sv-grid"><ul class="sv-list" aria-label="Payouts">${list}</ul>${explain ? storeCard(sv.sel) : storePlain(sv.sel)}</div>
+      <div class="sv-grid"><ul class="sv-list" role="radiogroup" aria-label="Payouts">${list}</ul>${explain ? storeCard(sv.sel) : storePlain(sv.sel)}</div>
       ${importHtml()}
       ${explain ? `<p class="sv-ask">Run a store, or keep books for one? <a href="#contact" data-feedback>Tell me which payout was unclear</a>. It goes to Martin, and changes land in the build log.</p>
       <p class="sv-foot c-s">Simulated: ${esc(SV.store)} is a fictional store, and the payout report and bank statement are synthetic. The wording is written by fixed rules, not a model.</p>` : `<p class="sv-foot c-s">Fictional store · synthetic payouts · <a href="#try/store" data-route="try/store">Guided version</a></p>`}
@@ -473,7 +475,7 @@
         <div class="gd-sum"><div><p class="sl">Confirmed</p><ul>${facts.map((f) => `<li>${esc(f.label)}: <b>${esc(showVal(f.readings[0].value, c.module, f.key))}</b></li>`).join('')}</ul></div>
           <div><p class="sl">Done</p><ul><li>Payments confirmed the receipt time</li><li>Daniel Roy set the settlement date</li><li>The hold interest was reversed</li><li>Discharge preparation resumed; no shortfall notice was sent</li></ul></div>
           <div><p class="sl">Still to do, outside this demo</p><ul><li>Prepare and register the discharge in the registration system</li><li>Other open cases in the queue</li></ul></div></div>
-        <div class="rq-btns"><a class="b-pri btn-l" href="#workbench" data-route="mywork">Open the normal workbench</a><a class="b-sec btn-l" href="notes.html" data-wipe>Why it works this way</a></div></section>`;
+        <div class="rq-btns"><a class="b-pri btn-l" href="#workbench" data-route="mywork">Open the normal workbench</a><a class="b-sec btn-l" href="notes" data-wipe>Why it works this way</a></div></section>`;
     }
     const role = me === g.who;
     return `${bar}<section class="gd" aria-label="This step" aria-live="polite">${steps}
@@ -817,6 +819,16 @@
     });
   }
 
+  // the payout radio group: arrow keys move the selection, as a radio group should
+  $('#sheet').addEventListener('keydown', (e) => {
+    const b = e.target.closest && e.target.closest('.sv-p[role="radio"]');
+    if (!b || !['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
+    e.preventDefault();
+    const all = $$('.sv-p[role="radio"]'), i = all.indexOf(b);
+    const j = e.key === 'Home' ? 0 : e.key === 'End' ? all.length - 1 : (i + (['ArrowDown', 'ArrowRight'].includes(e.key) ? 1 : -1) + all.length) % all.length;
+    sv.sel = all[j].dataset.p; saveSv(); render();
+    const nb = $(`.sv-p[data-p="${sv.sel}"]`); if (nb) nb.focus();
+  });
   $('#sheet').addEventListener('input', (e) => {
     const f = e.target.dataset.f; if (f !== 'q') return;
     const mod = ui.route.module; filters[mod].q = e.target.value; saveF();

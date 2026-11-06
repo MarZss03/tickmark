@@ -1458,3 +1458,9 @@ html { scrollbar-color: #3a372f var(--bg); caret-color: var(--gold); }
 .cs-act { min-width: 0; }
 .cs-act .b-pri, .cs-act .b-sec, .gd .b-pri, .sv-next .b-pri, .sv-next .b-sec { white-space: normal; height: auto; min-height: 44px; padding-top: 10px; padding-bottom: 10px; line-height: 1.3; text-align: center; }
 .foot { padding-top: 28px; border-top: 1px solid var(--line); }
+.hero-by { margin: 26px 0 0; color: var(--ink); font-size: 0.9375rem; }
+.hero-by a { color: inherit; text-decoration: underline; text-decoration-color: var(--gold); text-underline-offset: 4px; }
+.hero-by + .hero-alt { margin-top: 8px; }
+/* workbench metadata: a step larger and brighter, still quieter than the content it describes */
+.app { --a-muted: #bdb4a4; }
+.mw-meta, .q-open span, .sr-meta, .cs-m, .app .c-s { font-size: 13.5px; }

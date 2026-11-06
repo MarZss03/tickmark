@@ -9,6 +9,7 @@ const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/cs
 createServer(async (req, res) => {
   let p = normalize(decodeURIComponent(req.url.split('?')[0])).replace(/^[\\/]+/, '');
   if (!p || /[\\/]$/.test(p)) p += 'index.html';
+  else if (!extname(p)) p += '.html'; // clean URLs, as on Vercel: /notes serves notes.html
   try {
     const body = await readFile(join(root, p));
     res.writeHead(200, { 'Content-Type': types[extname(p)] || 'application/octet-stream' });
