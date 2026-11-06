@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=20261105i">
+<link rel="stylesheet" href="styles.css?v=20261105j">
 <script>document.documentElement.classList.add('js');try{if(sessionStorage.getItem('tm-wipe'))document.documentElement.classList.add('arriving')}catch(e){}</script>
 </head>
 <body data-page="notes">
@@ -36,7 +36,17 @@
   </nav>
   <button type="button" class="kbd" id="pal-open" aria-keyshortcuts="Control+K Meta+K"><span>Jump to section</span><kbd>⌘K</kbd></button>
   <a class="bar-action magnetic" href="index.html#contact">Contact</a>
+  <button type="button" class="bar-menu" id="bar-menu" aria-expanded="false" aria-controls="bar-sheet">Menu</button>
 </header>
+<nav class="bar-sheet" id="bar-sheet" aria-label="Site" hidden>
+  <a href="index.html#home">Home</a>
+  <a href="index.html#workbench">Workbench</a>
+  <a href="index.html#try">Guided demo <small>A mortgage payoff, step by step</small></a>
+  <a href="index.html#store">Store owner view <small>Why a payout is short</small></a>
+  <a href="notes.html" aria-current="page">Case study</a>
+  <button type="button" class="bar-sheet-s" data-open-palette>Search cases and pages</button>
+  <a href="index.html#contact">Contact</a>
+</nav>
 
 <main id="top">
 
@@ -153,6 +163,8 @@
       <p><b>Verified:</b> 59 automated tests; the whole eight-step guided demo run in the browser; home, workbench, case, store and lab checked at desktop and phone width. <b>Not yet:</b> anyone who works a queue trying the plainer case page.</p></div></li>
     <li data-reveal><span class="bl-d">5 Nov 2026</span><div><b>Every case, clicked through to the end.</b><p>I opened all 32 cases and followed each one with only the buttons on the page. Several stopped with no way forward: after answering a check as Payments, nothing said the owner had to look next; payroll cases waited on an approver with no way to reach them; a cash case offered “Re-check tomorrow” as its main step forever; a case asked the same team the same question in a loop; an overdue check bounced between reminder and team lead. Each now names who moves next and lets you continue as them, a deferral is never the main step, and an answered question leads to a decision instead of the same question. A store payout kept its “short by 00” heading after the source explained it, and the evaluation page still said 25 tests. Both fixed.</p>
       <p><b>Verified:</b> 31 of 32 cases close using only on-page buttons; the last waits, by design, for a wire that has not arrived, and says so. 59 automated tests. <b>Not yet:</b> a person doing the same walk without me.</p></div></li>
+    <li data-reveal><span class="bl-d">5 Nov 2026</span><div><b>The guided demo on a phone.</b><p>Someone ran the demo on a phone and got stuck answering as Leo in Payments: the wire log times were nowhere on screen, and tapping any option in the form threw them out of the demo. The second was my bug: a marker I had added to remember folded sections made every tap on a case page count as opening the case again. The reply form now shows what the answering team&rsquo;s records say, ticks the record when there is only one, and drafts the answer from it. Long action names wrap instead of pushing the panel off the screen, and phones get a Menu with every place on the site and search.</p>
+      <p><b>Verified:</b> all eight steps run with taps in a 375 px phone emulator, no sideways scrolling on any page; 59 automated tests. <b>Not yet:</b> a real phone in someone else&rsquo;s hand.</p></div></li>
   </ol>
 </section>
 
@@ -292,9 +304,9 @@
   </div>
 </footer>
 
-<script src="engine.js?v=20261105i"></script>
-<script src="data.js?v=20261105i"></script>
-<script src="app.js?v=20261105i"></script>
-<script src="motion.js?v=20261105i"></script>
+<script src="engine.js?v=20261105j"></script>
+<script src="data.js?v=20261105j"></script>
+<script src="app.js?v=20261105j"></script>
+<script src="motion.js?v=20261105j"></script>
 </body>
 </html>

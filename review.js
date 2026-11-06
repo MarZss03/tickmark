@@ -454,10 +454,10 @@
     const open = (code) => c.exceptions.some((x) => x.status === 'open' && x.code === code);
     if (c.closed) return { n: 9, done: true };
     if (!pay) return { n: 1, who: 'ava', goal: 'Find out when the money actually reached the bank.', next: 'Press “Request receipt confirmation”, check the drafted question to Payments, and send it.', why: 'The payout posted, yet the loan still shows a balance. Whether the money came late depends on when it reached the bank, and only Payments holds the wire log.' };
-    if (WAIT.includes(pay.status)) return { n: 2, who: 'leo', goal: 'Answer the check for Payments.', next: pay.status === 'open' ? 'Press “Claim check”. Then reply with the wire log.' : 'Press “Reply with evidence”, tick the wire log and send.', why: 'A check goes to a team, not to the case. Leo answers one question; the case stays with Ava.' };
+    if (WAIT.includes(pay.status)) return { n: 2, who: 'leo', goal: 'Answer the check for Payments.', next: pay.status === 'open' ? 'Press “Claim check”. Then reply with the wire log.' : 'Press “Reply with evidence”. Your wire log is shown and ticked; check the times, then press “Send reply”.', why: 'A check goes to a team, not to the case. Leo answers one question; the case stays with Ava.' };
     if (pay.status === 'replied') return { n: 3, who: 'ava', goal: 'Decide whether the reply answers the question.', next: 'The receipt time is now on record. Read the reply, then press “Reply answers it”.', why: 'The wire log arrived as evidence, so the checks re-ran with it. A person still decides whether it answers the question.' };
     if (!dan) return { n: 4, who: 'ava', goal: 'Get the settlement date decided by someone authorised.', next: 'Press “Request settlement decision”. It goes to Daniel Roy.', why: 'Which date the loan settles on is a decision, not a fact in any system. Only someone with that authority can set it.' };
-    if (WAIT.includes(dan.status)) return { n: 5, who: 'daniel', goal: 'Set the settlement date.', next: 'Press “Reply with evidence”, tick the settlement decision and send.', why: 'Daniel’s reply becomes evidence with his name and time on it, so the decision can be traced later.' };
+    if (WAIT.includes(dan.status)) return { n: 5, who: 'daniel', goal: 'Set the settlement date.', next: 'Press “Reply with evidence”. The settlement decision is shown and ticked; check it, then press “Send reply”.', why: 'Daniel’s reply becomes evidence with his name and time on it, so the decision can be traced later.' };
     if (dan.status === 'replied') return { n: 6, who: 'ava', goal: 'Accept the authorised decision.', next: 'Press “Reply answers it”.', why: 'Accepting closes the check. The steps that were waiting for this date can now be tried.' };
     if (open('LATE_POSTING')) return { n: 7, who: 'daniel', goal: 'Correct the balance.', next: 'Press “Reverse the interest charged during our hold”. The checks re-run.', why: 'With the receipt time and settlement date both confirmed, the interest charged while the lender held the money can be reversed. Before that, the correction stayed paused.' };
     return { n: 8, who: 'daniel', goal: 'Restart the paused work.', next: 'Every condition holds. Press “Resume discharge preparation”.', why: 'The checks re-ran after the correction. Every condition for the paused step now holds.' };
@@ -551,9 +551,18 @@
     else if (p.kind === 'claim') main = `<button type="button" class="b-pri cs-primary" data-do="claim" data-t="${t.id}">Claim check</button><p class="cs-q">“${esc(t.question)}”</p><p class="c-s">Sent by ${esc(name(t.from))} to ${esc(team(t.team))} · due ${esc(at(t.due))}</p>`;
     else if (p.kind === 'reply') {
       const reach = c.available.filter((i) => !i.teams || i.teams.includes(D.people[me].team));
-      main = ui.form === 'reply' ? `<div class="cs-form"><p class="cs-q">“${esc(t.question)}”</p>${area('rp-a', 'Your answer')}
+      // the person answering sees what their own records say, so the answer is read off them, not guessed
+      const lines = (i) => {
+        const fromPatch = (i.patch || []).map((q) => [q.label, typeof q.value === 'object' && q.value ? [q.value.date && day(q.value.date), q.value.ref].filter(Boolean).join(' · ') : showVal(q.value, c.module, '')]);
+        const ev = i.evidence || {};
+        return fromPatch.length ? fromPatch : Object.entries(ev.facts || {}).map(([k, v]) => [k.replace(/_/g, ' ').replace(/^\w/, (s) => s.toUpperCase()), showVal(v, c.module, k)]);
+      };
+      const draftAns = reach.length === 1 ? `${(reach[0].evidence || {}).label || reach[0].label}: ${lines(reach[0]).map(([k, v]) => `${k.toLowerCase()} ${v}`).join('; ')}.` : '';
+      main = ui.form === 'reply' ? `<div class="cs-form"><p class="cs-q">“${esc(t.question)}”</p>
+          ${reach.length ? `<fieldset class="rq-evs"><legend class="sl">What your team’s records show</legend>${reach.map((i) => `<label class="rq-chk rq-ev"><input type="checkbox" value="${i.id}" data-attach${reach.length === 1 ? ' checked' : ''}><span><b>${esc(i.label)}</b>${i.correction ? ' <span class="pill warn">correction</span>' : ''}<span class="c-s">${esc([(i.evidence || {}).system, (i.evidence || {}).loc].filter(Boolean).join(' · '))}</span>
+            ${lines(i).length ? `<dl class="rq-ev-f">${lines(i).map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>` : ''}<span class="c-s">Ticked records go with your reply as evidence.</span></span></label>`).join('')}</fieldset>` : '<p class="c-s">Nothing on file for your team to attach. Say what you checked, and choose Cannot confirm if you could not.</p>'}
+          <label class="sl" for="rp-a">Your answer</label><textarea id="rp-a" rows="3" placeholder="Your answer">${esc(draftAns)}</textarea>
           <label class="tol">Conclusion <select id="rp-c"><option value="confirmed">Confirmed</option><option value="corrected">Corrected</option><option value="cannot-confirm">Cannot confirm</option></select></label>
-          ${reach.length ? `<fieldset><legend class="sl">Attach evidence you can reach</legend>${reach.map((i) => `<label class="rq-chk"><input type="checkbox" value="${i.id}" data-attach> ${esc(i.label)}${i.correction ? ' <span class="pill warn">correction</span>' : ''}</label>`).join('')}</fieldset>` : '<p class="c-s">Nothing on file for your team to attach.</p>'}
           <div class="rq-btns"><button type="button" class="b-pri cs-primary" data-do="reply" data-t="${t.id}">Send reply</button><button type="button" class="b-sec" data-do="form" data-form="">Cancel</button></div></div>`
         : `<button type="button" class="b-pri cs-primary" data-do="form" data-form="reply">Reply with evidence</button><p class="cs-q">“${esc(t.question)}”</p><p class="c-s">From ${esc(name(t.from))} · due ${esc(at(t.due))}${t.requested.length ? ` · asks for ${esc(t.requested.join(', '))}` : ''}</p>`;
     } else if (p.kind === 'review') main = `<p class="sl">Reply from ${esc(name(t.reply.by))}</p><p class="cs-q">${esc(t.reply.answer)}</p>${t.reply.evidence.length ? `<p class="c-s">Attached: ${esc(t.reply.evidence.map((id) => (c.evidence.find((e) => e.id === id) || {}).label).join(', '))}. The checks re-ran with it.</p>` : '<p class="c-s">No evidence attached.</p>'}
@@ -721,8 +730,8 @@
     if (body && ['mywork', 'queue', 'case'].includes(r.page)) {
       const c = r.page === 'case' && state.cases[r.id];
       // folded sections stay as the person left them while they work on the same case
-      const kept = c && body.dataset.case === c.id ? $$('.cs-fold', body).map((d) => d.open) : null;
-      body.dataset.case = c ? c.id : '';
+      const kept = c && body.dataset.shown === c.id ? $$('.cs-fold', body).map((d) => d.open) : null;
+      body.dataset.shown = c ? c.id : '';
       body.innerHTML = r.page === 'mywork' ? myWorkHtml() : r.page === 'queue' ? queueHtml(r.module) : caseHtml(c);
       body.className = r.page === 'case' ? 'is-case' : '';
       const key = r.page + '|' + (r.id || r.module || '');
@@ -768,7 +777,7 @@
     if (st) { e.preventDefault(); go({ page: 'store', explain: true }); closeMenu(); return; }
     const t = e.target.closest('[data-try-case]');
     if (t) { e.preventDefault(); go({ page: 'case', try: true }); closeMenu(); requestAnimationFrame(toSheet); return; }
-    const c = e.target.closest('[data-case]');
+    const c = e.target.closest('button[data-case]');
     if (c) { go({ page: 'case', id: c.dataset.case }); toSheet(); return; }
     const o = e.target.closest('[data-open-view]');
     if (o && o.dataset.openView === 'mine') { go({ page: 'view', view: 'mine', label: 'Data & Imports' }); }

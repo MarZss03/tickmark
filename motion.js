@@ -246,3 +246,17 @@
   }, { passive: true });
 })();
 
+
+// phones: the bar folds into one Menu button; the sheet holds every place on the site, and search
+(() => {
+  const btn = document.getElementById('bar-menu'), sh = document.getElementById('bar-sheet');
+  if (!btn || !sh) return;
+  const set = (open) => { btn.setAttribute('aria-expanded', String(open)); btn.textContent = open ? 'Close' : 'Menu'; sh.hidden = !open; document.documentElement.classList.toggle('menu-open', open); };
+  btn.addEventListener('click', () => set(sh.hidden));
+  sh.addEventListener('click', (e) => {
+    if (e.target.closest('[data-open-palette]')) { set(false); const o = document.getElementById('pal-open'); if (o) o.click(); return; }
+    if (e.target.closest('a')) set(false);
+  });
+  addEventListener('keydown', (e) => { if (e.key === 'Escape' && !sh.hidden) { set(false); btn.focus(); } });
+  addEventListener('hashchange', () => set(false));
+})();
