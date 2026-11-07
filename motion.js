@@ -260,3 +260,15 @@
   addEventListener('keydown', (e) => { if (e.key === 'Escape' && !sh.hidden) { set(false); btn.focus(); } });
   addEventListener('hashchange', () => set(false));
 })();
+
+// The product demo: a pop-up player on the home page; pausing when it closes.
+(function () {
+  const dlg = document.getElementById('demo-dialog');
+  if (!dlg || typeof dlg.showModal !== 'function') return;
+  const video = dlg.querySelector('video');
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('[data-demo-open]')) { dlg.showModal(); video.play().catch(() => {}); }
+    else if (e.target.closest('[data-demo-close]') || e.target === dlg) dlg.close();
+  });
+  dlg.addEventListener('close', () => video.pause());
+})();
