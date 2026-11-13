@@ -146,6 +146,7 @@
     ['Public filings', 'Demo Lab', wb('demo/filings')],
     ['Model evaluation', 'Demo Lab', wb('demo/eval')],
     ['Stress test', 'Demo Lab · plant errors, count what is caught', wb('demo/stress')],
+    ['Deployment check', 'Demo Lab · housing finance go live validation', wb('demo/deploy')],
     ['Journal entry control', 'Demo Lab', wb('demo/control')],
     ['Home', 'Tickmark', wb('home')],
     ['Contact', 'Tickmark', wb('contact')],

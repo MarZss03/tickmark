@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=20261107a">
+<link rel="stylesheet" href="styles.css?v=20261112a">
 <script>document.documentElement.classList.add('js');var h=location.hash.slice(1);document.documentElement.dataset.mode=(!h||h==='home'||h==='top'||h==='contact')?'home':/^try/.test(h)?'try':h==='store'?'store':(h.indexOf('demo/')===0||h==='validation'||h==='lab'||h==='control')?'lab':'app';try{if(sessionStorage.getItem('tm-wipe'))document.documentElement.classList.add('arriving')}catch(e){}</script>
 </head>
 <body data-page="work">
@@ -117,6 +117,7 @@
         <a class="wb-i" href="#demo/filings" data-route="demo/filings"><span>Public filings</span></a>
         <a class="wb-i" href="#demo/eval" data-route="demo/eval"><span>Model evaluation</span></a>
         <a class="wb-i" href="#demo/stress" data-route="demo/stress"><span>Stress test</span></a>
+        <a class="wb-i" href="#demo/deploy" data-route="demo/deploy"><span>Deployment check</span></a>
         <a class="wb-i" href="#demo/control" data-route="demo/control"><span>Journal entry control</span></a>
         <a class="wb-i wb-back" href="#workbench" data-route="mywork"><span>← Back to the workbench</span></a>
         </div>
@@ -307,6 +308,32 @@
         </div>
       </div>
 
+      <!-- DEPLOYMENT CHECK: housing finance go live validation on synthetic data -->
+      <div class="view" data-view="deploy" role="tabpanel" hidden>
+        <div class="v-title">
+          <div><p class="v-h">Before go live: Maple Court Residences</p><p class="v-sub">A property operator is about to launch a lease audit product. Five steps: confirm their files are complete, reconcile the signed leases against the resident ledger and the rent roll, check the product’s flags against what should be flagged, own every open item, then decide go or no go. Maple Court is fictional and every figure is synthetic.</p></div>
+          <div class="c-acts"><button type="button" class="b-sec" id="dp-reset">Reset decisions</button><button type="button" class="b-sec" data-export="deploy">Export open items</button></div>
+        </div>
+        <div class="stats" id="dp-stats"></div>
+        <ol class="dp-steps" id="dp-steps"></ol>
+        <div class="two">
+          <div class="card"><div class="c-head"><p class="c-t">1 · Files received</p><p class="c-s">What the customer sent for November 2026</p></div>
+            <table class="tbl" id="dp-files"><thead><tr><th scope="col">File</th><th scope="col" class="num">Rows</th><th scope="col">Check</th><th scope="col">Status</th></tr></thead><tbody></tbody></table>
+          </div>
+          <div class="card"><div class="c-head"><p class="c-t">5 · Go or no go</p><p class="c-s" id="dp-go-sub"></p></div><ul class="dp-go" id="dp-go"></ul></div>
+        </div>
+        <div class="card"><div class="c-head"><p class="c-t">2 · Lease, ledger and rent roll</p><p class="c-s" id="dp-rec-sub"></p></div>
+          <table class="tbl" id="dp-rec"><thead><tr><th scope="col">Unit</th><th scope="col">Finding</th><th scope="col" class="num">Lease</th><th scope="col" class="num">Ledger</th><th scope="col" class="num">Rent roll</th><th scope="col" class="num">Resident effect</th></tr></thead><tbody></tbody></table>
+          <p class="dp-src">Real rule, synthetic building: rent increases are checked against Ontario’s official rent increase guideline (2.5% for 2025, 2.1% for 2026, 1.9% for 2027), which caps units first occupied on or before 15 Nov 2018. Source: <a href="https://www.ontario.ca/page/residential-rent-increases" target="_blank" rel="noopener">ontario.ca, Residential rent increases</a>, checked 12 Nov 2026.</p>
+        </div>
+        <div class="card"><div class="c-head"><p class="c-t">3 · Product output checked</p><p class="c-s" id="dp-val-sub"></p></div>
+          <table class="tbl" id="dp-val"><thead><tr><th scope="col">Unit</th><th scope="col">Should be flagged</th><th scope="col">Result</th><th scope="col">Why</th></tr></thead><tbody></tbody></table>
+        </div>
+        <div class="card"><div class="c-head"><p class="c-t">4 · Open items</p><p class="c-s" id="dp-open-sub"></p></div>
+          <table class="tbl" id="dp-open"><thead><tr><th scope="col">Item</th><th scope="col">Owner</th><th scope="col">What is needed</th><th scope="col">Launch</th><th scope="col"><span class="sr">Action</span></th></tr></thead><tbody></tbody></table>
+        </div>
+      </div>
+
       <!-- YOUR DATA: the same rules on the visitor's own files, kept apart from the sample -->
       <div class="view" data-view="mine" role="tabpanel" hidden>
         <div class="v-title">
@@ -449,17 +476,18 @@
   </div>
 </footer>
 
-<script src="charts.js?v=20261107a"></script>
-<script src="engine.js?v=20261107a"></script>
-<script src="data.js?v=20261107a"></script>
-<script src="real-data.js?v=20261107a"></script>
-<script src="case-data.js?v=20261107a"></script>
-<script src="cases.js?v=20261107a"></script>
-<script src="case-rules.js?v=20261107a"></script>
-<script src="app.js?v=20261107a"></script>
-<script src="search.js?v=20261107a"></script>
-<script src="payout-import.js?v=20261107a"></script>
-<script src="review.js?v=20261107a"></script>
-<script src="motion.js?v=20261107a"></script>
+<script src="charts.js?v=20261112a"></script>
+<script src="engine.js?v=20261112a"></script>
+<script src="data.js?v=20261112a"></script>
+<script src="real-data.js?v=20261112a"></script>
+<script src="case-data.js?v=20261112a"></script>
+<script src="cases.js?v=20261112a"></script>
+<script src="case-rules.js?v=20261112a"></script>
+<script src="housing.js?v=20261112a"></script>
+<script src="app.js?v=20261112a"></script>
+<script src="search.js?v=20261112a"></script>
+<script src="payout-import.js?v=20261112a"></script>
+<script src="review.js?v=20261112a"></script>
+<script src="motion.js?v=20261112a"></script>
 </body>
 </html>

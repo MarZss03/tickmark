@@ -131,6 +131,7 @@
     if (view === 'payroll') drawPayrollCharts();
     if (view === 'cash') drawFx();
     if (view === 'stress') runStress(true);
+    if (view === 'deploy') { drawn[view] = false; renderDeploy(); }
     if (view === 'eval') {
       Charts.line($('#ch-ver'), { labels: ['2.0.0 · 66', '2.0.0 · 74', '2.1.0 · 74'], series: [{ name: 'Recall', values: TM.versions.map((v) => v.r) }], yTicks: [0.8, 0.85, 0.9, 0.95, 1], format: Charts.fmt.pct(1), endLabel: true });
       Charts.barList($('#ch-cats'), TM.evalCats.map(([label, n, pass]) => ({ label: `${label} · ${pass}/${n}`, value: n })), { format: Charts.fmt.int, thin: true });
@@ -589,6 +590,58 @@
   $('#st-run').addEventListener('click', () => { stressSeed += 1; store.set('stressSeed', stressSeed); runStress(false); });
   $('#st-src').addEventListener('change', () => runStress(false));
 
+
+  // ---------- deployment check: housing finance go live validation (synthetic) ----------
+  const H = window.TickmarkHousing;
+  const dp = { resolved: store.get('deployResolved', {}) };
+  const hm = (c) => (c == null ? '—' : H.money(c));
+  function renderDeploy() {
+    if (!H) return;
+    const D = H.DATA, comp = H.completeness(D), found = H.reconcile(D), val = H.validateOutput(found, D.productFlags), rd = H.readiness(D, dp.resolved);
+    // a missing lease marked as received completes the files
+    const leaseIn = comp.missingLeases.every((u) => dp.resolved[`OI-${u}-lease`]);
+    const filesDone = comp.ok || leaseIn;
+    const filesOk = comp.files.filter((f) => f.ok || (f.name === 'Signed leases' && leaseIn)).length;
+    const effect = found.reduce((a, f) => a + Math.abs(f.impact || 0), 0);
+    $('#dp-stats').innerHTML =
+      stat('Files complete', `${filesOk} of ${comp.files.length}`, filesDone ? (comp.ok ? 'ready to audit' : `lease for unit ${comp.missingLeases.join(', ')} received`) : `no lease for unit ${comp.missingLeases.join(', ')}`, !filesDone) +
+      stat('Discrepancies', found.length, `${H.money(effect)} misbilled this month`, found.length > 0) +
+      stat('Product flags matched', `${val.matched} of ${val.expected}`, `${val.missed} missed · ${val.falseAlarms} false alarm`, val.missed + val.falseAlarms > 0) +
+      stat('Launch', rd.ready ? 'Go' : 'No go', rd.ready ? 'every blocker resolved' : `${rd.blocking.length} blocker${rd.blocking.length === 1 ? '' : 's'} open`, !rd.ready);
+    const steps = [
+      ['Files complete', filesDone],
+      ['Three sources reconciled', true],
+      ['Product output checked', val.missed + val.falseAlarms === 0 || rd.items.filter((i) => /-(miss|fa)$/.test(i.id)).every((i) => dp.resolved[i.id])],
+      ['Every open item owned', rd.items.every((i) => i.owner)],
+      ['Go or no go', rd.ready],
+    ];
+    $('#dp-steps').innerHTML = steps.map(([t, ok], i) => `<li class="${ok ? 'ok' : ''}"><span class="dp-n">${i + 1}</span><span>${esc(t)}</span><span class="pill ${ok ? 'ok' : 'warn'}">${ok ? 'Done' : 'Open'}</span></li>`).join('');
+    $('#dp-files tbody').innerHTML = comp.files.map((f) => { const ok = f.ok || (f.name === 'Signed leases' && leaseIn); return `<tr><td>${esc(f.name)}</td><td class="num">${f.rows}</td><td>${esc(ok && !f.ok ? f.note + '; now received' : f.note)}</td><td><span class="pill ${ok ? 'ok' : 'neg'}">${ok ? 'Complete' : 'Missing'}</span></td></tr>`; }).join('');
+    $('#dp-rec-sub').textContent = `${found.length} findings across ${new Set(found.map((f) => f.unit)).size} of ${D.rentRoll.length} units`;
+    $('#dp-rec tbody').innerHTML = found.map((f) => `<tr><td>${f.unit}</td><td>${esc(f.label)}<span class="sub">${esc(f.detail)}</span></td><td class="num">${hm(f.lease)}</td><td class="num">${hm(f.ledger)}</td><td class="num">${hm(f.roll)}</td><td class="num">${f.impact ? (f.impact > 0 ? 'Overbilled ' : 'Underbilled ') + H.money(Math.abs(f.impact)) : '—'}</td></tr>`).join('');
+    const RES = { match: ['ok', 'Flagged'], missed: ['neg', 'Missed'], 'false alarm': ['warn', 'False alarm'] };
+    $('#dp-val-sub').textContent = `${val.expected} things to flag · unit 109 has no lease (a data gap) and the guideline check is a review rule, so neither counts against the product`;
+    $('#dp-val tbody').innerHTML = [...val.rows].sort((a, b) => (a.result === 'match') - (b.result === 'match')).map((r) => `<tr><td>${r.unit}</td><td>${esc(r.result === 'false alarm' ? 'Nothing' : r.label)}</td><td><span class="pill ${RES[r.result][0]}">${RES[r.result][1]}</span></td><td>${esc(H.ROOT_CAUSE[r.id] || (r.result === 'match' ? 'Product flag agrees with the reconciliation' : ''))}</td></tr>`).join('');
+    $('#dp-open-sub').textContent = `${rd.open.length} of ${rd.items.length} open · ${rd.blocking.length} block launch`;
+    $('#dp-open tbody').innerHTML = [...rd.items].sort((a, b) => (!!dp.resolved[a.id] - !!dp.resolved[b.id]) || (b.blocks - a.blocks)).map((i) => {
+      const done = !!dp.resolved[i.id];
+      return `<tr class="${done ? 'dp-done' : ''}"><td>${esc(i.title)}</td><td>${esc(i.owner)}</td><td>${esc(i.need)}</td><td>${i.blocks ? '<span class="pill neg">Blocks</span>' : '<span class="pill">After launch</span>'}</td><td><button type="button" class="b-sec b-sm" data-dp="${i.id}" aria-pressed="${done}">${done ? 'Reopen' : 'Mark resolved'}</button></td></tr>`;
+    }).join('');
+    $('#dp-go-sub').textContent = rd.ready ? 'Every launch blocker is resolved' : 'Launch waits on these';
+    $('#dp-go').innerHTML = rd.ready
+      ? `<li class="dp-ready"><b>Go.</b> Files complete and the product’s misses and false alarm are fixed. ${rd.open.length} customer item${rd.open.length === 1 ? '' : 's'} stay open after launch, each with an owner.</li>`
+      : rd.blocking.map((i) => `<li><b>${esc(i.title)}</b><span>${esc(i.owner)}</span></li>`).join('');
+  }
+  $('#dp-open')?.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-dp]'); if (!b) return;
+    const id = b.dataset.dp, item = H.openItems(H.DATA).find((i) => i.id === id);
+    if (dp.resolved[id]) delete dp.resolved[id]; else dp.resolved[id] = true;
+    store.set('deployResolved', dp.resolved);
+    log('You', dp.resolved[id] ? 'Resolved a deployment item' : 'Reopened a deployment item', item ? item.title : id);
+    renderDeploy();
+  });
+  $('#dp-reset')?.addEventListener('click', () => { dp.resolved = {}; store.set('deployResolved', {}); renderDeploy(); });
+
   // ---------- exports ----------
   const exporters = {
     close: () => ['close-exceptions', E.toCsv(['id', 'source', 'rule', 'title', 'amount', 'severity', 'blocks_signoff', 'decision', 'reason', 'decided_at'],
@@ -601,6 +654,7 @@
     stress: () => stress && ['stress-test', E.toCsv(['planted', 'employee_id', 'should_raise', 'rules_raised', 'result', 'why'],
       stress.cases.map((c) => ({ planted: c.label, employee_id: c.employee, should_raise: c.expect || 'nothing', rules_raised: c.raised.join(' '), result: c.result, why: c.gap })))],
     'my-bank': () => myBank && ['your-bank-reconciliation', E.toCsv(BANK_COLUMNS, bankRows(myBank))],
+    deploy: () => H && ['deployment-open-items', E.toCsv(['id', 'item', 'owner', 'needed', 'blocks_launch', 'status'], H.openItems(H.DATA).map((i) => ({ id: i.id, item: i.title, owner: i.owner, needed: i.need, blocks_launch: i.blocks ? 'yes' : 'no', status: dp.resolved[i.id] ? 'resolved' : 'open' })))],
     audit: () => ['audit-log', E.toCsv(['at', 'actor', 'event', 'detail'], audit)],
   };
   $$('[data-export]').forEach((b) => b.addEventListener('click', () => {
