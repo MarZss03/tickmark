@@ -94,7 +94,7 @@
   let closeRan = false;
   function apply(r) {
     const root = document.documentElement, next = modeOf(r.page === 'case' && r.try ? { page: 'case', try: true } : r);
-    if (root.dataset.mode && root.dataset.mode !== next && document.startViewTransition && !document.hidden) { document.startViewTransition(() => applyNow(r)); return; }
+    if (root.dataset.mode && root.dataset.mode !== next && document.startViewTransition && !document.hidden) { const vt = document.startViewTransition(() => applyNow(r)); /* a newer navigation can skip this one; that is fine */ [vt.ready, vt.finished].forEach((p) => p && p.catch(() => {})); return; }
     applyNow(r);
   }
   function applyNow(r) {

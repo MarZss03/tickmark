@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=20261112a">
+<link rel="stylesheet" href="styles.css?v=20261112b">
 <script>document.documentElement.classList.add('js');try{if(sessionStorage.getItem('tm-wipe'))document.documentElement.classList.add('arriving')}catch(e){}</script>
 </head>
 <body data-page="notes">
@@ -172,6 +172,8 @@
       <p><b>Verified:</b> 31 of 32 cases close using only on-page buttons; the last waits, by design, for a wire that has not arrived, and says so. 59 automated tests. <b>Not yet:</b> a person doing the same walk without me.</p></div></li>
     <li data-reveal><span class="bl-d">5 Nov 2026</span><div><b>The guided demo on a phone.</b><p>Someone ran the demo on a phone and got stuck answering as Leo in Payments: the wire log times were nowhere on screen, and tapping any option in the form threw them out of the demo. The second was my bug: a marker I had added to remember folded sections made every tap on a case page count as opening the case again. The reply form now shows what the answering team&rsquo;s records say, ticks the record when there is only one, and drafts the answer from it. Long action names wrap instead of pushing the panel off the screen, and phones get a Menu with every place on the site and search.</p>
       <p><b>Verified:</b> all eight steps run with taps in a 375 px phone emulator, no sideways scrolling on any page; 59 automated tests. <b>Not yet:</b> a real phone in someone else&rsquo;s hand.</p></div></li>
+    <li data-reveal><span class="bl-d">12 Nov 2026</span><div><b>A go live check for housing finance.</b><p>Before a property operator goes live on a lease audit product, someone has to prove the data is ready. A new Demo Lab page does that in five steps for a fictional building: are the files complete, do the signed leases, the resident ledger and the rent roll agree, did the product flag what it should and nothing else, who owns each open item, and is it go or no go. On the sample it finds 10 discrepancies, matches 6 of the product&rsquo;s 8 expected flags, names 2 misses and 1 false alarm with the reason for each, and holds launch on 4 blockers. Rent increases are checked against Ontario&rsquo;s official guideline, which turned one finding around: the ledger looked $55 short, but the lease asked for more than the rule allows, so the real shortfall is $38.85 and the increase needs a legal check before anyone bills it.</p>
+      <p><b>Verified:</b> 66 automated tests, seven on this check, including the guideline&rsquo;s exemption for newer buildings; desktop and phone width. <b>Not yet:</b> a real operator&rsquo;s files; the building and its data are synthetic, the guideline is real.</p></div></li>
   </ol>
 </section>
 
@@ -310,9 +312,9 @@
   </div>
 </footer>
 
-<script src="engine.js?v=20261112a"></script>
-<script src="data.js?v=20261112a"></script>
-<script src="app.js?v=20261112a"></script>
-<script src="motion.js?v=20261112a"></script>
+<script src="engine.js?v=20261112b"></script>
+<script src="data.js?v=20261112b"></script>
+<script src="app.js?v=20261112b"></script>
+<script src="motion.js?v=20261112b"></script>
 </body>
 </html>
