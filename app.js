@@ -615,7 +615,8 @@
       ['Every open item owned', rd.items.every((i) => i.owner)],
       ['Go or no go', rd.ready],
     ];
-    $('#dp-steps').innerHTML = steps.map(([t, ok], i) => `<li class="${ok ? 'ok' : ''}"><span class="dp-n">${i + 1}</span><span>${esc(t)}</span><span class="pill ${ok ? 'ok' : 'warn'}">${ok ? 'Done' : 'Open'}</span></li>`).join('');
+    const JUMP = ['dp-files-card', 'dp-rec-card', 'dp-val-card', 'dp-open-card', 'dp-go-card'];
+    $('#dp-steps').innerHTML = steps.map(([t, ok], i) => `<li class="${ok ? 'ok' : ''}"><button type="button" class="dp-step" data-jump="${JUMP[i]}"><span class="dp-n">${i + 1}</span><span>${esc(t)}</span><span class="pill ${ok ? 'ok' : 'warn'}">${ok ? 'Done' : 'Open'}</span></button></li>`).join('');
     $('#dp-files tbody').innerHTML = comp.files.map((f) => { const ok = f.ok || (f.name === 'Signed leases' && leaseIn); return `<tr><td>${esc(f.name)}</td><td class="num">${f.rows}</td><td>${esc(ok && !f.ok ? f.note + '; now received' : f.note)}</td><td><span class="pill ${ok ? 'ok' : 'neg'}">${ok ? 'Complete' : 'Missing'}</span></td></tr>`; }).join('');
     $('#dp-rec-sub').textContent = `${found.length} findings across ${new Set(found.map((f) => f.unit)).size} of ${D.rentRoll.length} units`;
     $('#dp-rec tbody').innerHTML = found.map((f) => `<tr><td>${f.unit}</td><td>${esc(f.label)}<span class="sub">${esc(f.detail)}</span></td><td class="num">${hm(f.lease)}</td><td class="num">${hm(f.ledger)}</td><td class="num">${hm(f.roll)}</td><td class="num">${f.impact ? (f.impact > 0 ? 'Overbilled ' : 'Underbilled ') + H.money(Math.abs(f.impact)) : '—'}</td></tr>`).join('');
@@ -627,12 +628,16 @@
       const done = !!dp.resolved[i.id];
       return `<tr class="${done ? 'dp-done' : ''}"><td>${esc(i.title)}</td><td>${esc(i.owner)}</td><td>${esc(i.need)}</td><td>${i.blocks ? '<span class="pill neg">Blocks</span>' : '<span class="pill">After launch</span>'}</td><td><button type="button" class="b-sec b-sm" data-dp="${i.id}" aria-pressed="${done}">${done ? 'Reopen' : 'Mark resolved'}</button></td></tr>`;
     }).join('');
-    $('#dp-go-sub').textContent = rd.ready ? 'Every launch blocker is resolved' : 'Launch waits on these';
+    $('#dp-go-sub').textContent = rd.ready ? 'Every launch blocker is resolved' : `${rd.blocking.length} blocker${rd.blocking.length === 1 ? '' : 's'} left`;
+    const tryEl = $('#dp-try'); if (tryEl) tryEl.classList.toggle('done', rd.ready);
     $('#dp-go').innerHTML = rd.ready
       ? `<li class="dp-ready"><b>Go.</b> Files complete and the product’s misses and false alarm are fixed. ${rd.open.length} customer item${rd.open.length === 1 ? '' : 's'} stay open after launch, each with an owner.</li>`
-      : rd.blocking.map((i) => `<li><b>${esc(i.title)}</b><span>${esc(i.owner)}</span></li>`).join('');
+      : rd.blocking.map((i) => `<li><b>${esc(i.title)}</b><span>${esc(i.owner)}</span><button type="button" class="b-sec b-sm" data-dp="${i.id}">Mark resolved</button></li>`).join('');
   }
-  $('#dp-open')?.addEventListener('click', (e) => {
+  // one handler for the whole view: step jumps, and resolve buttons in the go card or the open items table
+  $('[data-view="deploy"]')?.addEventListener('click', (e) => {
+    const j = e.target.closest('[data-jump]');
+    if (j) { e.preventDefault(); document.getElementById(j.dataset.jump)?.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }); return; }
     const b = e.target.closest('[data-dp]'); if (!b) return;
     const id = b.dataset.dp, item = H.openItems(H.DATA).find((i) => i.id === id);
     if (dp.resolved[id]) delete dp.resolved[id]; else dp.resolved[id] = true;
