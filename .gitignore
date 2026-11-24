@@ -19,3 +19,13 @@ finqa-sample.json
 finqa-test.json
 node_modules/
 .vercel/
+
+# hackathon working notes (moved to D:Buildhybrid AI Hackathon; kept ignored in case)
+hackathon/
+
+# iOS: Firebase config and Xcode user files stay local
+ios/**/GoogleService-Info.plist
+xcuserdata/
+DerivedData/
+*.xcuserstate
+.DS_Store
