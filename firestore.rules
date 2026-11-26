@@ -1,0 +1,166 @@
+rules_version = '2';
+
+// ===============================================================
+// Tickmark Hybrid: Firestore Security Rules (prototype, see docs/hybrid/CONTRACT.md)
+// ===============================================================
+//
+// Assumed data model
+//
+// Collection: rooms/{roomId}/members
+// Document ID: the member's Firebase Auth uid
+// Fields:
+//   - team: string (required, one of servicing | payments | approvals | legal)
+//   - displayName: string (required, 1-60)
+//   - platform: string (required, web | ios)
+//   - joinedAt: timestamp (required, server time on create, immutable)
+//
+// Collection: rooms/{roomId}/checks
+// Document ID: random
+// Fields:
+//   - caseId: string (required, 1-20, immutable)
+//   - caseTitle: string (required, 1-140, immutable) - redacted
+//   - fromTeam, toTeam: string (required, team enum, different, immutable)
+//   - createdBy: string (required, creator uid, immutable)
+//   - createdAt: timestamp (required, server time, immutable)
+//   - due: timestamp (required, immutable)
+//   - question: string (required, 1-1200, immutable) - redacted
+//   - whyItMatters: string (required, 0-600, immutable) - redacted
+//   - classification: string (required, timing | source-error | business | insufficient)
+//   - expected: map (required, max 12 keys, immutable)
+//   - evidence: list (required, max 5 maps, immutable)
+//   - requested: list (required, max 4 strings, immutable)
+//   - status: string (required, open | answered | accepted | returned)
+//   - reply: null or map { text, facts, by, byName, at, ranOn }
+//   - updatedAt: timestamp (required, server time)
+//
+// Demo trade-off, stated plainly: a person chooses their own team once, when they join a room (the team
+// cannot change afterwards). The inbox page signs in as a separate anonymous user, so one judge can play
+// both sides in two windows. A room id is random and unguessable, and knowing it is what admits a person.
+// In production, teams would come from the bank's identity provider as custom claims, never from
+// the person, and these rules would read request.auth.token.team instead of the member document.
+// ===============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- helpers ----------
+    function isAuthenticated() { return request.auth != null; }
+    function teams() { return ['servicing', 'payments', 'approvals', 'legal']; }
+    function memberPath(room) { return /databases/$(database)/documents/rooms/$(room)/members/$(request.auth.uid); }
+    function isMember(room) { return isAuthenticated() && exists(memberPath(room)); }
+    function myTeam(room) { return get(memberPath(room)).data.team; }
+    function str(v, min, max) { return v is string && v.size() >= min && v.size() <= max; }
+    function smallMap(m) { return m is map && m.size() <= 12; }
+    function unchanged(fields) { return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields); }
+
+    // ---------- members ----------
+    function isValidMember(d) {
+      return d.keys().hasOnly(['team', 'displayName', 'platform', 'joinedAt'])
+        && d.keys().hasAll(['team', 'displayName', 'platform', 'joinedAt'])
+        && d.team in teams()
+        && str(d.displayName, 1, 60)
+        && d.platform in ['web', 'ios']
+        && d.joinedAt is timestamp;
+    }
+
+    match /rooms/{room}/members/{uid} {
+      // members see each other; anyone may read their own membership (to find out whether they have joined)
+      allow read: if isMember(room) || (isAuthenticated() && request.auth.uid == uid);
+      allow create: if isAuthenticated() && request.auth.uid == uid
+        && room.size() >= 12 && room.size() <= 40
+        && isValidMember(request.resource.data)
+        && request.resource.data.joinedAt == request.time;
+      // a team is fixed once joined (no switching sides to answer your own question); only the display name
+      // and platform may change, and a member cannot leave and rejoin as another team
+      allow update: if isAuthenticated() && request.auth.uid == uid
+        && isValidMember(request.resource.data)
+        && unchanged(['team', 'joinedAt']);
+      allow delete: if false;
+    }
+
+    // ---------- checks ----------
+    function isValidEvidence(list) {
+      return list is list && list.size() <= 5
+        && (list.size() < 1 || (list[0] is map && list[0].keys().hasOnly(['docType', 'summary', 'facts']) && str(list[0].docType, 1, 40) && str(list[0].summary, 0, 600) && smallMap(list[0].facts)))
+        && (list.size() < 2 || (list[1] is map && list[1].keys().hasOnly(['docType', 'summary', 'facts']) && str(list[1].docType, 1, 40) && str(list[1].summary, 0, 600) && smallMap(list[1].facts)))
+        && (list.size() < 3 || (list[2] is map && list[2].keys().hasOnly(['docType', 'summary', 'facts']) && str(list[2].docType, 1, 40) && str(list[2].summary, 0, 600) && smallMap(list[2].facts)))
+        && (list.size() < 4 || (list[3] is map && list[3].keys().hasOnly(['docType', 'summary', 'facts']) && str(list[3].docType, 1, 40) && str(list[3].summary, 0, 600) && smallMap(list[3].facts)))
+        && (list.size() < 5 || (list[4] is map && list[4].keys().hasOnly(['docType', 'summary', 'facts']) && str(list[4].docType, 1, 40) && str(list[4].summary, 0, 600) && smallMap(list[4].facts)));
+    }
+    function isValidRequested(list) {
+      return list is list && list.size() <= 4
+        && (list.size() < 1 || str(list[0], 1, 120)) && (list.size() < 2 || str(list[1], 1, 120))
+        && (list.size() < 3 || str(list[2], 1, 120)) && (list.size() < 4 || str(list[3], 1, 120));
+    }
+    function isValidReply(r) {
+      return r is map
+        && r.keys().hasOnly(['text', 'facts', 'by', 'byName', 'at', 'ranOn'])
+        && r.keys().hasAll(['text', 'facts', 'by', 'byName', 'at', 'ranOn'])
+        && str(r.text, 1, 1200) && smallMap(r.facts)
+        && r.by == request.auth.uid && str(r.byName, 1, 60)
+        && r.at == request.time
+        && r.ranOn in ['on_device', 'in_cloud', 'none'];
+    }
+    function isValidCheck(d) {
+      return d.keys().hasOnly(['caseId', 'caseTitle', 'fromTeam', 'toTeam', 'createdBy', 'createdAt', 'due', 'question', 'whyItMatters', 'classification', 'expected', 'evidence', 'requested', 'status', 'reply', 'updatedAt'])
+        && d.keys().hasAll(['caseId', 'caseTitle', 'fromTeam', 'toTeam', 'createdBy', 'createdAt', 'due', 'question', 'whyItMatters', 'classification', 'expected', 'evidence', 'requested', 'status', 'reply', 'updatedAt'])
+        && str(d.caseId, 1, 20) && str(d.caseTitle, 1, 140)
+        && d.fromTeam in teams() && d.toTeam in teams() && d.fromTeam != d.toTeam
+        && d.createdBy is string && d.createdAt is timestamp && d.due is timestamp
+        && str(d.question, 1, 1200) && str(d.whyItMatters, 0, 600)
+        && d.classification in ['timing', 'source-error', 'business', 'insufficient']
+        && smallMap(d.expected) && isValidEvidence(d.evidence) && isValidRequested(d.requested)
+        && d.status in ['open', 'answered', 'accepted', 'returned']
+        && (d.reply == null || d.reply is map)
+        && d.updatedAt is timestamp;
+    }
+    // the answering team replies (also after the asking team returned the check)
+    function isReply(room) {
+      return resource.data.toTeam == myTeam(room)
+        && resource.data.status in ['open', 'returned']
+        && request.resource.data.status == 'answered'
+        && isValidReply(request.resource.data.reply)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reply', 'status', 'updatedAt']);
+    }
+    // the asking team accepts the reply or sends it back
+    function isDecision(room) {
+      return resource.data.fromTeam == myTeam(room)
+        && resource.data.status == 'answered'
+        && request.resource.data.status in ['accepted', 'returned']
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt']);
+    }
+    function immutableOnUpdate() {
+      return unchanged(['caseId', 'caseTitle', 'fromTeam', 'toTeam', 'createdBy', 'createdAt', 'due', 'question', 'whyItMatters', 'classification', 'expected', 'evidence', 'requested']);
+    }
+
+    match /rooms/{room}/checks/{checkId} {
+      allow read: if isMember(room);
+
+      allow create: if isMember(room)
+        && isValidCheck(request.resource.data)
+        && request.resource.data.fromTeam == myTeam(room)
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.status == 'open'
+        && request.resource.data.reply == null;
+
+      // One update rule, so the shared checks run once per request (Firestore caps the expressions a request
+      // may evaluate; two full validators in two update rules went over it). Every field except status, reply
+      // and updatedAt is immutable, and those were fully validated on create; so an update validates only what
+      // can change, and then exactly one of the two transitions must hold.
+      allow update: if isMember(room)
+        && immutableOnUpdate()
+        && request.resource.data.keys().hasOnly(['caseId', 'caseTitle', 'fromTeam', 'toTeam', 'createdBy', 'createdAt', 'due', 'question', 'whyItMatters', 'classification', 'expected', 'evidence', 'requested', 'status', 'reply', 'updatedAt'])
+        && request.resource.data.updatedAt == request.time
+        && (isReply(room) || isDecision(room));
+
+      allow delete: if false;
+    }
+
+    // everything else is denied
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

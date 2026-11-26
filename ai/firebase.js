@@ -36,7 +36,9 @@ export const POLICY_DEFAULTS = {
 };
 
 const isLocal = ['localhost', '127.0.0.1'].includes(location.hostname);
-export const app = initializeApp(firebaseConfig);
+// A page can ask for its own Firebase app (and so its own anonymous user) by setting
+// self.TICKMARK_APP_NAME before loading this module; the team inbox does, so one person can play both sides.
+export const app = self.TICKMARK_APP_NAME ? initializeApp(firebaseConfig, self.TICKMARK_APP_NAME) : initializeApp(firebaseConfig);
 
 // App Check is required by Firebase AI Logic. Locally the debug provider prints a token in the console that is
 // registered in the Firebase console once; on the hosted site reCAPTCHA Enterprise attests the page.

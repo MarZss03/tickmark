@@ -1,0 +1,10 @@
+{
+  "parameters": {
+    "ai_policy_raw_documents": { "defaultValue": { "value": "device_only" }, "description": "Raw customer documents. Fails closed to device_only in code whatever is set here.", "valueType": "STRING" },
+    "ai_policy_redacted_text": { "defaultValue": { "value": "prefer_device" }, "description": "Redacted text: device_only | prefer_device | prefer_cloud | cloud_only", "valueType": "STRING" },
+    "ai_policy_case_history": { "defaultValue": { "value": "prefer_cloud" }, "description": "Long redacted case history: device_only | prefer_device | prefer_cloud | cloud_only", "valueType": "STRING" },
+    "ai_cloud_model": { "defaultValue": { "value": "gemini-3.5-flash-lite" }, "description": "Cloud fallback model for Firebase AI Logic", "valueType": "STRING" },
+    "ai_prompt_version": { "defaultValue": { "value": "v1" }, "description": "Prompt set in use", "valueType": "STRING" },
+    "ai_enabled": { "defaultValue": { "value": "true" }, "description": "Kill switch for every AI call", "valueType": "BOOLEAN" }
+  }
+}

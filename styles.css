@@ -1556,3 +1556,6 @@ html { scrollbar-color: #3a372f var(--bg); caret-color: var(--gold); }
 .ai-done { margin: 0; font-size: 13px; color: var(--a-muted); }
 .ai-foot { line-height: 1.6; }
 @media (max-width: 560px) { .ai-doc { grid-template-columns: 1fr; } .ai-thumb { max-width: 220px; } }
+.ai-q { min-height: 96px; resize: vertical; line-height: 1.5; }
+.ai-code { font-family: ui-monospace, Consolas, monospace; letter-spacing: .04em; }
+#cs-ask { margin-top: 14px; }

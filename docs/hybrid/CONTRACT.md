@@ -7,45 +7,53 @@ Both apps use one Firebase project and must agree on the data below. Change this
 | Platform | Person | Job |
 |---|---|---|
 | Web (Chrome, Gemini Nano) | Servicing analyst who owns the exception | Reads evidence privately, redacts, sends a check to another team, accepts or returns the reply |
-| iOS (Apple Foundation Models) | The other team: Payments, or a lawyer's office | Receives checks live, reads attached evidence on device, drafts the reply on device, answers |
-
-Teams: `servicing`, `payments`, `legal`.
+| iOS (Apple Foundation Models) | The other team: Payments, Servicing Approvals, or a lawyer's office | Receives checks live, reads attached evidence on device, drafts the reply on device, answers |
 
 ## Firebase products
 
 - **Firebase AI Logic** with hybrid inference on both platforms. Cloud backend: Gemini Developer API. Cloud model from Remote Config `ai_cloud_model`.
 - **App Check**: reCAPTCHA Enterprise on web, App Attest on iOS devices, debug providers in development. Debug tokens are never committed.
-- **Authentication**: anonymous sign-in. The user picks a team; it is stored in `users/{uid}`.
+- **Authentication**: anonymous sign-in. The user picks a team when joining a room; it is stored in `rooms/{roomId}/members/{uid}`.
 - **Firestore**: collections below.
 - **Remote Config**: the AI policy below.
 
 ## Firestore
 
-`users/{uid}`
+Every demo session is a **room** with a random id (12+ characters, shared through a link or code). Knowing the room id is what lets a person in; this keeps judges' sessions apart. In production, membership and teams would come from the bank's identity provider (custom claims), not from the person.
+
+Teams: `servicing`, `payments`, `approvals`, `legal`.
+
+`rooms/{roomId}/members/{uid}` (written only by that user)
 ```
-{ team: "servicing" | "payments" | "legal", displayName: string, createdAt: timestamp }
+{ team: "servicing" | "payments" | "approvals" | "legal", displayName: string (1-60), platform: "web" | "ios", joinedAt: timestamp (server time) }
 ```
 
-`checks/{checkId}`: a question from one team to another about one case. Only redacted text is ever stored here.
+`rooms/{roomId}/checks/{checkId}`: a question from one team to another about one case. **Only redacted text is ever stored here.**
 ```
 {
-  caseId: string,                    // e.g. "MS-0011"
-  caseTitle: string,                 // redacted, e.g. "Wire posted 3 days after value date"
-  fromTeam: string, toTeam: string,
-  createdBy: uid, createdAt: timestamp, due: timestamp,
-  question: string,                  // redacted
-  whyItMatters: string,              // redacted
-  expected: { [field]: string|number },   // what the case expects, e.g. { amount: 412860.17, valueDate: "2026-11-02" }
-  evidence: [ { docType: "wire_confirmation" | "payout_statement" | "discharge_statement" | "bank_statement" | "other",
-                redactedText: string, facts: { [field]: string|number } } ],
+  caseId: string (1-20),                // e.g. "MS-0011"
+  caseTitle: string (1-140),            // redacted
+  fromTeam: team, toTeam: team,         // must differ
+  createdBy: uid, createdAt: timestamp (server time), due: timestamp,
+  question: string (1-1200),            // redacted
+  whyItMatters: string (0-600),         // redacted
+  classification: "timing" | "source-error" | "business" | "insufficient",   // the model's suggestion
+  expected: map, max 12 keys,           // what the case expects, e.g. { payout_amount: 412880, bank: "2026-10-30 14:02" }
+  evidence: list of up to 5 maps { docType: string, summary: string (0-600), facts: map (max 12 keys) },
+  requested: list of up to 4 strings,   // e.g. ["Settlement date decision"]
   status: "open" | "answered" | "accepted" | "returned",
-  reply: null | { text: string, facts: { [field]: string|number }, by: uid, at: timestamp,
-                  ranOn: "device" | "cloud" | "none" },
-  events: [ { at: timestamp, by: uid, kind: string, note: string } ]
+  reply: null | { text: string (1-1200), facts: map (max 12 keys), by: uid, byName: string, at: timestamp (server time),
+                  ranOn: "on_device" | "in_cloud" | "none" },
+  updatedAt: timestamp (server time)
 }
 ```
 
-Security rules (to be written with the firestore-rules-creation skill): a user reads checks where `fromTeam` or `toTeam` is their team; only `fromTeam` creates; only `toTeam` writes `reply` and sets `answered`; only `fromTeam` sets `accepted` or `returned`; field types and sizes enforced.
+Lifecycle and who may do what (enforced by `firestore.rules`):
+- Any room member reads the room's checks and members.
+- A member of `fromTeam` creates a check: status `open`, reply `null`, `createdBy` = their uid.
+- A member of `toTeam` replies: sets only `reply`, `status` = `answered` and `updatedAt`, from `open` or `returned`; `reply.by` = their uid.
+- A member of `fromTeam` accepts or returns: sets only `status` (`accepted` or `returned`) and `updatedAt`, from `answered`.
+- Nobody deletes. Everything else is denied.
 
 ## Remote Config: the AI policy
 
@@ -67,3 +75,4 @@ Web: `ai/redact.js` (tested in `tests/redact.test.js`). iOS must port the same r
 ## Change log
 
 - Nov 23, 2026: v0 drafted by the web side.
+- Nov 25, 2026: v1. Checks and members live under `rooms/{roomId}` (session isolation); team `approvals` added; `classification`, `requested`, `updatedAt` added; `events` removed; reply carries `byName`; timestamps are server time. Rules in `firestore.rules`.

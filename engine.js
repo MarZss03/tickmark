@@ -371,5 +371,7 @@
     runProgram, sameAnswer, gradeAnswer,
     checkJournal, fxRevaluation,
     parseCsv, toCsv, parseAmount, TABLES, loadTable, tableToCsv, fingerprint,
+    // instruction-like text after undoing lookalike letters; also used on documents before a model reads them
+    looksLikeInstruction: (t) => INJECTION.test(normalise(t)),
   };
 });

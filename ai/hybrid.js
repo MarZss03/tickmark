@@ -139,4 +139,38 @@ export async function run({ task, dataClass, prompt, images = [], schema = null 
   return { text, json, ranOn, ms, route, ledgerId: row.id };
 }
 
+// Same as run(), streamed: onText(textSoFar) is called as the model writes. Text tasks only.
+export async function stream({ task, dataClass, prompt, onText = () => {} }) {
+  await configReady;
+  if (policyValue('ai_enabled') === 'false') throw new PolicyBlocked('AI is switched off by policy.', null);
+  const device = await deviceStatus(false);
+  const route = Policy.route(dataClass, policyValue, device);
+  if (route.plan === 'blocked') {
+    ledger.record({ task, dataClass, policy: route.policy, mode: route.mode, ranOn: 'blocked', ms: 0, leftDevice: null, note: 'No on-device model, and this data may not leave the device.' });
+    throw new PolicyBlocked('This data may only be processed on this device, and no on-device model is available here.', route);
+  }
+  if (route.mayLeaveDevice) {
+    const leaks = Redact.leaks(prompt);
+    if (leaks.length) {
+      ledger.record({ task, dataClass, policy: route.policy, mode: route.mode, ranOn: 'blocked', ms: 0, leftDevice: null, note: `Blocked: ${leaks.length} identifier(s) found before sending.` });
+      throw new PolicyBlocked('This text still contains identifiers, so it was not sent. Redact it first.', route);
+    }
+  }
+  const model = modelFor(route.mode, null, false);
+  const t0 = performance.now();
+  const result = await model.generateContentStream(prompt);
+  let text = '', ranOn = null;
+  for await (const chunk of result.stream) {
+    ranOn = ranOn || chunk.inferenceSource;
+    text += chunk.text();
+    onText(text, ranOn);
+  }
+  const final = await result.response;
+  ranOn = final.inferenceSource || ranOn || (route.mode === 'only_in_cloud' ? 'in_cloud' : 'on_device');
+  const ms = Math.round(performance.now() - t0);
+  const row = ledger.record({ task, dataClass, policy: route.policy, mode: route.mode, ranOn, ms,
+    leftDevice: ranOn === 'in_cloud' ? prompt : null, note: ranOn === 'on_device' ? 'Nothing left this device.' : 'Sent to the cloud model after the identifier check.' });
+  return { text, ranOn, ms, route, ledgerId: row.id };
+}
+
 export { ledger };

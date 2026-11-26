@@ -535,6 +535,7 @@
             ${others.length ? `<p class="c-s cs-also">Also open: ${esc(others.map((y) => y.short || y.title).join('; '))}</p>` : ''}
           </section>` : `<section class="cs-sum"><div class="cs-blk"><p class="sl">${c.closed ? 'Closed' : 'No open exceptions'}</p><p class="cs-imp">${c.closed ? esc(c.stage || 'Closed') : idle ? `One step left: ${esc(idle)}` : 'Nothing left to do on this case.'}</p><p class="c-s">${c.exceptions.length} exception${c.exceptions.length === 1 ? '' : 's'} recorded. Evidence and activity are kept below.</p></div></section>`}
           <section class="cs-ai" id="cs-ai" data-case="${c.id}" data-key="${esc(c.key || '')}" aria-label="Read a document privately"></section>
+          <section class="cs-ai" id="cs-ask" data-case="${c.id}" aria-label="Ask another team" hidden></section>
         </div>
         <aside class="cs-act" aria-label="Next action">${actionHtml(c, p, acts, tasks)}</aside>
       </div>
@@ -772,6 +773,36 @@
     attachDocument(caseId, doc) {
       run(() => C.attachDocument(state, D, A, caseId, doc, me));
       return ui.msg ? { ok: false, error: ui.msg } : { ok: true };
+    },
+    // the open finding and its prepared request (recipient, why, what is requested)
+    finding(caseId) {
+      const c = state && state.cases[caseId];
+      const x = c && topX(c);
+      return x ? { x, draft: (c.drafts || {})[x.code] || null } : null;
+    },
+    teamName: team,
+    // send a check from this case exactly as the "Request…" form would; returns the task id
+    escalate(caseId, spec) {
+      let out = null;
+      run(() => { out = C.escalate(state, D, caseId, { ...spec, affects: state.cases[caseId].affects, exceptionIds: state.cases[caseId].exceptions.filter((y) => y.status === 'open').map((y) => y.id), evidence: state.cases[caseId].evidence.map((y) => y.id) }, me); return out; }, ['Sent a check', `${caseId} → ${spec.to === 'team' ? team(spec.team) : name(spec.person)} (via Firestore)`]);
+      return out && out.ok ? { ok: true, task: out.task } : { ok: false, error: (out && out.error) || ui.msg };
+    },
+    task: (id) => state && state.tasks[id],
+    // a reply that arrived through Firestore from another device: the evidence it carries is added, then the
+    // reply is recorded on the task as if its handler had answered here, for the owner to review
+    applyRemoteReply(caseId, taskId, { answer, byName, doc }) {
+      let out = null;
+      run(() => {
+        const t = state.tasks[taskId];
+        if (!t || !['open', 'claimed', 'more-info'].includes(t.status)) return { ok: false, error: 'That check is no longer waiting for a reply.' };
+        // what the reply carries goes in as the reply's own attachment, so the review shows it and the checks re-run
+        const attach = [];
+        if (doc) { state.cases[caseId].available.push({ id: doc.id, label: doc.label, evidence: doc.evidence, patch: doc.patch || [], touches: doc.touches || [] }); attach.push(doc.id); }
+        if (!t.assignee) { const lead = (D.teams[t.team] || {}).lead; const r = C.claim(state, D, taskId, lead); if (r && r.ok === false) return r; }
+        out = C.reply(state, D, A, taskId, t.assignee, { answer: `${answer} (answered by ${byName} on another device, via Firestore)`, conclusion: 'confirmed', attach });
+        return out;
+      }, ['Reply received', `${caseId} · ${taskId} from ${byName}`]);
+      return out && out.ok ? { ok: true } : { ok: false, error: (out && out.error) || ui.msg };
     },
   };
   function setMe(p) { me = D.people[p] ? p : 'ava'; try { localStorage.setItem(AS, me); } catch {} $('#rq-as').value = me; ui.form = null; ui.msg = ''; }
