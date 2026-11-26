@@ -225,6 +225,19 @@
     const result = runCheck(state, adapters, caseId, by, `${item.label} arrived`);
     return { ok: true, evidence: ev.id, changes, moved: [...touched], ...result };
   }
+  // A document read by a model (Tickmark Hybrid). The person acting has checked the extracted values; they
+  // arrive like any other evidence: facts with where they came from, an optional correction to the inputs
+  // the checks read, and a re-run of the module's rules. The model only reads; the rules decide.
+  function attachDocument(state, dir, adapters, caseId, doc, by) {
+    const c = state.cases[caseId];
+    if (!c) return fail('Case not found.');
+    if (!doc || !doc.evidence || !doc.label) return fail('Nothing to add.');
+    const id = doc.id || nextId(state, 'DOC');
+    if (c.evidence.some((e) => e.id === id && !e.superseded)) return fail('That document is already on the case.');
+    c.available.push({ id, label: doc.label, evidence: doc.evidence, patch: doc.patch || [], touches: doc.touches || [] });
+    return attachEvidence(state, dir, adapters, caseId, id, by);
+  }
+
   // values in words for the activity log: a list or a record reads as its parts, never as raw JSON
   const fmt = (v) => (v == null || v === '' ? 'blank' : typeof v === 'number' ? v.toLocaleString('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
     : Array.isArray(v) ? (v.length ? v.map(fmt).join('; ') : 'none')
@@ -551,7 +564,7 @@
 
   return {
     DEMO_NOW, newState, tick, advance, can, isLead, onCase, seesEvidence, who,
-    readingsOf, trace, factMap, priorityOf, effectivePriority, runCheck, createCase, sync, attachEvidence,
+    readingsOf, trace, factMap, priorityOf, effectivePriority, runCheck, createCase, sync, attachEvidence, attachDocument,
     escalate, claim, assign, reassign, reply, askClarify, answerClarify, returnTask, accept, askMore, closeTask, remind, escalateToLead, isOverdue,
     actionsFor, act, reclassify, setPriority, caseStatus, row, queue, fmt, OPEN_TASK, WAITING, primaryAction, myWork,
   };

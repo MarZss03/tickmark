@@ -10,11 +10,11 @@
   else root.TickmarkRedact = api;
 })(typeof self !== 'undefined' ? self : this, () => {
   // Labels that introduce a person or company name on finance documents (statements, wires, payout notices).
-  const NAME_LABELS = ['borrower', 'borrowers', 'co-borrower', 'mortgagor', 'mortgagors', 'client', 'customer', 'payee', 'payor', 'beneficiary', 'remitter', 'ordering customer', 'account holder', 'account name', 'applicant', 'guarantor', 'vendor', 'purchaser', 'seller', 'buyer', 'estate of', 'executor', 'attention', 'attn', 'prepared for', 'lawyer', 'solicitor', 'contact'];
+  const NAME_LABELS = ['borrower', 'borrowers', 'co-borrower', 'mortgagor', 'mortgagors', 'client', 'customer', 'payee', 'payor', 'beneficiary', 'remitter', 'ordering customer', 'account holder', 'account name', 'applicant', 'guarantor', 'vendor', 'purchaser', 'seller', 'buyer', 'estate of', 'executor', 'attention', 'attn', 'prepared for', 'lawyer', 'solicitor', 'contact', 'sender', 'receiver', 'originator', 'ordering party', 'debtor', 'creditor', 'paid to', 'paid by', 'beneficiary name'];
   // Labels that introduce an identifier. Values after them are replaced even when they are short.
   const ID_LABELS = [
     ['ACCOUNT', ['account', 'account no', 'account number', 'acct', 'acct no', 'a/c', 'beneficiary account', 'deposit account']],
-    ['LOAN', ['loan', 'loan no', 'loan number', 'mortgage', 'mortgage no', 'mortgage number', 'mortgage account', 'file', 'file no', 'file number', 'our file', 'your file', 'matter', 'matter no', 'reference', 'ref', 'ref no']],
+    ['LOAN', ['payout', 'loan', 'loan no', 'loan number', 'mortgage', 'mortgage no', 'mortgage number', 'mortgage account', 'file', 'file no', 'file number', 'our file', 'your file', 'matter', 'matter no', 'reference', 'ref', 'ref no']],
     ['TRANSIT', ['transit', 'transit no', 'transit number', 'branch transit', 'institution', 'institution no', 'routing', 'routing number', 'aba', 'swift', 'bic']],
     ['PIN', ['pin', 'property identifier', 'legal description', 'instrument', 'instrument no', 'registration no']],
   ];
@@ -36,9 +36,19 @@
     { type: 'IBAN', re: /\b([A-Z]{2}\d{2}(?: ?[A-Z0-9]{4}){3,7}(?: ?[A-Z0-9]{1,3})?)\b/g },
     { type: 'POSTAL', re: /\b([ABCEGHJ-NPRSTVXY]\d[ABCEGHJ-NPRSTV-Z] ?\d[ABCEGHJ-NPRSTV-Z]\d)\b/gi },
     { type: 'ADDRESS', re: new RegExp(`\\b((?:(?:unit|suite|apt)\\s*\\d+[A-Z]?[, -]+)?\\d{1,6}[A-Z]?\\s+(?:[A-Z][a-z]+\\s+){1,4}${STREET}\\.?(?:\\s+(?:north|south|east|west|n|s|e|w)\\b)?)`, 'g') },
+    // A file or loan number with no label before it, such as ML-38774 or MTG-2026-118842 (2 to 4 capitals, then
+    // at least five digits). Shorter internal references like HLD-7720 are kept.
+    { type: 'LOAN', re: /\b([A-Z]{2,4}-(?:\d{4}-)?\d{5,})\b/g },
     ...ID_LABELS.map(([type, labels]) => ({ type, re: new RegExp(`\\b(?:${labelRe(labels)})\\b\\s*(?:#|no\\.?|number)?\\s*[:#]?\\s*([A-Z0-9][A-Z0-9-/]{2,})`, 'gi'), needsDigit: true })),
-    { type: 'NAME', re: new RegExp(`\\b(?:${labelRe(NAME_LABELS)})\\b\\s*[:\\-]\\s*(${NAME_WORD}(?:(?:\\s+and\\s+|\\s*&\\s*|,\\s+|\\s+)${NAME_WORD}(?!\\s*:)){0,5})`, 'g') },
-    { type: 'NAME', re: /\b((?:Mr|Mrs|Ms|Miss|Dr|Mx)\.?\s+[A-Z][A-Za-z'-]+(?:\s+[A-Z][A-Za-z'-]+){0,2})\b/g },
+    // A label that starts a line of a form or statement: the whole value on that line is the name, including
+    // a firm acting "in trust for" a person. Used only when the value reads like a name (no digits, short);
+    // otherwise the sentence rule below takes it. Never runs onto the next line.
+    { type: 'NAME', re: new RegExp(`(?:^|\\n)[ \\t]*(?:${labelRe(NAME_LABELS)})\\b[ \\t]*[:\\-][ \\t]*([^\\n]+?)(?=[ \\t]{2,}|[ \\t]+·|[ \\t]*\\n|$)`, 'g'),
+      check: (v) => !/\d/.test(v) && v.trim().split(/\s+/).length <= 16 },
+    // A label inside a sentence: capitalised words on the same line, joined by spaces, "and", "&", a comma,
+    // "for" or "in trust for". A word followed by ":" is the next label, not part of the name.
+    { type: 'NAME', re: new RegExp(`\\b(?:${labelRe(NAME_LABELS)})\\b[ \\t]*[:\\-][ \\t]*(${NAME_WORD}(?:(?:[ \\t]+and[ \\t]+|[ \\t]*&[ \\t]*|,[ \\t]+|[ \\t]+in trust for[ \\t]+|[ \\t]+for[ \\t]+|[ \\t]+)${NAME_WORD}(?![ \\t]*:)){0,7})`, 'g') },
+    { type: 'NAME', re: /\b((?:Mr|Mrs|Ms|Miss|Dr|Mx)\.?[ \t]+[A-Z][A-Za-z'-]+(?:[ \t]+[A-Z][A-Za-z'-]+){0,2})\b/g },
   ];
 
   function luhn(raw) {

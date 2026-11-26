@@ -1,0 +1,32 @@
+[
+  {
+    "id": "wire-W-88213",
+    "docType": "wire_confirmation",
+    "label": "Incoming wire confirmation W-88213 (scan)",
+    "image": "assets/docs/wire-W-88213.png",
+    "text": "NORTHSHORE TRUST BANK\nINCOMING WIRE CONFIRMATION\n\nWire reference: W-88213\nReceived: 2026-10-30 14:02 ET\nAmount: CAD 412,880.00\nOrdering customer: Okafor Law in trust for Priya Raman\nOrdering account: 00412-7781-554210\nBeneficiary: Demo Bank Mortgage Servicing\nBeneficiary account: 00219-4410-118734\nPayment details: Payout ML-40311, 14 Birchwood Cres, Toronto ON M4C 2K7\nStatus: HELD FOR REVIEW\nHold placed: 2026-10-30 14:05 ET (HLD-7720, compliance review)\nHold released: 2026-11-02 09:40 ET\nCredited to beneficiary: 2026-11-02 09:41 ET\n\nContact: wire.desk@northshore-trust.example  ·  1-800-555-0144  ·  This confirmation is computer generated.",
+    "truth": {
+      "amount": 412880,
+      "currency": "CAD",
+      "wire_reference": "W-88213",
+      "received_at": "2026-10-30 14:02",
+      "hold_placed_at": "2026-10-30 14:05",
+      "hold_released_at": "2026-11-02 09:40"
+    }
+  },
+  {
+    "id": "wire-W-88540",
+    "docType": "wire_confirmation",
+    "label": "Incoming wire confirmation W-88540 (scan)",
+    "image": "assets/docs/wire-W-88540.png",
+    "text": "LAKEPORT CREDIT UNION\nWIRE RECEIPT ADVICE\n\nReference: W-88540\nDate and time received: 2026-11-03 09:12 ET\nAmount received: CAD 289,400.00\nSender: Haldane & Co. LLP trust account, for Marcus and Elena Whitfield\nSender account: 33018-2204-907713\nReceiver: Demo Bank Mortgage Servicing\nReceiver account: 00219-4410-118734\nMemo: ML-38774 payout, 7 Lakeshore Rd, Mississauga ON L5H 1G3\nStatus: COMPLETED, no hold\n\nQuestions: payments@lakeport-cu.example  ·  (905) 555-0177",
+    "truth": {
+      "amount": 289400,
+      "currency": "CAD",
+      "wire_reference": "W-88540",
+      "received_at": "2026-11-03 09:12",
+      "hold_placed_at": "",
+      "hold_released_at": ""
+    }
+  }
+]

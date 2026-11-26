@@ -53,3 +53,43 @@ test('leaks() catches anything that slipped through', () => {
   assert.deepEqual(R.leaks('Call 647-555-0100').map((l) => l.type), ['PHONE']);
   assert.deepEqual(R.leaks('Total 1,200.00 on 2026-11-02'), []);
 });
+
+// Found in QA-2: the scanned wire confirmation W-88213 sent a customer's name to the cloud.
+const SCAN = `NORTHSHORE TRUST BANK
+INCOMING WIRE CONFIRMATION
+
+Wire reference: W-88213
+Received: 2026-10-30 14:02 ET
+Amount: CAD 412,880.00
+Ordering customer: Okafor Law in trust for Priya Raman
+Ordering account: 00412-7781-554210
+Beneficiary: Demo Bank Mortgage Servicing
+Beneficiary account: 00219-4410-118734
+Payment details: Payout ML-40311, 14 Birchwood Cres, Toronto ON M4C 2K7
+Status: HELD FOR REVIEW
+Hold placed: 2026-10-30 14:05 ET (HLD-7720, compliance review)
+
+Contact: wire.desk@northshore-trust.example  ·  1-800-555-0144  ·  This confirmation is computer generated.`;
+
+test('a firm acting "in trust for" a person: both are removed, and a name never runs onto the next line', () => {
+  const r = R.redact(SCAN);
+  for (const gone of ['Priya Raman', 'Okafor Law', 'Demo Bank Mortgage Servicing', 'ML-40311', '14 Birchwood Cres', 'M4C 2K7', '00412-7781-554210', '00219-4410-118734', 'wire.desk@', '1-800-555-0144']) {
+    assert.ok(!r.text.includes(gone), `should remove ${gone}`);
+  }
+  assert.match(r.text, /\nBeneficiary account: \[ACCOUNT_\d\]/, 'the beneficiary account line keeps its own label');
+  for (const kept of ['2026-10-30 14:02', '412,880.00', 'HELD FOR REVIEW', '2026-10-30 14:05']) assert.ok(r.text.includes(kept), `should keep ${kept}`);
+  assert.deepEqual(R.leaks(r.text), []);
+});
+
+test('inside a sentence, a name after a label stops before the rest of the sentence', () => {
+  const r = R.redact('Lawyer: Daniel Okafor asked on 2026-11-06 why the discharge is delayed. Client: Ana Silva for Bo Lee.');
+  assert.ok(!r.text.includes('Daniel Okafor'));
+  assert.ok(r.text.includes('asked on 2026-11-06 why the discharge is delayed'));
+  assert.ok(!r.text.includes('Bo Lee'));
+});
+
+test('sender and receiver lines, and a bare file number like ML-38774, are removed', () => {
+  const r = R.redact('Sender: Haldane & Co. LLP trust account, for Marcus and Elena Whitfield\nReceiver: Demo Bank Mortgage Servicing\nMemo: ML-38774 payout\nHold HLD-7720 stays.');
+  for (const gone of ['Haldane', 'Whitfield', 'Demo Bank Mortgage Servicing', 'ML-38774']) assert.ok(!r.text.includes(gone), `should remove ${gone}`);
+  assert.ok(r.text.includes('HLD-7720'), 'short internal references stay');
+});

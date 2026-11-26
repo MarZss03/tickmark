@@ -534,6 +534,7 @@
             ${cause}
             ${others.length ? `<p class="c-s cs-also">Also open: ${esc(others.map((y) => y.short || y.title).join('; '))}</p>` : ''}
           </section>` : `<section class="cs-sum"><div class="cs-blk"><p class="sl">${c.closed ? 'Closed' : 'No open exceptions'}</p><p class="cs-imp">${c.closed ? esc(c.stage || 'Closed') : idle ? `One step left: ${esc(idle)}` : 'Nothing left to do on this case.'}</p><p class="c-s">${c.exceptions.length} exception${c.exceptions.length === 1 ? '' : 's'} recorded. Evidence and activity are kept below.</p></div></section>`}
+          <section class="cs-ai" id="cs-ai" data-case="${c.id}" data-key="${esc(c.key || '')}" aria-label="Read a document privately"></section>
         </div>
         <aside class="cs-act" aria-label="Next action">${actionHtml(c, p, acts, tasks)}</aside>
       </div>
@@ -740,6 +741,8 @@
       if (key !== ui.shown) { ui.shown = key; void body.offsetWidth; body.classList.add('rq-enter'); }
       if (c) body.dataset.version = c.version;
       if (kept) $$('.cs-fold', body).forEach((d, i) => { if (kept[i]) d.open = true; });
+      // Tickmark Hybrid (ai/case-panel.js) draws its panel into #cs-ai after each case render
+      if (c) window.dispatchEvent(new CustomEvent('tm:case-rendered', { detail: { id: c.id, key: c.key || '' } }));
     }
     const mode = modeOf(r);
     const who = $('.app-top .who'); if (who) who.hidden = r.page === 'store' || mode === 'lab';
@@ -761,6 +764,16 @@
   // ---------- events ----------
   const val = (s) => ($(s) ? $(s).value : '');
   const T = (id) => state.tasks[id];
+  // the narrow door Tickmark Hybrid uses: read a case, know who is acting, add a document a person confirmed
+  window.tmBridge = {
+    caseById: (id) => state && state.cases[id],
+    me: () => me,
+    name,
+    attachDocument(caseId, doc) {
+      run(() => C.attachDocument(state, D, A, caseId, doc, me));
+      return ui.msg ? { ok: false, error: ui.msg } : { ok: true };
+    },
+  };
   function setMe(p) { me = D.people[p] ? p : 'ava'; try { localStorage.setItem(AS, me); } catch {} $('#rq-as').value = me; ui.form = null; ui.msg = ''; }
   const SETTINGS = [['An online store', ['books', 'store', 'support']], ['A mortgage lender', ['servicing', 'payments', 'approvals', 'statements', 'adjustments', 'registration']], ['A finance team', ['treasury', 'ap', 'ar', 'gl', 'payroll', 'time']]];
   const optP = ([k, p]) => `<option value="${k}"${k === me ? ' selected' : ''}>${esc(p.name)} · ${esc(team(p.team))}</option>`;

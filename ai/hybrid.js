@@ -59,6 +59,37 @@ export function prepareDevice(onProgress = () => {}) {
   return preparing;
 }
 
+// Plain-language guidance for what went wrong on this device, so nobody is left with a raw browser error.
+export function deviceHint(err, status) {
+  const m = String(err && err.message || err || '');
+  if (/crashed too many times/i.test(m)) return 'Chrome stopped the on-device model after it crashed. On PCs with two graphics chips, set Chrome to "High performance" in Windows Settings > System > Display > Graphics, then restart Chrome.';
+  if (status === 'unavailable' || /not available|API_NOT_ENABLED|unable to create a session/i.test(m)) return 'This browser has no on-device model. Use Chrome on a desktop (139 or later) with the Prompt API enabled, or continue with the redacted cloud path.';
+  if (/download/i.test(m)) return 'The on-device model is still downloading. Keep this tab open and try again in a minute.';
+  return m || 'The on-device model could not start.';
+}
+
+// Prepare the on-device model for real: download if needed, then open a session and ask one short question,
+// because availability() can report "available" while sessions still fail. Warming up here also takes the
+// slow first start out of the person's first real read. Returns { ok, status, ms, hint }.
+let ready = null;
+export async function ensureDevice(onProgress = () => {}, needsImage = false) {
+  const status = await deviceStatus(needsImage);
+  if (status === 'unavailable') return { ok: false, status, hint: deviceHint(null, status) };
+  const key = needsImage ? 'image' : 'text';
+  if (ready && ready[key]) return { ok: true, status: 'available', ms: 0 };
+  try {
+    await prepareDevice(onProgress);
+    const t0 = performance.now();
+    const m = modelFor(InferenceMode.ONLY_ON_DEVICE, null, needsImage);
+    await m.generateContent('Reply with the single word OK.');
+    ready = { ...(ready || {}), [key]: true };
+    return { ok: true, status: 'available', ms: Math.round(performance.now() - t0) };
+  } catch (e) {
+    return { ok: false, status, hint: deviceHint(e, status), error: String(e && e.message || e) };
+  }
+}
+export const deviceReady = (needsImage = false) => !!(ready && ready[needsImage ? 'image' : 'text']);
+
 export class PolicyBlocked extends Error {
   constructor(message, route) { super(message); this.name = 'PolicyBlocked'; this.route = route; }
 }
