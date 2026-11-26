@@ -29,3 +29,6 @@ xcuserdata/
 DerivedData/
 *.xcuserstate
 .DS_Store
+
+# App Check debug token for local development (secret)
+ai/appcheck-debug.local.js

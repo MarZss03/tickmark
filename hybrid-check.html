@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tickmark Hybrid: system check</title>
+<style>
+  :root { --ink: #1b1a17; --muted: #6b6760; --line: #e4e0d8; --bg: #faf8f3; --card: #fff; --ok: #1f7a4d; --warn: #9a5b00; --bad: #a3242a; --accent: #b8892c; }
+  @media (prefers-color-scheme: dark) { :root { --ink: #f1ede4; --muted: #a8a296; --line: #34312b; --bg: #15140f; --card: #1d1c17; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.5 system-ui, -apple-system, Segoe UI, sans-serif; color: var(--ink); background: var(--bg); }
+  main { max-width: 920px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 24px; margin: 0 0 4px; } h2 { font-size: 16px; margin: 0 0 12px; }
+  p.lead { color: var(--muted); margin: 0 0 24px; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 18px; margin-bottom: 16px; }
+  dl { display: grid; grid-template-columns: 220px 1fr; gap: 6px 12px; margin: 0; } dt { color: var(--muted); } dd { margin: 0; font-family: ui-monospace, Consolas, monospace; font-size: 13px; overflow-wrap: anywhere; }
+  button { font: inherit; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--ink); background: var(--ink); color: var(--bg); cursor: pointer; }
+  button.secondary { background: transparent; color: var(--ink); }
+  button:disabled { opacity: .5; cursor: default; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); }
+  progress { width: 220px; }
+  pre { white-space: pre-wrap; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px; font-size: 13px; margin: 10px 0 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; } th, td { text-align: left; border-bottom: 1px solid var(--line); padding: 6px 4px; vertical-align: top; }
+  .badge { display: inline-block; padding: 1px 8px; border-radius: 99px; font-size: 12px; border: 1px solid currentColor; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Tickmark Hybrid: system check</h1>
+  <p class="lead">Checks Firebase, App Check, the AI policy and both inference paths. Raw customer data never leaves this device; only redacted text may go to the cloud.</p>
+
+  <section>
+    <h2>Firebase</h2>
+    <dl id="fb"><dt>Loading</dt><dd>…</dd></dl>
+  </section>
+
+  <section>
+    <h2>On-device model (Gemini Nano in Chrome)</h2>
+    <dl><dt>Status</dt><dd id="dev">checking…</dd></dl>
+    <div class="row" style="margin-top:12px">
+      <button id="prep">Prepare on-device model</button>
+      <progress id="prog" max="1" value="0" hidden></progress>
+      <span id="prepMsg"></span>
+      <button id="diag" class="secondary">Diagnose</button>
+    </div>
+    <pre id="diagOut" hidden></pre>
+  </section>
+
+  <section>
+    <h2>Try both paths</h2>
+    <div class="row">
+      <button id="runDevice">Read a raw wire confirmation on device</button>
+      <button id="runCloud" class="secondary">Summarize a redacted case history (cloud first)</button>
+      <button id="runLeak" class="secondary">Try to send unredacted text</button>
+    </div>
+    <pre id="out" hidden></pre>
+  </section>
+
+  <section>
+    <h2>Data boundary ledger</h2>
+    <p id="sum" style="margin:0 0 10px;color:var(--muted)"></p>
+    <table><thead><tr><th>Time</th><th>Task</th><th>Data class</th><th>Mode</th><th>Ran</th><th>ms</th><th>Left this device</th></tr></thead><tbody id="ledger"></tbody></table>
+    <div class="row" style="margin-top:10px"><button id="clear" class="secondary">Clear ledger</button></div>
+  </section>
+</main>
+<script type="module">
+  import { appCheckState, configReady, policyValue, policySource, signedIn, POLICY_DEFAULTS } from './ai/firebase.js';
+  import { deviceCaps, prepareDevice, run, ledger, PolicyBlocked } from './ai/hybrid.js';
+
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+
+  const WIRE = `INCOMING WIRE CONFIRMATION
+Beneficiary: Harbour Lane Mortgage Corp
+Beneficiary account: 004-12345-6789012
+Ordering customer: Priya Raman and Daniel Okafor
+Reference: MTG-2026-118842
+Amount: CAD 412,860.17   Value date: 2026-11-02   Posted: 2026-11-05`;
+  const WIRE_SCHEMA = { type: 'object', properties: { amount: { type: 'number' }, currency: { type: 'string' }, valueDate: { type: 'string' }, postedDate: { type: 'string' } }, required: ['amount', 'currency', 'valueDate', 'postedDate'] };
+  const HISTORY = self.TickmarkRedact.redact(`Case MS-0011. Borrower: Priya Raman. Payout statement issued 2026-10-28 for CAD 412,860.17, good to 2026-11-02.
+Wire received with value date 2026-11-02 but posted 2026-11-05 after a compliance hold. Per diem $56.71.
+Interest of $170.13 charged for 3 days. Lawyer: Daniel Okafor asked on 2026-11-06 why the discharge is delayed.
+Payments team confirmed receipt on 2026-11-07. Reviewer set settlement date to 2026-11-02 and reversed the interest.`).text;
+
+  async function showFirebase() {
+    const user = await signedIn;
+    const rc = await configReady;
+    const keys = Object.keys(POLICY_DEFAULTS);
+    $('fb').innerHTML = [
+      ['App Check', appCheckState],
+      ['Auth (anonymous)', user.uid ? `signed in: ${user.uid.slice(0, 8)}…` : `failed: ${user.error}`],
+      ['Remote Config', rc === 'remote' ? 'fetched from Firebase' : 'using in-app defaults'],
+      ...keys.map((k) => [k, `${policyValue(k)}  (${policySource(k)})`]),
+    ].map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('');
+  }
+  async function showDevice() {
+    const { text: s, image } = await deviceCaps();
+    const cls = (v) => (v === 'available' ? 'ok' : v === 'unavailable' ? 'bad' : 'warn');
+    $('dev').innerHTML = `text: <span class="${cls(s)}">${esc(s)}</span> · images: <span class="${cls(image)}">${esc(image)}</span>${s === 'unavailable' ? ' · Chrome desktop 139+ with the Prompt API flag is needed. The cloud path still works for redacted text.' : ''}${s !== 'unavailable' && image === 'unavailable' ? ' · Reading photos on device needs chrome://flags/#prompt-api-for-gemini-nano-multimodal-input.' : ''}`;
+    return s;
+  }
+  function renderLedger() {
+    const rows = ledger.all().slice().reverse();
+    const s = ledger.summary();
+    $('sum').textContent = `${s.total} calls · ${s.onDevice} on device · ${s.inCloud} in the cloud · ${s.blocked} blocked · ${s.charsLeft} characters left this device`;
+    $('ledger').innerHTML = rows.map((r) => `<tr><td>${esc(r.at.slice(11, 19))}</td><td>${esc(r.task)}</td><td>${esc(r.dataClass)}</td><td>${esc(r.mode)}</td>
+      <td><span class="badge ${r.ranOn === 'on_device' ? 'ok' : r.ranOn === 'in_cloud' ? 'warn' : 'bad'}">${esc(r.ranOn)}</span></td><td>${r.ms}</td>
+      <td>${r.leftDevice ? `<pre style="margin:0">${esc(r.leftDevice)}</pre>` : esc(r.note)}</td></tr>`).join('');
+  }
+  async function go(btn, args) {
+    const out = $('out'); out.hidden = false; out.textContent = 'Running…'; btn.disabled = true;
+    try {
+      const r = await run(args);
+      out.textContent = `Ran ${r.ranOn === 'on_device' ? 'ON THIS DEVICE' : 'IN THE CLOUD'} in ${r.ms} ms (policy ${r.route.policy}, mode ${r.route.mode})\n\n${r.json ? JSON.stringify(r.json, null, 2) : r.text}`;
+    } catch (e) {
+      out.textContent = (e instanceof PolicyBlocked ? 'Blocked by policy: ' : 'Error: ') + e.message;
+    } finally { btn.disabled = false; renderLedger(); }
+  }
+
+  $('prep').onclick = async () => {
+    const prog = $('prog'); prog.hidden = false; $('prepMsg').textContent = 'Preparing…';
+    try { await prepareDevice((p) => { prog.value = p; $('prepMsg').textContent = `Downloading ${Math.round(p * 100)}%`; }); $('prepMsg').textContent = 'Ready.'; }
+    catch (e) { $('prepMsg').textContent = 'Could not prepare: ' + e.message; }
+    showDevice();
+  };
+  $('runDevice').onclick = (e) => go(e.currentTarget, { task: 'Read wire confirmation', dataClass: 'raw_documents', schema: WIRE_SCHEMA,
+    prompt: `Extract the amount, currency, value date and posted date from this wire confirmation. Dates as YYYY-MM-DD.\n\n${WIRE}` });
+  $('runCloud').onclick = (e) => go(e.currentTarget, { task: 'Summarize case history', dataClass: 'case_history',
+    prompt: `In three short sentences for a finance operations lead, say what happened in this case and whether anything is still open. Keep tokens like [NAME_1] as they are.\n\n${HISTORY}` });
+  $('runLeak').onclick = (e) => go(e.currentTarget, { task: 'Unredacted text (should be blocked)', dataClass: 'redacted_text',
+    prompt: `Draft a note to the lawyer at 416-555-0192 about the delay.` });
+  // Tries each set of session options straight against Chrome's Prompt API and prints the exact answers,
+  // so on-device problems can be told apart (flag off, option not supported, model not downloaded).
+  $('diag').onclick = async () => {
+    const out = $('diagOut'); out.hidden = false; out.textContent = 'Running…';
+    const lines = [`Chrome: ${(navigator.userAgentData?.brands || []).map((b) => b.brand + ' ' + b.version).join(', ') || navigator.userAgent}`, `LanguageModel in self: ${'LanguageModel' in self}`];
+    if ('LanguageModel' in self) {
+      try { lines.push(`params(): ${JSON.stringify(await LanguageModel.params())}`); } catch (e) { lines.push(`params(): ${e.name}: ${e.message}`); }
+      const sets = {
+        'no options': undefined,
+        'text in': { expectedInputs: [{ type: 'text' }] },
+        'text in en': { expectedInputs: [{ type: 'text', languages: ['en'] }] },
+        'text in+out en': { expectedInputs: [{ type: 'text', languages: ['en'] }], expectedOutputs: [{ type: 'text', languages: ['en'] }] },
+        'text+image in': { expectedInputs: [{ type: 'text' }, { type: 'image' }] },
+      };
+      for (const [name, opts] of Object.entries(sets)) {
+        let a, c;
+        try { a = await LanguageModel.availability(opts); } catch (e) { a = `${e.name}: ${e.message}`; }
+        try { const s = await LanguageModel.create(opts); const r = await s.prompt('Reply with the single word OK.'); c = `created, prompt said "${r.trim().slice(0, 20)}"`; s.destroy?.(); } catch (e) { c = `${e.name}: ${e.message}`; }
+        lines.push(`[${name}] availability: ${a} | create: ${c}`);
+      }
+    }
+    out.textContent = lines.join('\n');
+  };
+  $('clear').onclick =() => { ledger.clear(); renderLedger(); };
+
+  ledger.onChange(renderLedger);
+  renderLedger(); showDevice(); showFirebase();
+</script>
+</body>
+</html>
