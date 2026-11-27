@@ -12,7 +12,7 @@ The case workbench (`index.html`) and the team inbox (`inbox.html`) share one Fi
 ## Firebase products
 
 - **Firebase AI Logic** with hybrid inference on both platforms. Cloud backend: Gemini Developer API. Cloud model from Remote Config `ai_cloud_model`.
-- **App Check**: reCAPTCHA on the hosted site, the debug provider in development. Debug tokens are never committed.
+- **App Check**: Fraud Defense (formerly reCAPTCHA Enterprise) on the hosted site, the debug provider in development. Debug tokens are never committed.
 - **Authentication**: anonymous sign-in. The user picks a team when joining a room; it is stored in `rooms/{roomId}/members/{uid}`.
 - **Firestore**: collections below.
 - **Remote Config**: the AI policy below.

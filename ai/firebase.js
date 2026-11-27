@@ -22,8 +22,9 @@ export const firebaseConfig = {
   appId: '1:977283504709:web:140d407bc220c9007f612c',
 };
 
-// reCAPTCHA v3 site key for App Check on the hosted site (a public identifier; the secret stays in Firebase).
-export const RECAPTCHA_V3_SITE_KEY = '6LcumzQuAAAAAJA4jOAWmFJ2UVF5HW3Sp7tJGi-Y';
+// Fraud Defense (formerly reCAPTCHA Enterprise) site key for App Check on the hosted site: a public identifier,
+// restricted to tickmark-martinzhang.vercel.app. reCAPTCHA Classic is deprecated in App Check.
+export const RECAPTCHA_SITE_KEY = '6LcumzQuAAAAAJA4jOAWmFJ2UVF5HW3Sp7tJGi-Y';
 
 // The AI policy defaults; Remote Config overrides them (see docs/hybrid/CONTRACT.md).
 export const POLICY_DEFAULTS = {
@@ -41,7 +42,7 @@ const isLocal = ['localhost', '127.0.0.1'].includes(location.hostname);
 export const app = self.TICKMARK_APP_NAME ? initializeApp(firebaseConfig, self.TICKMARK_APP_NAME) : initializeApp(firebaseConfig);
 
 // App Check is required by Firebase AI Logic. Locally the debug provider prints a token in the console that is
-// registered in the Firebase console once; on the hosted site reCAPTCHA v3 attests the page.
+// registered in the Firebase console once; on the hosted site Fraud Defense (reCAPTCHA Enterprise) attests the page.
 export let appCheckState = 'off';
 try {
   // One registered debug token for every local browser (kept in a gitignored file); otherwise Firebase
@@ -50,10 +51,10 @@ try {
     const local = await import('./appcheck-debug.local.js').catch(() => null);
     self.FIREBASE_APPCHECK_DEBUG_TOKEN = local?.APPCHECK_DEBUG_TOKEN || true;
   }
-  const siteKey = RECAPTCHA_V3_SITE_KEY || (isLocal ? 'debug-mode' : '');
+  const siteKey = RECAPTCHA_SITE_KEY || (isLocal ? 'debug-mode' : '');
   if (siteKey) {
-    appCheckMod.initializeAppCheck(app, { provider: new appCheckMod.ReCaptchaV3Provider(siteKey), isTokenAutoRefreshEnabled: true });
-    appCheckState = isLocal ? 'debug' : 'recaptcha-v3';
+    appCheckMod.initializeAppCheck(app, { provider: new appCheckMod.ReCaptchaEnterpriseProvider(siteKey), isTokenAutoRefreshEnabled: true });
+    appCheckState = isLocal ? 'debug' : 'fraud-defense';
   } else {
     appCheckState = 'missing-site-key';
   }
