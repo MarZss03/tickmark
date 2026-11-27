@@ -28,11 +28,11 @@ The shared data model, Remote Config policy and team rules are in [`docs/hybrid/
 
 | ID | Target | Done when |
 |---|---|---|
-| I1 | Wed Nov 25 | Xcode project in `ios/TickmarkHybrid`, Firebase via SPM, App Check debug, anonymous auth; one prompt on device and one in the cloud, each showing where it ran |
-| I2 | Thu Nov 26 to Fri Nov 27 | Team picker, live inbox of checks, check detail, on-device evidence reading to a schema, on-device reply draft, redaction port with tests, reply written to Firestore |
-| I3 | Sat Nov 28 | Design polish (native SwiftUI, Dynamic Type, dark mode), no-Apple-Intelligence path, offline behaviour, QA from the judge and user seats |
+| I1 | Fri Nov 27 (revised) | Xcode project in `ios/TickmarkHybrid`, Firebase via SPM, App Check debug, anonymous auth; one prompt on device and one in the cloud, each showing where it ran |
+| I2 | Sat Nov 28 | Team picker, live inbox of checks, check detail, on-device evidence reading to a schema, on-device reply draft, redaction port with tests, reply written to Firestore |
+| I3 | Sun Nov 29 morning | Design polish (native SwiftUI, Dynamic Type, dark mode), no-Apple-Intelligence path, offline behaviour, QA from the judge and user seats |
 
-Cut rule: if I1 is not working by Wednesday night, iOS is dropped and the web app is submitted alone.
+Cut rule: if I1 is not working by Friday Nov 27 night, iOS is dropped and the web app is submitted alone.
 
 ## Run
 
