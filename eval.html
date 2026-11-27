@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reading accuracy · Tickmark Hybrid</title>
+<meta name="description" content="Field-level accuracy of Tickmark Hybrid's document reading on 16 synthetic finance documents, on device (Gemini Nano) and from redacted text in the cloud.">
+<style>
+  :root { --bg: #0e0e0d; --sheet: #161514; --edge: #2e2b27; --rule: #24221f; --ink: #efe7d8; --muted: #a49b8d; --gold: #d2a965; --ok: #9fd0b0; --neg: #f0a597; }
+  * { box-sizing: border-box; } html { color-scheme: dark; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 "Manrope", system-ui, -apple-system, Segoe UI, sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 28px 16px 60px; }
+  h1 { font-size: 24px; margin: 0 0 6px; } .lead { color: var(--muted); margin: 0 0 18px; max-width: 75ch; }
+  .panel { background: var(--sheet); border: 1px solid var(--edge); padding: 16px; margin-bottom: 14px; }
+  button { font: inherit; font-weight: 700; cursor: pointer; border: 0; padding: 9px 16px; background: var(--gold); color: #15130f; }
+  button.sec { background: transparent; color: var(--ink); border: 1px solid #4a4539; } button:disabled { opacity: .5; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+  .stat { border: 1px solid var(--edge); padding: 12px; } .stat b { display: block; font-size: 24px; font-variant-numeric: tabular-nums; } .stat span { color: var(--muted); font-size: 13px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 6px 6px; border-bottom: 1px solid var(--rule); vertical-align: top; } th { color: var(--muted); font-weight: 600; }
+  .ok { color: var(--ok); } .neg { color: var(--neg); } .muted { color: var(--muted); }
+  pre { white-space: pre-wrap; font-size: 12px; background: var(--bg); border: 1px solid var(--edge); padding: 10px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Reading accuracy</h1>
+  <p class="lead">16 synthetic finance documents (8 wire confirmations, 8 payout statements) with known answers. Each is read through Tickmark Hybrid’s real reading path, and every field is compared with the answer. Numbers count as correct to the cent; dates and times must match exactly.</p>
+  <div class="panel">
+    <div class="row">
+      <button id="runDevice">Run on this device (Gemini Nano, scans)</button>
+      <button id="runCloud" class="sec">Run from redacted text (cloud)</button>
+      <span id="status" class="muted" role="status"></span>
+    </div>
+  </div>
+  <div class="panel"><div class="stats" id="stats"><p class="muted">No run yet.</p></div></div>
+  <div class="panel"><table><thead><tr><th>Document</th><th>Path</th><th>ms</th><th>Correct</th><th>Misses (read → expected)</th></tr></thead><tbody id="rows"></tbody></table></div>
+  <div class="panel"><div class="row"><button class="sec" id="copy">Copy results as JSON</button></div><pre id="json" hidden></pre></div>
+</main>
+<script type="module">
+  import { readDocument, DOC_TYPES } from './ai/docread.js';
+  import { ensureDevice, deviceStatus } from './ai/hybrid.js';
+
+  const $ = (id) => document.getElementById(id);
+  const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  const docs = (await fetch('assets/docs/docs.json').then((r) => r.json())).filter((d) => d.eval !== false);
+  let results = [];
+
+  const norm = (v) => String(v ?? '').trim().replace(/\s+/g, ' ').replace('T', ' ').toUpperCase();
+  function same(got, want) {
+    if (typeof want === 'number') return got != null && Math.abs(Number(got) - want) < 0.005;
+    if (want === '' ) return got == null || String(got).trim() === '';
+    return norm(got).slice(0, Math.max(10, norm(want).length)) === norm(want);
+  }
+
+  async function runAll(path) {
+    $('runDevice').disabled = $('runCloud').disabled = true;
+    results = [];
+    if (path === 'device') {
+      $('status').textContent = 'Preparing the on-device model…';
+      const prep = await ensureDevice(() => {}, true);
+      if (!prep.ok) { $('status').textContent = 'No on-device model here: ' + prep.hint; $('runDevice').disabled = $('runCloud').disabled = false; return; }
+    }
+    for (const [i, d] of docs.entries()) {
+      $('status').textContent = `Reading ${i + 1} of ${docs.length}: ${d.label}`;
+      const fields = DOC_TYPES[d.docType].fields.map(([k]) => k);
+      try {
+        const r = await readDocument(d, { path: path === 'device' ? 'device' : 'redacted-cloud' });
+        const checks = fields.map((k) => ({ k, got: r.fields[k], want: d.truth[k], ok: same(r.fields[k], d.truth[k]) }));
+        results.push({ id: d.id, docType: d.docType, ranOn: r.ranOn, ms: r.ms, checks, sentChars: r.sent ? r.sent.length : 0 });
+      } catch (e) {
+        results.push({ id: d.id, docType: d.docType, ranOn: 'error', ms: 0, error: e.message, checks: fields.map((k) => ({ k, got: null, want: d.truth[k], ok: false })) });
+      }
+      draw();
+    }
+    $('status').textContent = `Done: ${docs.length} documents.`;
+    $('runDevice').disabled = $('runCloud').disabled = false;
+  }
+
+  function draw() {
+    const all = results.flatMap((r) => r.checks), ok = all.filter((c) => c.ok).length;
+    const full = results.filter((r) => r.checks.every((c) => c.ok)).length;
+    const ms = results.filter((r) => r.ms).map((r) => r.ms).sort((a, b) => a - b);
+    const med = ms.length ? ms[Math.floor(ms.length / 2)] : 0;
+    const by = (t) => { const c = results.filter((r) => r.docType === t).flatMap((r) => r.checks); return c.length ? `${c.filter((x) => x.ok).length} / ${c.length}` : '–'; };
+    const where = [...new Set(results.map((r) => r.ranOn))].join(', ');
+    $('stats').innerHTML = [
+      ['Fields correct', `${ok} / ${all.length}`, all.length ? `${(100 * ok / all.length).toFixed(1)}%` : ''],
+      ['Documents fully correct', `${full} / ${results.length}`, ''],
+      ['Wire confirmations', by('wire_confirmation'), 'fields correct'],
+      ['Payout statements', by('payout_statement'), 'fields correct'],
+      ['Time per document', ms.length ? `${(med / 1000).toFixed(1)} s` : '–', ms.length ? `median · range ${(ms[0] / 1000).toFixed(1)} to ${(ms[ms.length - 1] / 1000).toFixed(1)} s` : ''],
+      ['Where it ran', where || '–', 'reported by Firebase AI Logic'],
+    ].map(([l, v, s]) => `<div class="stat"><span>${l}</span><b>${esc(v)}</b><span>${esc(s)}</span></div>`).join('');
+    $('rows').innerHTML = results.map((r) => {
+      const miss = r.checks.filter((c) => !c.ok);
+      return `<tr><td>${esc(r.id)}</td><td>${esc(r.ranOn)}</td><td>${r.ms}</td><td class="${miss.length ? 'neg' : 'ok'}">${r.checks.length - miss.length} / ${r.checks.length}</td>
+        <td>${r.error ? `<span class="neg">${esc(r.error)}</span>` : miss.map((c) => `${esc(c.k)}: ${esc(c.got ?? 'empty')} → ${esc(c.want === '' ? 'empty' : c.want)}`).join('<br>') || '<span class="muted">none</span>'}</td></tr>`;
+    }).join('');
+    $('json').textContent = JSON.stringify({ at: new Date().toISOString(), summary: { fieldsCorrect: ok, fields: all.length, docsFullyCorrect: full, docs: results.length, medianMs: med, rangeMs: ms.length ? [ms[0], ms[ms.length - 1]] : null }, results }, null, 2);
+  }
+
+  $('runDevice').onclick = () => runAll('device');
+  $('runCloud').onclick = () => runAll('cloud');
+  $('copy').onclick = () => { $('json').hidden = false; navigator.clipboard.writeText($('json').textContent).catch(() => {}); };
+  deviceStatus(true).then((s) => { if (s !== 'available') $('runDevice').title = 'No on-device model with image input in this browser'; });
+</script>
+</body>
+</html>

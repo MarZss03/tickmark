@@ -28,7 +28,28 @@ export const DOC_TYPES = {
       ['wire_reference', 'Wire reference'], ['amount', 'Amount'], ['currency', 'Currency'],
       ['received_at', 'Bank received'], ['hold_placed_at', 'Hold placed'], ['hold_released_at', 'Hold released'],
     ],
-    instruction: 'You read bank wire confirmations for a mortgage servicing team. Extract only the fields in the schema, exactly as the document states them. Dates and times as YYYY-MM-DD HH:MM in the document\'s own time zone. If the document shows no hold, leave both hold fields empty. Do not guess, and do not copy names or account numbers.',
+    instruction: 'You read bank wire confirmations for a mortgage servicing team. Extract only the fields in the schema, exactly as the document states them. Dates and times as YYYY-MM-DD HH:MM in the document\'s own time zone, 24-hour clock. If the document shows no hold, leave both hold fields empty. Do not guess, and do not copy names or account numbers.',
+  },
+  payout_statement: {
+    label: 'Payout statement',
+    schema: {
+      type: 'object',
+      properties: {
+        statement_date: { type: 'string', description: 'Date the statement was issued, as YYYY-MM-DD' },
+        good_to: { type: 'string', description: 'Date the payout figures are good to, as YYYY-MM-DD' },
+        principal: { type: 'number', description: 'Principal outstanding, as a number' },
+        interest: { type: 'number', description: 'Interest to the good-to date, as a number' },
+        prepayment_charge: { type: 'number', description: 'Prepayment charge or penalty, as a number (0 if none)' },
+        total_payout: { type: 'number', description: 'Total payout amount, as a number' },
+        per_diem: { type: 'number', description: 'Per diem interest after the good-to date, as a number' },
+      },
+      required: ['statement_date', 'good_to', 'principal', 'interest', 'prepayment_charge', 'total_payout', 'per_diem'],
+    },
+    fields: [
+      ['statement_date', 'Statement date'], ['good_to', 'Good to'], ['principal', 'Principal'], ['interest', 'Interest'],
+      ['prepayment_charge', 'Prepayment charge'], ['total_payout', 'Total payout'], ['per_diem', 'Per diem'],
+    ],
+    instruction: 'You read mortgage payout statements for a servicing team. Extract only the fields in the schema, exactly as the statement shows them. Dates as YYYY-MM-DD. Amounts as plain numbers without currency symbols or commas. Do not compute anything and do not copy names, addresses or mortgage numbers.',
   },
 };
 
@@ -80,7 +101,7 @@ function clean(json, type) {
   const out = {};
   for (const [k] of DOC_TYPES[type].fields) {
     let v = json ? json[k] : undefined;
-    if (k === 'amount') v = typeof v === 'number' ? v : Number(String(v || '').replace(/[^0-9.\-]/g, '')) || null;
+    if (DOC_TYPES[type].schema.properties[k].type === 'number') v = typeof v === 'number' ? v : (v == null || v === '' ? null : Number(String(v).replace(/[^0-9.\-]/g, '')));
     else v = v == null ? '' : String(v).trim();
     out[k] = v;
   }

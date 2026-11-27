@@ -12,7 +12,8 @@
       "received_at": "2026-10-30 14:02",
       "hold_placed_at": "2026-10-30 14:05",
       "hold_released_at": "2026-11-02 09:40"
-    }
+    },
+    "eval": true
   },
   {
     "id": "wire-W-88540",
@@ -27,6 +28,239 @@
       "received_at": "2026-11-03 09:12",
       "hold_placed_at": "",
       "hold_released_at": ""
-    }
+    },
+    "eval": true
+  },
+  {
+    "id": "wire-W-90117",
+    "docType": "wire_confirmation",
+    "label": "Wire confirmation W-90117 (scan)",
+    "image": "assets/docs/wire-W-90117.png",
+    "text": "HARBOURVIEW SAVINGS\nWIRE TRANSFER RECEIVED\n\nWire reference: W-90117\nReceived: November 4, 2026 at 9:31 AM\nAmount: CAD 156,204.88\nOrdering customer: Mendes & Park LLP in trust for Lucas Ferreira\nOrdering account: 090117-4412-9011777\nBeneficiary: Demo Bank Mortgage Servicing\nBeneficiary account: 00219-4410-118734\nPayment details: ML-41022, 23 Oakridge Dr, Ottawa ON K2G 4P1\nStatus: COMPLETED\n\nContact: wires@example-bank.example  ·  1-800-555-0199",
+    "truth": {
+      "amount": 156204.88,
+      "currency": "CAD",
+      "wire_reference": "W-90117",
+      "received_at": "2026-11-04 09:31",
+      "hold_placed_at": "",
+      "hold_released_at": ""
+    },
+    "eval": true
+  },
+  {
+    "id": "wire-W-90254",
+    "docType": "wire_confirmation",
+    "label": "Wire confirmation W-90254 (scan)",
+    "image": "assets/docs/wire-W-90254.png",
+    "text": "NORTHSHORE TRUST BANK\nINCOMING WIRE CONFIRMATION\n\nWire reference: W-90254\nReceived: 2026-11-04 15:48 ET\nAmount: CAD 98,750.00\nOrdering customer: Quill Legal Professional Corp. for Aisha Rahman\nOrdering account: 090254-4412-9025477\nBeneficiary: Demo Bank Mortgage Servicing\nBeneficiary account: 00219-4410-118734\nPayment details: Payout ML-39871, 5 Pine Hollow Rd, Barrie ON L4N 7T2\nStatus: HELD FOR REVIEW\nHold placed: 2026-11-04 15:52 ET (HLD-7801, sanctions screening)\nHold released: 2026-11-05 10:15 ET\n\nContact: wires@example-bank.example  ·  1-800-555-0199",
+    "truth": {
+      "amount": 98750,
+      "currency": "CAD",
+      "wire_reference": "W-90254",
+      "received_at": "2026-11-04 15:48",
+      "hold_placed_at": "2026-11-04 15:52",
+      "hold_released_at": "2026-11-05 10:15"
+    },
+    "eval": true
+  },
+  {
+    "id": "wire-W-90388",
+    "docType": "wire_confirmation",
+    "label": "Wire confirmation W-90388 (scan)",
+    "image": "assets/docs/wire-W-90388.png",
+    "text": "LAKEPORT CREDIT UNION\nWIRE RECEIPT ADVICE\n\nWire reference: W-90388\nReceived: 5 Nov 2026, 2:15 p.m. ET\nAmount: CAD 341,000.00\nOrdering customer: Chen Bellamy LLP trust account, for Grace and Wen Chen\nOrdering account: 090388-4412-9038877\nBeneficiary: Demo Bank Mortgage Servicing\nBeneficiary account: 00219-4410-118734\nPayment details: ML-40990 payout, 88 Bayview Ave, Toronto ON M4G 3B7\nStatus: COMPLETED\n\nContact: wires@example-bank.example  ·  1-800-555-0199",
+    "truth": {
+      "amount": 341000,
+      "currency": "CAD",
+      "wire_reference": "W-90388",
+      "received_at": "2026-11-05 14:15",
+      "hold_placed_at": "",
+      "hold_released_at": ""
+    },
+    "eval": true
+  },
+  {
+    "id": "wire-W-90412",
+    "docType": "wire_confirmation",
+    "label": "Wire confirmation W-90412 (scan)",
+    "image": "assets/docs/wire-W-90412.png",
+    "text": "FIRST MARITIME BANK\nINBOUND WIRE NOTICE\n\nWire reference: W-90412\nReceived: 2026-11-06 08:05 ET\nAmount: USD 47,320.15\nOrdering customer: Delacroix Law for Marie-Claude Tremblay\nOrdering account: 090412-4412-9041277\nBeneficiary: Demo Bank Mortgage Servicing\nBeneficiary account: 00219-4410-118734\nPayment details: Payout ML-38221, 410 Rue Notre-Dame, Gatineau QC J8X 3B1\nStatus: HELD FOR REVIEW\nHold placed: 2026-11-06 08:07 ET (HLD-7844, foreign currency review)\nHold released: 2026-11-09 11:30 ET\n\nContact: wires@example-bank.example  ·  1-800-555-0199",
+    "truth": {
+      "amount": 47320.15,
+      "currency": "USD",
+      "wire_reference": "W-90412",
+      "received_at": "2026-11-06 08:05",
+      "hold_placed_at": "2026-11-06 08:07",
+      "hold_released_at": "2026-11-09 11:30"
+    },
+    "eval": true
+  },
+  {
+    "id": "wire-W-90533",
+    "docType": "wire_confirmation",
+    "label": "Wire confirmation W-90533 (scan)",
+    "image": "assets/docs/wire-W-90533.png",
+    "text": "HARBOURVIEW SAVINGS\nWIRE TRANSFER RECEIVED\n\nWire reference: W-90533\nReceived: November 9, 2026 at 4:40 PM\nAmount: CAD 612,450.00\nOrdering customer: Okafor Law in trust for Daniel and Ruth Abara\nOrdering account: 090533-4412-9053377\nBeneficiary: Demo Bank Mortgage Servicing\nBeneficiary account: 00219-4410-118734\nPayment details: ML-42115, 1200 Lakeshore Blvd W, Toronto ON M6K 1G4\nStatus: COMPLETED\n\nContact: wires@example-bank.example  ·  1-800-555-0199",
+    "truth": {
+      "amount": 612450,
+      "currency": "CAD",
+      "wire_reference": "W-90533",
+      "received_at": "2026-11-09 16:40",
+      "hold_placed_at": "",
+      "hold_released_at": ""
+    },
+    "eval": true
+  },
+  {
+    "id": "wire-W-90601",
+    "docType": "wire_confirmation",
+    "label": "Wire confirmation W-90601 (scan)",
+    "image": "assets/docs/wire-W-90601.png",
+    "text": "NORTHSHORE TRUST BANK\nINCOMING WIRE CONFIRMATION\n\nWire reference: W-90601\nReceived: 2026-11-10 11:22 ET\nAmount: CAD 205,118.42\nOrdering customer: Haldane & Co. LLP in trust for Sofia Rossi\nOrdering account: 090601-4412-9060177\nBeneficiary: Demo Bank Mortgage Servicing\nBeneficiary account: 00219-4410-118734\nPayment details: Payout ML-40455, 17 Willow Way, Oakville ON L6J 2X9\nStatus: HELD FOR REVIEW\nHold placed: 2026-11-10 11:24 ET (HLD-7902, large-value review)\nHold released: 2026-11-10 16:05 ET\n\nContact: wires@example-bank.example  ·  1-800-555-0199",
+    "truth": {
+      "amount": 205118.42,
+      "currency": "CAD",
+      "wire_reference": "W-90601",
+      "received_at": "2026-11-10 11:22",
+      "hold_placed_at": "2026-11-10 11:24",
+      "hold_released_at": "2026-11-10 16:05"
+    },
+    "eval": true
+  },
+  {
+    "id": "stmt-ML-40311",
+    "docType": "payout_statement",
+    "label": "Payout statement ML-40311 (scan)",
+    "image": "assets/docs/stmt-ML-40311.png",
+    "text": "DEMO BANK MORTGAGE SERVICING\nMORTGAGE PAYOUT STATEMENT\n\nMortgage number: ML-40311\nBorrower: Priya Raman\nProperty: 14 Birchwood Cres, Toronto ON M4C 2K7\nStatement date: October 24, 2026\nGood to: October 30, 2026\nPrincipal outstanding: 412,120.44\nInterest to good-to date: 718.38\nDischarge fee: 41.18\nPrepayment charge: 0.00\nTotal payout amount: 412,880.00\nPer diem after good-to date: 41.18\n\nPayout figures are valid only to the good-to date. Questions: payouts@demobank.example  ·  (416) 555-0130",
+    "truth": {
+      "statement_date": "2026-10-24",
+      "good_to": "2026-10-30",
+      "principal": 412120.44,
+      "interest": 718.38,
+      "prepayment_charge": 0,
+      "total_payout": 412880,
+      "per_diem": 41.18
+    },
+    "eval": true
+  },
+  {
+    "id": "stmt-ML-38774",
+    "docType": "payout_statement",
+    "label": "Payout statement ML-38774 (scan)",
+    "image": "assets/docs/stmt-ML-38774.png",
+    "text": "DEMO BANK MORTGAGE SERVICING\nMORTGAGE PAYOUT STATEMENT\n\nMortgage number: ML-38774\nBorrower: Marcus and Elena Whitfield\nProperty: 7 Lakeshore Rd, Mississauga ON L5H 1G3\nStatement date: 2026-10-22\nGood to: 2026-10-30\nPrincipal outstanding: 288,612.90\nInterest to good-to date: 737.10\nDischarge fee: 50.00\nPrepayment charge: 0.00\nTotal payout amount: 289,400.00\nPer diem after good-to date: 52.07\n\nPayout figures are valid only to the good-to date. Questions: payouts@demobank.example  ·  (416) 555-0130",
+    "truth": {
+      "statement_date": "2026-10-22",
+      "good_to": "2026-10-30",
+      "principal": 288612.9,
+      "interest": 737.1,
+      "prepayment_charge": 0,
+      "total_payout": 289400,
+      "per_diem": 52.07
+    },
+    "eval": true
+  },
+  {
+    "id": "stmt-ML-41022",
+    "docType": "payout_statement",
+    "label": "Payout statement ML-41022 (scan)",
+    "image": "assets/docs/stmt-ML-41022.png",
+    "text": "DEMO BANK MORTGAGE SERVICING\nMORTGAGE PAYOUT STATEMENT\n\nMortgage number: ML-41022\nBorrower: Lucas Ferreira\nProperty: 23 Oakridge Dr, Ottawa ON K2G 4P1\nStatement date: 28 Oct 2026\nGood to: 4 Nov 2026\nPrincipal outstanding: 155,880.12\nInterest to good-to date: 274.76\nDischarge fee: 50.00\nPrepayment charge: 0.00\nTotal payout amount: 156,204.88\nPer diem after good-to date: 23.11\n\nPayout figures are valid only to the good-to date. Questions: payouts@demobank.example  ·  (416) 555-0130",
+    "truth": {
+      "statement_date": "2026-10-28",
+      "good_to": "2026-11-04",
+      "principal": 155880.12,
+      "interest": 274.76,
+      "prepayment_charge": 0,
+      "total_payout": 156204.88,
+      "per_diem": 23.11
+    },
+    "eval": true
+  },
+  {
+    "id": "stmt-ML-39871",
+    "docType": "payout_statement",
+    "label": "Payout statement ML-39871 (scan)",
+    "image": "assets/docs/stmt-ML-39871.png",
+    "text": "DEMO BANK MORTGAGE SERVICING\nMORTGAGE PAYOUT STATEMENT\n\nMortgage number: ML-39871\nBorrower: Aisha Rahman\nProperty: 5 Pine Hollow Rd, Barrie ON L4N 7T2\nStatement date: October 29, 2026\nGood to: November 5, 2026\nPrincipal outstanding: 94,210.55\nInterest to good-to date: 189.45\nDischarge fee: 50.00\nPrepayment charge: 4,300.00\nTotal payout amount: 98,750.00\nPer diem after good-to date: 14.02\n\nPayout figures are valid only to the good-to date. Questions: payouts@demobank.example  ·  (416) 555-0130",
+    "truth": {
+      "statement_date": "2026-10-29",
+      "good_to": "2026-11-05",
+      "principal": 94210.55,
+      "interest": 189.45,
+      "prepayment_charge": 4300,
+      "total_payout": 98750,
+      "per_diem": 14.02
+    },
+    "eval": true
+  },
+  {
+    "id": "stmt-ML-40990",
+    "docType": "payout_statement",
+    "label": "Payout statement ML-40990 (scan)",
+    "image": "assets/docs/stmt-ML-40990.png",
+    "text": "DEMO BANK MORTGAGE SERVICING\nMORTGAGE PAYOUT STATEMENT\n\nMortgage number: ML-40990\nBorrower: Grace and Wen Chen\nProperty: 88 Bayview Ave, Toronto ON M4G 3B7\nStatement date: 2026-10-30\nGood to: 2026-11-05\nPrincipal outstanding: 339,980.00\nInterest to good-to date: 970.00\nDischarge fee: 50.00\nPrepayment charge: 0.00\nTotal payout amount: 341,000.00\nPer diem after good-to date: 48.50\n\nPayout figures are valid only to the good-to date. Questions: payouts@demobank.example  ·  (416) 555-0130",
+    "truth": {
+      "statement_date": "2026-10-30",
+      "good_to": "2026-11-05",
+      "principal": 339980,
+      "interest": 970,
+      "prepayment_charge": 0,
+      "total_payout": 341000,
+      "per_diem": 48.5
+    },
+    "eval": true
+  },
+  {
+    "id": "stmt-ML-42115",
+    "docType": "payout_statement",
+    "label": "Payout statement ML-42115 (scan)",
+    "image": "assets/docs/stmt-ML-42115.png",
+    "text": "DEMO BANK MORTGAGE SERVICING\nMORTGAGE PAYOUT STATEMENT\n\nMortgage number: ML-42115\nBorrower: Daniel and Ruth Abara\nProperty: 1200 Lakeshore Blvd W, Toronto ON M6K 1G4\nStatement date: 2 Nov 2026\nGood to: 9 Nov 2026\nPrincipal outstanding: 598,712.33\nInterest to good-to date: 1,187.67\nDischarge fee: 50.00\nPrepayment charge: 12,500.00\nTotal payout amount: 612,450.00\nPer diem after good-to date: 86.40\n\nPayout figures are valid only to the good-to date. Questions: payouts@demobank.example  ·  (416) 555-0130",
+    "truth": {
+      "statement_date": "2026-11-02",
+      "good_to": "2026-11-09",
+      "principal": 598712.33,
+      "interest": 1187.67,
+      "prepayment_charge": 12500,
+      "total_payout": 612450,
+      "per_diem": 86.4
+    },
+    "eval": true
+  },
+  {
+    "id": "stmt-ML-40455",
+    "docType": "payout_statement",
+    "label": "Payout statement ML-40455 (scan)",
+    "image": "assets/docs/stmt-ML-40455.png",
+    "text": "DEMO BANK MORTGAGE SERVICING\nMORTGAGE PAYOUT STATEMENT\n\nMortgage number: ML-40455\nBorrower: Sofia Rossi\nProperty: 17 Willow Way, Oakville ON L6J 2X9\nStatement date: November 3, 2026\nGood to: November 10, 2026\nPrincipal outstanding: 204,301.20\nInterest to good-to date: 767.22\nDischarge fee: 50.00\nPrepayment charge: 0.00\nTotal payout amount: 205,118.42\nPer diem after good-to date: 29.87\n\nPayout figures are valid only to the good-to date. Questions: payouts@demobank.example  ·  (416) 555-0130",
+    "truth": {
+      "statement_date": "2026-11-03",
+      "good_to": "2026-11-10",
+      "principal": 204301.2,
+      "interest": 767.22,
+      "prepayment_charge": 0,
+      "total_payout": 205118.42,
+      "per_diem": 29.87
+    },
+    "eval": true
+  },
+  {
+    "id": "stmt-ML-38221",
+    "docType": "payout_statement",
+    "label": "Payout statement ML-38221 (scan)",
+    "image": "assets/docs/stmt-ML-38221.png",
+    "text": "DEMO BANK MORTGAGE SERVICING\nMORTGAGE PAYOUT STATEMENT\n\nMortgage number: ML-38221\nBorrower: Marie-Claude Tremblay\nProperty: 410 Rue Notre-Dame, Gatineau QC J8X 3B1\nStatement date: 2026-10-30\nGood to: 2026-11-06\nPrincipal outstanding: 46,880.00\nInterest to good-to date: 390.15\nDischarge fee: 50.00\nPrepayment charge: 0.00\nTotal payout amount: 47,320.15\nPer diem after good-to date: 7.25\n\nPayout figures are valid only to the good-to date. Questions: payouts@demobank.example  ·  (416) 555-0130",
+    "truth": {
+      "statement_date": "2026-10-30",
+      "good_to": "2026-11-06",
+      "principal": 46880,
+      "interest": 390.15,
+      "prepayment_charge": 0,
+      "total_payout": 47320.15,
+      "per_diem": 7.25
+    },
+    "eval": true
   }
 ]

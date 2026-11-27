@@ -36,6 +36,8 @@
     { type: 'IBAN', re: /\b([A-Z]{2}\d{2}(?: ?[A-Z0-9]{4}){3,7}(?: ?[A-Z0-9]{1,3})?)\b/g },
     { type: 'POSTAL', re: /\b([ABCEGHJ-NPRSTVXY]\d[ABCEGHJ-NPRSTV-Z] ?\d[ABCEGHJ-NPRSTV-Z]\d)\b/gi },
     { type: 'ADDRESS', re: new RegExp(`\\b((?:(?:unit|suite|apt)\\s*\\d+[A-Z]?[, -]+)?\\d{1,6}[A-Z]?\\s+(?:[A-Z][a-z]+\\s+){1,4}${STREET}\\.?(?:\\s+(?:north|south|east|west|n|s|e|w)\\b)?)`, 'g') },
+    // French-style addresses (Quebec, New Brunswick): the street type comes first, e.g. "410 Rue Notre-Dame"
+    { type: 'ADDRESS', re: /\b(\d{1,6}[A-Z]?,?[ \t]+(?:[Rr]ue|[Aa]venue|[Aa]v\.|[Bb]oulevard|[Bb]oul\.|[Cc]hemin|[Cc]h\.|[Rr]oute|[Rr]ang|[Mm]ontée|[Cc]ôte|[Pp]lace|[Rr]ue[ \t]+[Ss]aint|[Rr]ue[ \t]+[Ss]ainte)[ \t]+(?:(?:de|des|du|la|le|l'|d')[ \t]+){0,2}[A-ZÉÈÀÂÎÔÛÇ][\p{L}'-]+(?:[ \t-]+[A-ZÉÈÀÂÎÔÛÇ][\p{L}'-]+){0,3})/gu },
     // A file or loan number with no label before it, such as ML-38774 or MTG-2026-118842 (2 to 4 capitals, then
     // at least five digits). Shorter internal references like HLD-7720 are kept.
     { type: 'LOAN', re: /\b([A-Z]{2,4}-(?:\d{4}-)?\d{5,})\b/g },
