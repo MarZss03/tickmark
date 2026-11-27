@@ -5,7 +5,7 @@
 // for the owner to review; the rules re-run with what it carries.
 import { draftQuestion, suggestClass, CLASSES } from './draft.js';
 import { currentRoom, join, sendCheck, watchCheck, decide, inboxLink, TEAMS, REQUEST_FIELDS } from './checks.js';
-import { PolicyBlocked } from './hybrid.js';
+import { PolicyBlocked, deviceStatus } from './hybrid.js';
 import './redact.js';
 
 const Redact = self.TickmarkRedact;
@@ -19,6 +19,7 @@ const get = (id) => { if (!ui.has(id)) ui.set(id, { status: 'idle', text: '' });
 let current = null;
 const watchers = new Map(); // checkId -> unsubscribe
 const B = () => window.tmBridge;
+const restore = (text, link) => (link && link.tokens ? Redact.restore(text, link.tokens) : text);
 
 const recipient = (draft) => (draft.to === 'person'
   ? { team: (window.TMC.dir.people[draft.person] || {}).team || 'approvals', label: B().name(draft.person) }
@@ -43,7 +44,7 @@ function shared(c, x, draft, question) {
   for (const e of (c.evidence || []).filter((y) => !y.superseded)) for (const [k, v] of Object.entries(e.facts || {})) if (Object.keys(facts).length < 12) facts[k] = v;
   const safeFacts = redactFacts(facts);
   return {
-    caseId: c.id, caseTitle: Redact.redact(c.title).text.slice(0, 140),
+    caseId: c.id, caseTitle: Redact.redact(x ? x.title : c.title).text.slice(0, 140),
     question: Redact.redact(question).text.slice(0, 1200), whyItMatters: Redact.redact(draft.why || '').text.slice(0, 600),
     expected: safeFacts, requested: (draft.requested || []).slice(0, 4),
     evidence: (c.evidence || []).filter((y) => !y.superseded && y.facts).slice(0, 5).map((y) => ({ docType: (y.kind || 'record').slice(0, 40), summary: Redact.redact(y.system || '').text.slice(0, 600), facts: redactFacts(y.facts) })),
@@ -74,7 +75,7 @@ async function draw() {
     else if (d.status === 'answered' && d.reply) {
       const fields = Object.entries(d.reply.facts || {});
       body = `<div class="ai-res"><p class="ai-where"><span class="pill ok">Reply in</span> from ${esc(d.reply.byName)} · drafted ${d.reply.ranOn === 'on_device' ? 'on their device' : d.reply.ranOn === 'in_cloud' ? 'in the cloud from redacted text' : 'by hand'}</p>
-        <p class="cs-q">${esc(d.reply.text)}</p>
+        <p class="cs-q">${esc(restore(d.reply.text, link))}</p>${restore(d.reply.text, link) !== d.reply.text ? '<p class="c-s">Private details put back on this device; the other team only saw tokens such as [ADDRESS_1].</p>' : ''}
         ${fields.length ? `<table class="tbl ai-tbl"><tbody>${fields.map(([k, v]) => `<tr><th scope="row">${esc((Object.values(REQUEST_FIELDS).find((r) => r.key === k) || {}).label || k)}</th><td>${esc(v)}</td></tr>`).join('')}</tbody></table>` : ''}
         <p class="c-s">Adding it records the reply on the check and adds what it carries as evidence. You still review and accept it in Next action.</p>
         <div class="ai-row"><button class="b-pri" data-ask-apply>Add the reply to the case</button></div></div>`;
@@ -84,7 +85,8 @@ async function draw() {
   }
 
   const r = recipient(f.draft);
-  const draftBtn = s.status === 'drafting' ? '' : `<button class="${s.text ? 'b-sec' : 'b-pri'}" data-ask-draft>${s.text ? 'Draft again' : 'Draft the question on this device'}</button>`;
+  const onDevice = (await deviceStatus(false)) === 'available';
+  const draftBtn = s.status === 'drafting' ? '' : `<button class="${s.text ? 'b-sec' : 'b-pri'}" data-ask-draft>${s.text ? 'Draft again' : onDevice ? 'Draft the question on this device' : 'Draft the question from redacted text'}</button>`;
   const chip = s.ranOn === 'on_device' ? '<span class="ai-chip ok">Drafted on this device</span>' : s.ranOn === 'in_cloud' ? '<span class="ai-chip warn">Drafted in the cloud from redacted text</span>' : '';
   const preview = s.text ? shared(c, f.x, f.draft, s.text) : null;
   el.innerHTML = `<div class="ai-h"><p class="sl">Ask ${esc(r.label)}</p>${chip}</div>
@@ -111,7 +113,7 @@ async function doDraft() {
       const ta = document.getElementById('ask-q');
       if (ta) ta.value = t; else draw();
     });
-    s.text = out.text.trim(); s.ranOn = out.ranOn; s.status = 'idle';
+    s.text = out.text.trim(); s.ranOn = out.ranOn; s.status = 'idle'; s.entities = out.brief.entities;
     draw();
     const k = await suggestClass(c, f.x);
     s.cls = k.classification; s.reason = k.reason;
@@ -136,7 +138,9 @@ async function doSend() {
     const local = B().escalate(id, { to: f.draft.to, team: f.draft.team, person: f.draft.person, requires: f.draft.requires, kind: f.draft.kind || 'verify', requested: f.draft.requested || [], question: Redact.redact(q).text, why: f.draft.why || '', blocking: true, due });
     if (!local.ok) { s.error = local.error; return draw(); }
     const checkId = await sendCheck(room, { ...shared(c, f.x, f.draft, q), fromTeam: myTeam, toTeam: r.team, classification: s.cls || 'insufficient', due });
-    const links = loadLinks(); links[id] = { room, checkId, taskId: local.task, toTeam: r.team }; saveLinks(links);
+    // the token map stays in this browser only; it is how replies are read back with the real details
+    const tokens = [...(s.entities || []), ...Redact.redact(f.x ? f.x.title : c.title).entities].map((e) => ({ token: e.token, value: e.value }));
+    const links = loadLinks(); links[id] = { room, checkId, taskId: local.task, toTeam: r.team, tokens }; saveLinks(links);
     s.status = 'sent';
   } catch (e) { s.error = `Not sent: ${e.message}`; }
   draw();
@@ -158,7 +162,7 @@ async function doApply() {
     evidence: { label: `Reply from ${TEAMS[d.toTeam] || d.toTeam}`, system: `${TEAMS[d.toTeam] || d.toTeam} · answered on another device`, origin: d.toTeam, kind: 'record', loc: `Check ${d.id.slice(0, 6)} · ${d.reply.byName}`, facts },
     patch, touches: Object.keys(facts),
   } : null;
-  const r = B().applyRemoteReply(id, link.taskId, { answer: d.reply.text, byName: d.reply.byName, doc });
+  const r = B().applyRemoteReply(id, link.taskId, { answer: restore(d.reply.text, link), byName: d.reply.byName, doc });
   if (!r.ok) { s.error = r.error; return draw(); }
   try { await decide(link.room, d.id, 'accepted'); } catch (e) { s.error = `Added here, but Firestore was not updated: ${e.message}`; }
   draw();
