@@ -32,6 +32,8 @@ export async function deviceStatus(needsImage = false) {
 
 // One GenerativeModel per mode, schema and input type, so on-device sessions and cloud settings are reused.
 const models = new Map();
+// a new cloud model name or prompt set from Remote Config: rebuild the models on the next call
+export function resetModels() { models.clear(); }
 function modelFor(mode, schema, needsImage = false) {
   const key = mode + '|' + (needsImage ? 'image' : 'text') + '|' + (schema ? JSON.stringify(schema) : '');
   if (models.has(key)) return models.get(key);
@@ -110,7 +112,7 @@ export async function run({ task, dataClass, prompt, images = [], schema = null 
 
   if (route.plan === 'blocked') {
     ledger.record({ task, dataClass, policy: route.policy, mode: route.mode, ranOn: 'blocked', ms: 0, leftDevice: null, note: 'No on-device model, and this data may not leave the device.' });
-    throw new PolicyBlocked('This data may only be read on this device, and no on-device model is available here. Redact it first, then try again.', route);
+    throw new PolicyBlocked(route.dataClass === 'raw_documents' ? 'This data may only be read on this device, and no on-device model is available here. Redact it first, then try again.' : `Your bank's AI policy keeps ${route.label.toLowerCase()} on this device only, and no on-device model is available here.`, route);
   }
   // Last line of defence: anything that could reach the cloud is checked for identifiers first.
   if (route.mayLeaveDevice) {
@@ -147,7 +149,7 @@ export async function stream({ task, dataClass, prompt, onText = () => {} }) {
   const route = Policy.route(dataClass, policyValue, device);
   if (route.plan === 'blocked') {
     ledger.record({ task, dataClass, policy: route.policy, mode: route.mode, ranOn: 'blocked', ms: 0, leftDevice: null, note: 'No on-device model, and this data may not leave the device.' });
-    throw new PolicyBlocked('This data may only be processed on this device, and no on-device model is available here.', route);
+    throw new PolicyBlocked(route.dataClass === 'raw_documents' ? 'This data may only be read on this device, and no on-device model is available here. Redact it first, then try again.' : `Your bank's AI policy keeps ${route.label.toLowerCase()} on this device only, and no on-device model is available here.`, route);
   }
   if (route.mayLeaveDevice) {
     const leaks = Redact.leaks(prompt);

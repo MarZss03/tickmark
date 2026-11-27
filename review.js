@@ -536,6 +536,7 @@
           </section>` : `<section class="cs-sum"><div class="cs-blk"><p class="sl">${c.closed ? 'Closed' : 'No open exceptions'}</p><p class="cs-imp">${c.closed ? esc(c.stage || 'Closed') : idle ? `One step left: ${esc(idle)}` : 'Nothing left to do on this case.'}</p><p class="c-s">${c.exceptions.length} exception${c.exceptions.length === 1 ? '' : 's'} recorded. Evidence and activity are kept below.</p></div></section>`}
           <section class="cs-ai" id="cs-ai" data-case="${c.id}" data-key="${esc(c.key || '')}" aria-label="Read a document privately"></section>
           <section class="cs-ai" id="cs-ask" data-case="${c.id}" aria-label="Ask another team" hidden></section>
+          <section class="cs-ai" id="cs-explain" data-case="${c.id}" data-key="${esc(c.key || '')}" aria-label="Explain to the customer" hidden></section>
         </div>
         <aside class="cs-act" aria-label="Next action">${actionHtml(c, p, acts, tasks)}</aside>
       </div>

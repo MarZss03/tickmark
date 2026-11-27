@@ -68,6 +68,7 @@
 <script type="module">
   import { currentRoom, join, watchInbox, reply, TEAMS, fieldsFor } from './ai/checks.js';
   import { stream, deviceStatus, PolicyBlocked } from './ai/hybrid.js';
+  import './ai/policy-notice.js';
 
   const $ = (id) => document.getElementById(id);
   const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);

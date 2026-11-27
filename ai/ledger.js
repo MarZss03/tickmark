@@ -30,7 +30,7 @@ export function summary() {
   rows.forEach((r) => {
     if (r.ranOn === 'on_device') s.onDevice++;
     else if (r.ranOn === 'in_cloud') { s.inCloud++; s.charsLeft += (r.leftDevice || '').length; }
-    else s.blocked++;
+    else if (r.ranOn === 'blocked') s.blocked++;
   });
   return s;
 }

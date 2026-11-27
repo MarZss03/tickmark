@@ -83,3 +83,19 @@ export const signedIn = new Promise((resolve) => {
   });
   authMod.signInAnonymously(auth).catch((e) => resolve({ uid: null, error: e.message }));
 });
+
+// Real-time policy: when compliance changes a value in the Firebase console, open pages activate it at once
+// and the next AI call follows it. fn(updatedKeys) is called after activation.
+const policyListeners = new Set();
+export function onPolicyChange(fn) { policyListeners.add(fn); return () => policyListeners.delete(fn); }
+try {
+  rcMod.onConfigUpdate(remoteConfig, {
+    next: async (update) => {
+      await rcMod.activate(remoteConfig);
+      const keys = [...update.getUpdatedKeys()].filter((k) => k in POLICY_DEFAULTS);
+      if (keys.length) policyListeners.forEach((fn) => fn(keys));
+    },
+    error: (e) => console.warn('Remote Config live updates stopped:', e && e.message),
+    complete: () => {},
+  });
+} catch (e) { console.warn('Remote Config live updates unavailable:', e && e.message); }
