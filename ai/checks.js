@@ -10,7 +10,7 @@ export const TEAMS = {
 };
 const ROOM_KEY = 'tickmark.hybrid.room';
 
-// What the answering team can fill in, by what was requested (shared with the iOS app through the contract).
+// What the answering team can fill in, by what was requested (the team inbox renders these as form fields).
 // `apply` is how the asking side turns the value into a correction of the case's inputs.
 export const REQUEST_FIELDS = {
   'Settlement date decision': { key: 'settlement', label: 'Settlement date that applies', type: 'date', apply: (v, ref) => [{ path: 'settlement', value: { date: v, by: 'daniel', ref }, label: 'Settlement date' }] },

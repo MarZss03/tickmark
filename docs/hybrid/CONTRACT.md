@@ -1,18 +1,18 @@
-# Tickmark Hybrid: shared contract (web and iOS)
+# Tickmark Hybrid: data contract
 
-Both apps use one Firebase project and must agree on the data below. Change this file first, in the same commit as any code that depends on the change, and note it in the change log at the bottom.
+The case workbench (`index.html`) and the team inbox (`inbox.html`) share one Firebase project and must agree on the data below. Change this file first, in the same commit as any code that depends on the change, and note it in the change log at the bottom.
 
 ## Roles
 
 | Platform | Person | Job |
 |---|---|---|
-| Web (Chrome, Gemini Nano) | Servicing analyst who owns the exception | Reads evidence privately, redacts, sends a check to another team, accepts or returns the reply |
-| iOS (Apple Foundation Models) | The other team: Payments, Servicing Approvals, or a lawyer's office | Receives checks live, reads attached evidence on device, drafts the reply on device, answers |
+| Case workbench (Chrome, Gemini Nano) | Servicing analyst who owns the exception | Reads evidence privately, redacts, sends a check to another team, accepts or returns the reply |
+| Team inbox (Chrome, Gemini Nano) | The other team: Payments, Servicing Approvals, or a lawyer's office | Receives checks live, drafts the reply on device, answers with the decision values |
 
 ## Firebase products
 
 - **Firebase AI Logic** with hybrid inference on both platforms. Cloud backend: Gemini Developer API. Cloud model from Remote Config `ai_cloud_model`.
-- **App Check**: reCAPTCHA Enterprise on web, App Attest on iOS devices, debug providers in development. Debug tokens are never committed.
+- **App Check**: reCAPTCHA on the hosted site, the debug provider in development. Debug tokens are never committed.
 - **Authentication**: anonymous sign-in. The user picks a team when joining a room; it is stored in `rooms/{roomId}/members/{uid}`.
 - **Firestore**: collections below.
 - **Remote Config**: the AI policy below.
@@ -25,7 +25,7 @@ Teams: `servicing`, `payments`, `approvals`, `legal`.
 
 `rooms/{roomId}/members/{uid}` (written only by that user)
 ```
-{ team: "servicing" | "payments" | "approvals" | "legal", displayName: string (1-60), platform: "web" | "ios", joinedAt: timestamp (server time) }
+{ team: "servicing" | "payments" | "approvals" | "legal", displayName: string (1-60), platform: "web", joinedAt: timestamp (server time) }
 ```
 
 `rooms/{roomId}/checks/{checkId}`: a question from one team to another about one case. **Only redacted text is ever stored here.**
@@ -70,9 +70,10 @@ Values map to inference modes: `device_only` = ONLY_ON_DEVICE, `prefer_device` =
 
 ## Redaction
 
-Web: `ai/redact.js` (tested in `tests/redact.test.js`). iOS must port the same rules and pass the same cases (`ios/` test target), so a reply drafted on the phone never sends raw identifiers to the cloud either.
+`ai/redact.js` (tested in `tests/redact.test.js`) runs before any text can reach a cloud model, on both pages.
 
 ## Change log
 
 - Nov 23, 2026: v0 drafted by the web side.
+- Nov 26, 2026: v1.1. Web only (iOS dropped by the owner); `platform` is `web`.
 - Nov 25, 2026: v1. Checks and members live under `rooms/{roomId}` (session isolation); team `approvals` added; `classification`, `requested`, `updatedAt` added; `events` removed; reply carries `byName`; timestamps are server time. Rules in `firestore.rules`.

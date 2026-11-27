@@ -11,7 +11,7 @@ rules_version = '2';
 // Fields:
 //   - team: string (required, one of servicing | payments | approvals | legal)
 //   - displayName: string (required, 1-60)
-//   - platform: string (required, web | ios)
+//   - platform: string (required, web)
 //   - joinedAt: timestamp (required, server time on create, immutable)
 //
 // Collection: rooms/{roomId}/checks
@@ -59,7 +59,7 @@ service cloud.firestore {
         && d.keys().hasAll(['team', 'displayName', 'platform', 'joinedAt'])
         && d.team in teams()
         && str(d.displayName, 1, 60)
-        && d.platform in ['web', 'ios']
+        && d.platform in ['web']
         && d.joinedAt is timestamp;
     }
 

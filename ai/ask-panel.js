@@ -1,7 +1,7 @@
 // Tickmark Hybrid: "Ask another team" on a case page. The question is drafted on this device from a redacted
 // brief (streamed), with a suggested classification. The person edits it and sees exactly what will be shared.
 // Sending creates the normal Tickmark check and writes a redacted copy to Firestore, where the other team
-// (another browser, or the iOS app) sees it live. Their reply comes back here and is recorded on the check
+// (their own inbox, in another browser or window) sees it live. Their reply comes back here and is recorded on the check
 // for the owner to review; the rules re-run with what it carries.
 import { draftQuestion, suggestClass, CLASSES } from './draft.js';
 import { currentRoom, join, sendCheck, watchCheck, decide, inboxLink, TEAMS, REQUEST_FIELDS } from './checks.js';
@@ -71,7 +71,7 @@ async function draw() {
     let body = '';
     if (!d) body = `<p class="ai-busy" role="status">Connecting to the live check…</p>`;
     else if (d.status === 'open' || d.status === 'returned') body = `<p class="ai-busy" role="status">Waiting on ${esc(TEAMS[d.toTeam] || d.toTeam)} · live through Firestore</p>
-      <p class="c-s">They answer from their own inbox, on another browser or the iPhone app. To try it yourself, open <a class="link-btn" href="${esc(inbox)}" target="_blank" rel="noopener">their inbox in a new window</a>, or join room <b class="ai-code">${esc(room)}</b> on the iPhone.</p>`;
+      <p class="c-s">They answer from their own team inbox. To try it yourself, open <a class="link-btn" href="${esc(inbox)}" target="_blank" rel="noopener">their inbox in a new window</a> (room <b class="ai-code">${esc(room)}</b>).</p>`;
     else if (d.status === 'answered' && d.reply) {
       const fields = Object.entries(d.reply.facts || {});
       body = `<div class="ai-res"><p class="ai-where"><span class="pill ok">Reply in</span> from ${esc(d.reply.byName)} · drafted ${d.reply.ranOn === 'on_device' ? 'on their device' : d.reply.ranOn === 'in_cloud' ? 'in the cloud from redacted text' : 'by hand'}</p>
