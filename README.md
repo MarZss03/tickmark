@@ -1,6 +1,73 @@
-# Tickmark
+# Tickmark Hybrid
 
-[![Tests](https://github.com/MarZss03/tickmark/actions/workflows/test.yml/badge.svg)](https://github.com/MarZss03/tickmark/actions/workflows/test.yml)
+[![Tests](https://github.com/MarZss03/tickmark/actions/workflows/test.yml/badge.svg)](https://github.com/MarZss03/tickmark/actions/workflows/test.yml) · Licence: Apache 2.0 · Entry for #BuildHybridAI 2026 (Web, Chrome)
+
+**AI that a bank's operations staff are actually allowed to use.** Finance exceptions are a cross-team problem: the fact that explains why a payout does not match sits with Payments, a reviewer or a lawyer, and the documents that prove it are full of customer names and account numbers. Banks forbid sending those to cloud AI, so the work stays manual. I process mortgage payouts at a Canadian bank; this is the tool I wanted.
+
+Tickmark Hybrid uses **Firebase AI Logic hybrid inference as a privacy boundary**:
+
+- **Read evidence privately.** A scanned wire confirmation or payout statement is read by **Gemini Nano on the device** into a fixed schema. Raw customer data never leaves the computer. A person checks the values; Tickmark's rules decide.
+- **Only redacted text may reach the cloud.** With no on-device model, the document is redacted on the device first (names, accounts, addresses, contact details, government IDs), only the redacted text is read by a cloud model, and the real values are put back on the device. Every outgoing string passes a leak check; raw documents fail closed.
+- **The bank sets the policy, live.** Where each class of data may run (`device_only`, `prefer_device`, `prefer_cloud`, `cloud_only`) is a **Remote Config** value. Compliance changes it in the console; open pages update within seconds and the next AI call obeys.
+- **Ask the right team, safely.** The question to another team is drafted on the device (streamed) with a suggested classification (structured output, enum); a redacted copy goes through **Firestore** to that team's inbox, live; their answer moves the case forward under the same rules and permissions.
+- **Explain it to the customer** in English, French or Chinese, drafted on the device from the redacted brief.
+- **Every call is on the record.** The Data boundary page shows the live policy and each AI call: where Firebase AI Logic says it ran (`inferenceSource`) and exactly what left the device.
+
+**Try it:** https://tickmark-martinzhang.vercel.app (home page: "Private AI, on this device"). Pages: [workbench case](https://tickmark-martinzhang.vercel.app/#case/MS-0011), [team inbox](https://tickmark-martinzhang.vercel.app/inbox.html), [Data boundary](https://tickmark-martinzhang.vercel.app/boundary.html), [Reading accuracy](https://tickmark-martinzhang.vercel.app/eval.html), [System check](https://tickmark-martinzhang.vercel.app/hybrid-check.html).
+
+## Measured
+
+16 synthetic documents (8 wire confirmations, 8 payout statements; varied layouts, date and time formats, CAD and USD, holds) with known answers, run through the real reading path ([eval.html](eval.html)):
+
+| Path | Fields correct | Documents fully correct | Time per document |
+|---|---|---|---|
+| On device, Gemini Nano in Chrome | 104 / 104 | 16 / 16 | median 2.8 s (2.3 to 5.0) |
+| Redacted text, cloud (gemini-3.5-flash-lite) | 104 / 104 | 16 / 16 | median 0.8 s (0.7 to 1.2) |
+
+Redaction leak check across all 16 documents: 0 identifiers left, after the fixes the evaluation itself prompted (a client's name after "in trust for"; a Quebec address with the street type first). Caveat: these are clean synthetic layouts we made, so this measures the pipeline, not messy real-world scans.
+
+## How Firebase AI Logic and Firebase are used
+
+| What | Where in the code |
+|---|---|
+| Firebase AI Logic hybrid inference (`getGenerativeModel` with an `InferenceMode` per call, `initializeDeviceModel`, `inferenceSource`), structured output (`responseConstraint` on device, `responseJsonSchema` in the cloud), streaming (`generateContentStream`), multimodal input | [ai/hybrid.js](ai/hybrid.js), [ai/docread.js](ai/docread.js), [ai/draft.js](ai/draft.js), [ai/explain-panel.js](ai/explain-panel.js) |
+| Policy routing by data class, fail-closed for raw documents | [ai/policy.js](ai/policy.js) (tests/policy.test.js) |
+| On-device redaction, restore, leak check | [ai/redact.js](ai/redact.js) (tests/redact.test.js) |
+| App Check: Fraud Defense on the hosted site, debug provider locally, limited-use tokens for AI Logic | [ai/firebase.js](ai/firebase.js) |
+| Remote Config: AI policy, cloud model, kill switch, real-time updates | [ai/firebase.js](ai/firebase.js), [ai/policy-notice.js](ai/policy-notice.js), [remoteconfig.template.json](remoteconfig.template.json) |
+| Firestore: rooms, members, checks between teams; audited security rules | [ai/checks.js](ai/checks.js), [firestore.rules](firestore.rules), [docs/hybrid/CONTRACT.md](docs/hybrid/CONTRACT.md) |
+| Authentication: anonymous sign-in (the inbox uses its own app instance, so one person can play both teams) | [ai/firebase.js](ai/firebase.js) |
+| Data boundary ledger | [ai/ledger.js](ai/ledger.js), [boundary.html](boundary.html) |
+
+Built with Claude Code and the official Firebase Agent Skills (Firestore rules authored with firestore-rules-creation and audited with firebase-security-rules-auditor). Rules and the Remote Config template are deployed with the Firebase CLI.
+
+## Built during the contest (Nov 11 to Nov 30, 2026), and what existed before
+
+Tickmark existed before the contest: the workbench, cases, rules engine, checks between people (simulated in one browser), the store and Demo Lab views. The tag [`pre-hackathon`](https://github.com/MarZss03/tickmark/tree/pre-hackathon) marks the last commit before the contest opened; `git log pre-hackathon..main` lists everything since.
+
+Built during the contest: everything under `ai/`; `inbox.html`, `boundary.html`, `eval.html`, `hybrid-check.html`; `firestore.rules` and the Remote Config template; the document generator and the 16 test documents; the hooks in `review.js` and `cases.js` (`attachDocument` and a small bridge); the tests for redaction, policy and document attachment. Also during the contest, before the hybrid work: the housing finance go live check (Nov 12). Open source used: the Firebase JS SDK, loaded from Google's CDN.
+
+## Run it locally
+
+1. `node scripts/serve.mjs`, then open http://localhost:5173 (no build step).
+2. App Check on localhost uses the debug provider: create `ai/appcheck-debug.local.js` exporting `APPCHECK_DEBUG_TOKEN` (a UUID) and register that token in the Firebase console (App Check › Apps › Manage debug tokens). The file is gitignored.
+3. On-device inference needs Chrome on a desktop, version 139 or later. To read scans on device, also enable `chrome://flags/#prompt-api-for-gemini-nano-multimodal-input` and relaunch. Open [hybrid-check.html](hybrid-check.html) and click **Prepare on-device model** (the first download can take minutes).
+4. Known issues: on a PC with two graphics chips, Gemini Nano can crash on the built-in chip; set Chrome to "High performance" in Windows Settings › System › Display › Graphics. After a Chrome update, the on-device model can be unavailable for a while, and image input may stop working while text still works; Tickmark then reads the document's text on device. Without any on-device model, everything still works through the redacted cloud path.
+
+## Testing instructions for judges
+
+1. On the hosted site, choose **Read a held wire without it leaving your computer**. On the case, click **Read on this device** (or, without Gemini Nano, **Redact here, then read**), check the values, then **Add to case**: the finding changes from "balance after payout" to "late posting after a hold".
+2. **Ask Daniel Roy** › draft › send. Click **Copy their inbox link**, open it in another window, join as Servicing Approvals, set the settlement date and send the reply. Back on the case, the reply arrives live; add it, then accept it under Next action.
+3. **Explain it to the customer** in Français or 中文.
+4. Open **Data boundary** to see the policy and every call, and **Reading accuracy** to reproduce the numbers.
+
+## Limits, stated plainly
+
+All data is synthetic. Redaction is rule-based and can miss formats it has not seen, which is why raw documents are on-device only by default and every outgoing string is shown before it leaves. Teams in the demo are chosen by the person inside a random room; in production they would come from the bank's identity provider. Not yet measured with real users.
+
+---
+
+## The base product
 
 Finance operations staff often see two records that should agree, and don't: the money is in the bank, but the loan still shows a balance. Tickmark helps them work out whether the gap is an entry error, a timing gap or a real business difference, trace it to the source evidence, ask the right team or person, and re-check when the answer comes back.
 
@@ -39,7 +106,7 @@ When a reply or a new document changes the inputs, the module's checks re-run, b
 
 The eleven mortgage files also cover a late wire (estimated shortfall until confirmed, notice, top-up), a moved closing date (old approval goes to re-review), an approved waiver not on the statement, a statement for the wrong registration, a paid-off loan with no final registration receipt (overdue follow-up, a wrong receipt sent back), a cancellation with a wire in transit, an internal refinance, an assignment prepared as a discharge, a reverse mortgage with an estate, and a commercial partial release. Branches without a checked rule go to a person.
 
-**Simulated:** sign-in (switch people with *Acting as*), notices, sending and every bank system. **Deterministic stand-ins:** the document extractor and the drafted questions stand in for a model. Each case separates what the evidence confirms from a possible explanation, which is labelled as not confirmed until the facts it depends on are in. **Not verified:** any lender's real rules for holds, per diem, waivers or cut-off times; the demo rules are labelled as such. **Not measured:** time saved, round trips or error rates with real users.
+**Simulated:** sign-in (switch people with *Acting as*), notices, sending and every bank system. **Models:** in the Tickmark Hybrid panels, Gemini Nano (on device) or a cloud model on redacted text reads documents and drafts questions and notes, through Firebase AI Logic (see the top of this file); the built-in demo extractor and template drafts are deterministic code. Each case separates what the evidence confirms from a possible explanation, which is labelled as not confirmed until the facts it depends on are in. **Not verified:** any lender's real rules for holds, per diem, waivers or cut-off times; the demo rules are labelled as such. **Not measured:** time saved, round trips or error rates with real users.
 
 ## Use it on your own data
 

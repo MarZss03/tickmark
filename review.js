@@ -633,7 +633,7 @@
     const holder = x && (x.missing || [])[0] && Object.keys(D.teams).find((k) => D.teams[k].name === x.missing[0].who);
     const defTeam = draft.team || holder;
     return `<div class="cs-form rq-esc"><p class="sl">${esc(draft.cta || 'Ask a team or a person')}</p>
-      <p class="c-s">${draft.question ? 'Drafted from this case’s evidence by a fixed template (a stand-in for an AI draft). Check the question and the recipient.' : 'Write one clear question.'}</p>
+      <p class="c-s">${draft.question ? 'Drafted from this case’s evidence by a fixed template. To draft it with Gemini Nano on this device, use “Ask …” above. Check the question and the recipient.' : 'Write one clear question.'}</p>
       <div class="rq-seg" role="radiogroup" aria-label="Send to"><label><input type="radio" name="es-to" value="team"${to === 'team' ? ' checked' : ''}> A team</label><label><input type="radio" name="es-to" value="person"${to === 'person' ? ' checked' : ''}> A named person</label></div>
       <label class="tol" id="es-team-l"${to === 'team' ? '' : ' hidden'}>Team <select id="es-team">${Object.entries(D.teams).map(([k, t]) => `<option value="${k}"${k === defTeam ? ' selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label>
       <label class="tol" id="es-person-l"${to === 'person' ? '' : ' hidden'}>Person <select id="es-person">${Object.entries(D.people).map(([k, p]) => `<option value="${k}"${k === draft.person ? ' selected' : ''}>${esc(p.name)} · ${esc(team(p.team))}</option>`).join('')}</select></label>
@@ -675,7 +675,7 @@
       for (const r of spans) { if (r.span[0] < i) continue; html += esc(e.text.slice(i, r.span[0])) + `<mark>${esc(e.text.slice(r.span[0], r.span[1]))}</mark>`; i = r.span[1]; }
       html += esc(e.text.slice(i));
       return `<p class="sl">${esc(e.label)} · ${esc(e.system)}</p><pre class="rq-doc">${html}</pre>`;
-    }).join('')}<p class="c-s">Marked text is what the extractor read. In this demo the extractor is deterministic code that stands in for a model.</p>`;
+    }).join('')}<p class="c-s">Marked text is what the built-in extractor read (deterministic code). Scans and statements are read by Gemini Nano under “Read a document privately” above.</p>`;
   }
 
   // checks: the live ones first, finished ones folded
