@@ -82,7 +82,7 @@
   if (params.get('team')) $('team').value = params.get('team');
   if ($('team').value === 'payments') $('name').value = 'Priya Nair';
 
-  let me = null, checks = [], openId = null, stop = null;
+  let me = null, checks = [], openId = null, stop = null, onDevice = true;
   const drafts = new Map(); // checkId -> { text, ranOn, busy }
 
   $('team').onchange = () => { $('name').value = { approvals: 'Daniel Roy', payments: 'Priya Nair', legal: 'R. Okafor' }[$('team').value]; };
@@ -127,7 +127,7 @@
       ${fields.map((f) => `<label for="f-${f.key}">${esc(f.label)}</label><input id="f-${f.key}" type="${f.type}" data-key="${f.key}" value="${esc((d.fields || {})[f.key] || '')}">`).join('')}
       <label for="replyText">Reply</label><textarea id="replyText" rows="4">${esc(d.text)}</textarea>
       ${d.busy ? `<p class="busy" role="status">Drafting${d.ranOn === 'on_device' ? ' on this device' : ''}…</p>` : d.ranOn ? `<p class="c-s"><span class="pill ${d.ranOn === 'on_device' ? 'ok' : 'warn'}">${d.ranOn === 'on_device' ? 'Drafted on this device' : 'Drafted in the cloud'}</span></p>` : ''}
-      <div class="row"><button class="sec" id="draftBtn" ${d.busy ? 'disabled' : ''}>Draft the reply on this device</button><button id="sendBtn">Send reply</button></div>
+      <div class="row"><button class="sec" id="draftBtn" ${d.busy ? 'disabled' : ''}>${onDevice ? 'Draft the reply on this device' : 'Draft the reply from redacted text'}</button><button id="sendBtn">Send reply</button></div>
       <p class="c-s" id="sendMsg" role="status"></p>`}`;
     if (answered) return;
     $('replyText').oninput = (e) => { d.text = e.target.value; drafts.set(c.id, d); };
@@ -162,7 +162,7 @@
     catch (e) { $('sendMsg').textContent = 'Not sent: ' + e.message; $('sendBtn').disabled = false; }
   }
 
-  deviceStatus(false).then((s) => { if (s !== 'available') $('who').textContent += ' · no on-device model here (drafts use redacted text in the cloud)'; });
+  deviceStatus(false).then((s) => { if (s !== 'available') { onDevice = false; const b = $('draftBtn'); if (b) b.textContent = 'Draft the reply from redacted text'; } if (s !== 'available') $('who').textContent += ' · no on-device model here (drafts use redacted text in the cloud)'; });
 </script>
 </body>
 </html>
