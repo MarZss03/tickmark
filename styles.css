@@ -1559,3 +1559,7 @@ html { scrollbar-color: #3a372f var(--bg); caret-color: var(--gold); }
 .ai-q { min-height: 96px; resize: vertical; line-height: 1.5; }
 .ai-code { font-family: ui-monospace, Consolas, monospace; letter-spacing: .04em; }
 #cs-ask { margin-top: 14px; }
+.hero-ai { margin-top: 22px; padding: 12px 0 0; border-top: 1px solid #2a2824; }
+.hero-ai .ht-l { color: var(--ink); font-weight: 700; display: inline-flex; align-items: center; gap: 8px; }
+.hero-ai .ht-c:first-of-type { border-color: var(--gold); }
+li [data-ai-jump] { font-weight: 700; }

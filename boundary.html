@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Data boundary · Tickmark Hybrid</title>
+<meta name="description" content="Where Tickmark Hybrid's AI may run on which data, by the bank's policy in Remote Config, and a record of every AI call: where it ran and exactly what left the device.">
+<style>
+  :root { --bg: #0e0e0d; --sheet: #161514; --raise: #1e1d1b; --edge: #2e2b27; --rule: #24221f; --ink: #efe7d8; --muted: #a49b8d; --gold: #d2a965; --ok: #9fd0b0; --warn: #e8c27e; --neg: #f0a597; }
+  * { box-sizing: border-box; } html { color-scheme: dark; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 "Manrope", system-ui, -apple-system, Segoe UI, sans-serif; }
+  a { color: var(--gold); }
+  header.top { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 20px; border-bottom: 1px solid var(--edge); flex-wrap: wrap; }
+  header.top b { font-size: 16px; } header.top nav { display: flex; gap: 16px; font-size: 14px; flex-wrap: wrap; }
+  main { max-width: 1060px; margin: 0 auto; padding: 28px 16px 64px; display: grid; gap: 16px; }
+  h1 { font-size: clamp(26px, 3vw, 34px); margin: 0; letter-spacing: -.01em; }
+  .lead { color: var(--muted); margin: 6px 0 0; max-width: 72ch; }
+  section { background: var(--sheet); border: 1px solid var(--edge); padding: 18px; }
+  h2 { font-size: 15px; margin: 0 0 4px; } .sub { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--rule); vertical-align: top; } th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+  .pill { display: inline-block; font-size: 12px; font-weight: 700; padding: 1px 9px; border: 1px solid currentColor; border-radius: 99px; white-space: nowrap; }
+  .ok { color: var(--ok); } .warn { color: var(--warn); } .neg { color: var(--neg); } .muted { color: var(--muted); }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+  .stat { border: 1px solid var(--edge); background: var(--raise); padding: 12px; } .stat b { display: block; font-size: 26px; font-variant-numeric: tabular-nums; } .stat span { color: var(--muted); font-size: 13px; }
+  details summary { cursor: pointer; color: var(--gold); font-size: 13px; } pre { white-space: pre-wrap; font-size: 12px; background: var(--bg); border: 1px solid var(--edge); padding: 10px; margin: 6px 0 0; max-height: 240px; overflow: auto; }
+  ol { margin: 6px 0 0; padding-left: 20px; } li { margin: 4px 0; }
+  button { font: inherit; font-weight: 700; cursor: pointer; border: 1px solid #4a4539; padding: 8px 14px; background: transparent; color: var(--ink); }
+  button:focus-visible, a:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; } @media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } }
+  .wrap { overflow-x: auto; }
+</style>
+</head>
+<body>
+<header class="top">
+  <b>Tickmark Hybrid</b>
+  <nav aria-label="Pages"><a href="index.html#queue/mortgage">Workbench</a><a href="inbox.html">Team inbox</a><a href="eval.html">Reading accuracy</a><a href="hybrid-check.html">System check</a></nav>
+</header>
+<main>
+  <div>
+    <h1>Data boundary</h1>
+    <p class="lead">Where Tickmark’s AI is allowed to run, set by the bank’s policy, and a record of every AI call in this browser: where it actually ran, and exactly what left the device. Raw customer documents never leave it.</p>
+  </div>
+
+  <section aria-labelledby="pol-h">
+    <h2 id="pol-h">The bank’s AI policy</h2>
+    <p class="sub" id="pol-src">Loading from Remote Config…</p>
+    <div class="wrap"><table><thead><tr><th>Data</th><th>Where AI may run</th><th>Why</th></tr></thead><tbody id="policy"></tbody></table></div>
+  </section>
+
+  <div class="grid2">
+    <section aria-labelledby="dev-h">
+      <h2 id="dev-h">This browser</h2>
+      <p class="sub">What this device can do right now.</p>
+      <table><tbody id="device"></tbody></table>
+      <div id="help"></div>
+    </section>
+    <section aria-labelledby="sum-h">
+      <h2 id="sum-h">So far in this browser</h2>
+      <p class="sub">From the ledger below. Kept only in this browser.</p>
+      <div class="stats" id="stats"></div>
+    </section>
+  </div>
+
+  <section aria-labelledby="led-h">
+    <h2 id="led-h">Every AI call</h2>
+    <p class="sub">Where each call ran is what Firebase AI Logic reports for it, not what the app intended. “Left this device” is the exact text that was sent.</p>
+    <div class="wrap"><table><thead><tr><th>Time</th><th>Task</th><th>Data</th><th>Ran</th><th>Time taken</th><th>Left this device</th></tr></thead><tbody id="ledger"></tbody></table></div>
+    <p style="margin:12px 0 0"><button id="clear">Clear this record</button></p>
+  </section>
+</main>
+<script type="module">
+  import { appCheckState, configReady, policyValue, policySource, onPolicyChange, signedIn } from './ai/firebase.js';
+  import { deviceCaps, ledger } from './ai/hybrid.js';
+  import './ai/policy-notice.js';
+
+  const $ = (id) => document.getElementById(id);
+  const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  const WORD = { device_only: ['On this device only', 'ok'], prefer_device: ['On this device first; cloud only if no on-device model', 'warn'], prefer_cloud: ['Cloud first; on this device if the cloud is unreachable', 'warn'], cloud_only: ['Cloud only', 'neg'] };
+  const ROWS = [
+    ['ai_policy_raw_documents', 'Raw customer documents', 'Scans, statements, emails with names and account numbers. Fixed in code: never the cloud, whatever the policy says.', true],
+    ['ai_policy_redacted_text', 'Redacted text', 'Names, accounts, addresses and contact details replaced by tokens on this device; amounts and dates kept.'],
+    ['ai_policy_case_history', 'Redacted case history', 'Longer summaries of a case, redacted first.'],
+  ];
+
+  async function drawPolicy() {
+    const src = await configReady;
+    $('pol-src').textContent = src === 'remote' ? 'Live from Firebase Remote Config. Compliance can change it without a release; open pages update within seconds.' : 'Using built-in defaults (Remote Config not reachable).';
+    $('policy').innerHTML = ROWS.map(([k, label, why, fixed]) => {
+      const v = fixed ? 'device_only' : policyValue(k);
+      const [w, cls] = WORD[v] || [v, ''];
+      return `<tr><td><b>${esc(label)}</b></td><td><span class="pill ${cls}">${esc(w)}</span>${fixed ? '' : `<div class="muted" style="font-size:12px;margin-top:4px">${esc(k)} = ${esc(v)} (${esc(policySource(k))})</div>`}</td><td class="muted">${esc(why)}</td></tr>`;
+    }).join('') + `<tr><td><b>Cloud model</b></td><td>${esc(policyValue('ai_cloud_model'))}</td><td class="muted">Used only for text allowed to leave the device.</td></tr>
+      <tr><td><b>AI</b></td><td><span class="pill ${policyValue('ai_enabled') === 'false' ? 'neg' : 'ok'}">${policyValue('ai_enabled') === 'false' ? 'Switched off' : 'On'}</span></td><td class="muted">Kill switch for every AI call.</td></tr>`;
+  }
+
+  async function drawDevice() {
+    const caps = await deviceCaps(), user = await signedIn;
+    const tag = (s) => `<span class="pill ${s === 'available' ? 'ok' : s === 'unavailable' ? 'neg' : 'warn'}">${esc(s)}</span>`;
+    $('device').innerHTML = `<tr><td>Gemini Nano, text</td><td>${tag(caps.text)}</td></tr><tr><td>Gemini Nano, images</td><td>${tag(caps.image)}</td></tr>
+      <tr><td>App Check</td><td>${esc(appCheckState)}</td></tr><tr><td>Signed in</td><td>${user.uid ? 'anonymously' : esc(user.error)}</td></tr>`;
+    $('help').innerHTML = caps.text === 'available' ? (caps.image === 'available' ? '<p class="ok" style="margin:12px 0 0">Everything can be read on this device.</p>'
+      : '<p class="muted" style="margin:12px 0 0">Documents are read from their text on this device. To read scanned images on device too, enable <code>chrome://flags/#prompt-api-for-gemini-nano-multimodal-input</code> and relaunch.</p>')
+      : `<div style="margin-top:12px"><p class="warn" style="margin:0">No on-device model here. Tickmark still works: documents are redacted on this device first, and only the redacted text is read in the cloud.</p>
+        <p class="muted" style="margin:8px 0 0">To read on this device:</p><ol class="muted"><li>Use Chrome on a desktop, version 139 or later.</li><li>Enable <code>chrome://flags/#prompt-api-for-gemini-nano-multimodal-input</code>, relaunch, then use “Prepare on-device model” on the <a href="hybrid-check.html">system check</a>.</li><li>On a PC with two graphics chips, set Chrome to “High performance” in Windows Settings › System › Display › Graphics. The model can crash on the built-in chip.</li><li>After a Chrome update, the model may need a minute to come back.</li></ol></div>`;
+  }
+
+  function drawLedger() {
+    const rows = ledger.all().slice().reverse(), s = ledger.summary();
+    $('stats').innerHTML = [['AI calls', s.total], ['On this device', s.onDevice], ['In the cloud', s.inCloud], ['Refused by policy', s.blocked], ['Characters that left', s.charsLeft]]
+      .map(([l, v]) => `<div class="stat"><span>${l}</span><b>${v}</b></div>`).join('');
+    $('ledger').innerHTML = rows.length ? rows.map((r) => {
+      const ran = r.ranOn === 'on_device' ? '<span class="pill ok">On this device</span>' : r.ranOn === 'in_cloud' ? '<span class="pill warn">In the cloud</span>' : r.ranOn === 'policy' ? '<span class="pill">Policy change</span>' : '<span class="pill neg">Refused</span>';
+      const left = r.leftDevice ? `<details><summary>${r.leftDevice.length} characters, redacted</summary><pre>${esc(r.leftDevice)}</pre></details>` : `<span class="muted">${esc(r.note || 'Nothing')}</span>`;
+      return `<tr><td class="muted">${esc(new Date(r.at).toLocaleString())}</td><td>${esc(r.task)}</td><td class="muted">${esc(String(r.dataClass).replace(/_/g, ' '))}</td><td>${ran}</td><td>${r.ms ? (r.ms / 1000).toFixed(1) + ' s' : ''}</td><td>${left}</td></tr>`;
+    }).join('') : '<tr><td colspan="6" class="muted">No AI calls yet in this browser. Read a document on a case in the workbench, then come back.</td></tr>';
+  }
+
+  $('clear').onclick = () => { ledger.clear(); drawLedger(); };
+  ledger.onChange(drawLedger);
+  onPolicyChange(() => drawPolicy());
+  drawPolicy(); drawDevice(); drawLedger();
+</script>
+</body>
+</html>

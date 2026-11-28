@@ -56,7 +56,15 @@ async function draw() {
   el.innerHTML = `<div class="ai-h"><p class="sl">Read a document privately</p>${chip}</div>
     <p class="ai-intro">${intro}</p>
     ${body}
-    <p class="c-s ai-foot">The model only reads. You confirm the values, then Tickmark’s rules decide. ${sum.total ? `This browser so far: ${sum.onDevice} read${sum.onDevice === 1 ? '' : 's'} on device, ${sum.inCloud} in the cloud, ${sum.charsLeft} characters left this device.` : ''} <a class="link-btn" href="hybrid-check.html" target="_blank" rel="noopener">Data boundary ledger</a></p>`;
+    <p class="c-s ai-foot">The model only reads. You confirm the values, then Tickmark’s rules decide. ${sum.total ? `This browser so far: ${sum.onDevice} read${sum.onDevice === 1 ? '' : 's'} on device, ${sum.inCloud} in the cloud, ${sum.charsLeft} characters left this device.` : ''} <a class="link-btn" href="boundary.html" target="_blank" rel="noopener">Data boundary</a></p>`;
+  // a way in from the summary: the missing evidence the document can supply
+  const pend = document.querySelector('.cs-pend');
+  if (pend && !pend.querySelector('[data-ai-jump]') && docs.some((d) => !added(d))) {
+    const li = document.createElement('li');
+    const name = docs[0].label.replace(/ \(scan\)$/, '').replace(/^\w/, (c) => c.toLowerCase());
+    li.innerHTML = `<button class="link-btn" data-ai-jump>Read the ${esc(name)} privately ↓</button><span class="c-s">${local ? 'On this device; nothing leaves this computer' : 'Redacted on this device first; only redacted text goes to the cloud'}</span>`;
+    pend.appendChild(li);
+  }
 }
 
 function resultHtml(d, s) {
@@ -140,6 +148,12 @@ function add(docId) {
 }
 
 document.addEventListener('click', (ev) => {
+  const j = ev.target.closest('[data-ai-jump]');
+  if (j) {
+    const el = document.getElementById('cs-ai');
+    if (el) { el.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }); el.classList.remove('rq-spot'); void el.offsetWidth; el.classList.add('rq-spot'); const b = el.querySelector('[data-ai-read]'); if (b) b.focus({ preventScroll: true }); }
+    return;
+  }
   const t = ev.target.closest('[data-ai-read],[data-ai-cloud],[data-ai-add],[data-ai-discard]');
   if (!t || !current) return;
   if (t.dataset.aiRead) read(t.dataset.aiRead);

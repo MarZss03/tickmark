@@ -64,7 +64,8 @@ try {
 
 export const auth = authMod.getAuth(app);
 export const db = firestoreMod.getFirestore(app);
-export const ai = aiMod.getAI(app, { backend: new aiMod.GoogleAIBackend() });
+// limited-use App Check tokens for AI Logic calls (production checklist: replay protection)
+export const ai = aiMod.getAI(app, { backend: new aiMod.GoogleAIBackend(), useLimitedUseAppCheckTokens: true });
 export const { InferenceMode, InferenceSource, getGenerativeModel } = aiMod;
 export const fs = firestoreMod;
 export const authApi = authMod;

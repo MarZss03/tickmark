@@ -71,7 +71,8 @@ async function draw() {
     let body = '';
     if (!d) body = `<p class="ai-busy" role="status">Connecting to the live check…</p>`;
     else if (d.status === 'open' || d.status === 'returned') body = `<p class="ai-busy" role="status">Waiting on ${esc(TEAMS[d.toTeam] || d.toTeam)} · live through Firestore</p>
-      <p class="c-s">They answer from their own team inbox. To try it yourself, open <a class="link-btn" href="${esc(inbox)}" target="_blank" rel="noopener">their inbox in a new window</a> (room <b class="ai-code">${esc(room)}</b>).</p>`;
+      <p class="c-s">They answer from their own team inbox. To try it yourself, open <a class="link-btn" href="${esc(inbox)}" target="_blank" rel="noopener">their inbox in a new window</a> (room <b class="ai-code">${esc(room)}</b>).</p>
+      <div class="ai-row"><button class="b-sec" data-ask-copy="${esc(inbox)}">Copy their inbox link</button></div>`;
     else if (d.status === 'answered' && d.reply) {
       const fields = Object.entries(d.reply.facts || {});
       body = `<div class="ai-res"><p class="ai-where"><span class="pill ok">Reply in</span> from ${esc(d.reply.byName)} · drafted ${d.reply.ranOn === 'on_device' ? 'on their device' : d.reply.ranOn === 'in_cloud' ? 'in the cloud from redacted text' : 'by hand'}</p>
@@ -169,6 +170,8 @@ async function doApply() {
 }
 
 document.addEventListener('click', (ev) => {
+  const cp = ev.target.closest('[data-ask-copy]');
+  if (cp) { navigator.clipboard.writeText(cp.dataset.askCopy).then(() => { cp.textContent = 'Link copied'; }, () => { cp.textContent = cp.dataset.askCopy; }); return; }
   const t = ev.target.closest('[data-ask-draft],[data-ask-send],[data-ask-apply]');
   if (!t || !current) return;
   t.disabled = true;

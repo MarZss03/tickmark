@@ -46,7 +46,7 @@ async function doDraft() {
   try {
     const r = await stream({
       task: `Customer note (${LANGS[s.lang]})`, dataClass: 'redacted_text',
-      prompt: `Write a short note (at most 5 sentences) in ${LANGS[s.lang]} from a bank's mortgage servicing team to a borrower or their lawyer. Explain in plain language what happened with their payout, what it means for them, and what happens next. Only state what the facts below support; if something is not confirmed yet, say it is being checked. Polite, calm, no jargon, no greeting line with a name, no sign-off. Keep tokens in square brackets such as [ADDRESS_1] exactly as they are.\n\n${b.text}`,
+      prompt: `Write a short note (at most 5 sentences) in ${LANGS[s.lang]} from a bank's mortgage servicing team to a borrower or their lawyer. Structure: first, in one sentence, what happened, using the actual dates and amounts (for example when the funds reached the bank and when they were applied); second, what it means for them in money terms; third, what happens next and who is doing it. Only state what the facts below support; anything marked possible or not confirmed must be described as being checked, not as fact. Polite, calm, no jargon, no greeting line with a name, no sign-off. Keep tokens in square brackets such as [ADDRESS_1] exactly as they are.\n\n${b.text}`,
       onText: (t, where) => { s.text = t; s.ranOn = where || s.ranOn; const ta = document.getElementById('ex-out'); if (ta) ta.value = Redact.restore(t, s.entities); else draw(); },
     });
     s.text = r.text.trim(); s.ranOn = r.ranOn;
