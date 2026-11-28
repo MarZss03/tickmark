@@ -30,6 +30,7 @@
   <div class="panel">
     <div class="row">
       <button id="runDevice">Run on this device (Gemini Nano, scans)</button>
+      <button id="runText" class="sec">Run on this device (Gemini Nano, text)</button>
       <button id="runCloud" class="sec">Run from redacted text (cloud)</button>
       <span id="status" class="muted" role="status"></span>
     </div>
@@ -55,18 +56,18 @@
   }
 
   async function runAll(path) {
-    $('runDevice').disabled = $('runCloud').disabled = true;
+    $('runDevice').disabled = $('runText').disabled = $('runCloud').disabled = true;
     results = [];
-    if (path === 'device') {
+    if (path === 'device' || path === 'device-text') {
       $('status').textContent = 'Preparing the on-device model…';
-      const prep = await ensureDevice(() => {}, true);
-      if (!prep.ok) { $('status').textContent = 'No on-device model here: ' + prep.hint; $('runDevice').disabled = $('runCloud').disabled = false; return; }
+      const prep = await ensureDevice(() => {}, path === 'device');
+      if (!prep.ok) { $('status').textContent = 'No on-device model here: ' + prep.hint + (prep.error ? ' (' + prep.error + ')' : ''); $('runDevice').disabled = $('runText').disabled = $('runCloud').disabled = false; return; }
     }
     for (const [i, d] of docs.entries()) {
       $('status').textContent = `Reading ${i + 1} of ${docs.length}: ${d.label}`;
       const fields = DOC_TYPES[d.docType].fields.map(([k]) => k);
       try {
-        const r = await readDocument(d, { path: path === 'device' ? 'device' : 'redacted-cloud' });
+        const r = await readDocument(d, { path });
         const checks = fields.map((k) => ({ k, got: r.fields[k], want: d.truth[k], ok: same(r.fields[k], d.truth[k]) }));
         results.push({ id: d.id, docType: d.docType, ranOn: r.ranOn, ms: r.ms, checks, sentChars: r.sent ? r.sent.length : 0 });
       } catch (e) {
@@ -75,7 +76,7 @@
       draw();
     }
     $('status').textContent = `Done: ${docs.length} documents.`;
-    $('runDevice').disabled = $('runCloud').disabled = false;
+    $('runDevice').disabled = $('runText').disabled = $('runCloud').disabled = false;
   }
 
   function draw() {
@@ -102,7 +103,8 @@
   }
 
   $('runDevice').onclick = () => runAll('device');
-  $('runCloud').onclick = () => runAll('cloud');
+  $('runText').onclick = () => runAll('device-text');
+  $('runCloud').onclick = () => runAll('redacted-cloud');
   $('copy').onclick = () => { $('json').hidden = false; navigator.clipboard.writeText($('json').textContent).catch(() => {}); };
   deviceStatus(true).then((s) => { if (s !== 'available') $('runDevice').title = 'No on-device model with image input in this browser'; });
 </script>

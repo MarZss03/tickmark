@@ -153,6 +153,8 @@ Payments team confirmed receipt on 2026-11-07. Reviewer set settlement date to 2
       }
     }
     out.textContent = lines.join('\n');
+    // also on the clipboard, so the result can be shared without selecting text
+    try { await navigator.clipboard.writeText('TICKMARK-DIAGNOSE\n' + out.textContent); out.textContent += '\n\n(Copied to the clipboard.)'; } catch {}
   };
   $('clear').onclick =() => { ledger.clear(); renderLedger(); };
 

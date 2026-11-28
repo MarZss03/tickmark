@@ -22,12 +22,13 @@ async function draw() {
   if (!docs.length) { el.hidden = true; return; }
   el.hidden = false;
   const s = get(current.id);
-  const path = s.path || await readPath();
+  const path = s.path || await readPath(docs[0]);
+  const local = path === 'device' || path === 'device-text';
   const added = (doc) => (window.tmBridge?.caseById(current.id)?.evidence || []).some((e) => e.id === `ai-${doc.id}` && !e.superseded);
-  const chip = path === 'device'
+  const chip = local
     ? '<span class="ai-chip ok">Gemini Nano · on this device</span>'
     : '<span class="ai-chip warn">No on-device model · redacted cloud</span>';
-  const intro = path === 'device'
+  const intro = local
     ? 'Customer documents are read here, on this computer, by the on-device model. Nothing in them leaves this device.'
     : 'This browser has no on-device model, so the scan itself is never sent. Its text is redacted on this device first; only the redacted text is read in the cloud, and the real values are put back here.';
 
@@ -36,7 +37,7 @@ async function draw() {
     const done = added(d);
     let tail = '';
     if (mine && s.status === 'preparing') tail = `<p class="ai-busy" role="status">Preparing the on-device model${s.progress ? ` · ${Math.round(s.progress * 100)}%` : ''}…</p>`;
-    else if (mine && s.status === 'reading') tail = `<p class="ai-busy" role="status">${s.path === 'device' ? 'Reading on this device · nothing leaves this computer' : 'Redacted on this device · reading the redacted text in the cloud'} · <span data-ai-clock>${secs(Date.now() - s.t0)}</span></p>`;
+    else if (mine && s.status === 'reading') tail = `<p class="ai-busy" role="status">${s.path === 'device' || s.path === 'device-text' ? 'Reading on this device · nothing leaves this computer' : 'Redacted on this device · reading the redacted text in the cloud'} · <span data-ai-clock>${secs(Date.now() - s.t0)}</span></p>`;
     else if (mine && s.status === 'error') tail = `<div class="ai-err" role="alert"><p>${esc(s.error)}</p>${s.hint ? `<p class="c-s">${esc(s.hint)}</p>` : ''}${s.offerCloud ? `<button class="b-sec" data-ai-cloud="${esc(d.id)}">Redact here, then read in the cloud</button>` : ''}</div>`;
     else if (mine && s.status === 'result') tail = resultHtml(d, s);
     return `<article class="ai-doc">
@@ -45,7 +46,7 @@ async function draw() {
         <p class="ai-doc-t">${esc(d.label)}</p>
         <p class="c-s">${esc(d.from)} · contains customer names and account numbers</p>
         ${done ? '<p class="ai-done"><span class="pill ok">Added to the case</span> The checks re-ran with it.</p>'
-          : mine && ['preparing', 'reading', 'result'].includes(s.status) ? '' : `<div class="ai-row"><button class="b-pri" data-ai-read="${esc(d.id)}">${path === 'device' ? 'Read on this device' : 'Redact here, then read'}</button></div>`}
+          : mine && ['preparing', 'reading', 'result'].includes(s.status) ? '' : `<div class="ai-row"><button class="b-pri" data-ai-read="${esc(d.id)}">${local ? 'Read on this device' : 'Redact here, then read'}</button></div>`}
         ${tail}
       </div>
     </article>`;
@@ -90,11 +91,11 @@ async function read(docId, forcePath) {
   const d = docs.find((x) => x.id === docId);
   if (!d) return;
   Object.assign(s, { docId, result: null, error: null, hint: null, offerCloud: false, progress: 0 });
-  let path = forcePath || await readPath();
-  if (path === 'device' && !deviceReady(true)) {
+  let path = forcePath || await readPath(d);
+  if ((path === 'device' || path === 'device-text') && !deviceReady(path === 'device')) {
     // first use: prepare the model for real (download if needed, one short test prompt) on this click
     s.status = 'preparing'; draw();
-    const prep = await ensureDevice((p) => { s.progress = p; draw(); }, true);
+    const prep = await ensureDevice((p) => { s.progress = p; draw(); }, path === 'device');
     if (!prep.ok) {
       Object.assign(s, { status: 'error', error: 'The on-device model could not start here.', hint: prep.hint, offerCloud: true, path: 'redacted-cloud' });
       return draw();
@@ -107,7 +108,7 @@ async function read(docId, forcePath) {
     s.status = 'result';
   } catch (e) {
     const blocked = e instanceof PolicyBlocked;
-    Object.assign(s, { status: 'error', error: blocked ? e.message : 'The document could not be read.', hint: blocked ? '' : deviceHint(e, await deviceStatus(true)), offerCloud: path === 'device' });
+    Object.assign(s, { status: 'error', error: blocked ? e.message : 'The document could not be read.', hint: blocked ? '' : deviceHint(e, await deviceStatus(true)), offerCloud: path === 'device' || path === 'device-text' });
   }
   draw();
 }
